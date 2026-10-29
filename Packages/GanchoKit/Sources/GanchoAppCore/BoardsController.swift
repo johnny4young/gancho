@@ -43,7 +43,7 @@ public struct BoardsController {
 
     /// The name a create or rename stores: `typed` trimmed, or nil when that
     /// leaves nothing. Prompts use it to disable confirmation.
-    public nonisolated static func boardName(_ typed: String) -> String? {
+    nonisolated public static func boardName(_ typed: String) -> String? {
         let name = typed.trimmingCharacters(in: .whitespacesAndNewlines)
         return name.isEmpty ? nil : name
     }
