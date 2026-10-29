@@ -40,6 +40,7 @@ struct IPadSidebar: View {
             TextField("Board name", text: $newBoardName)
             Button("Cancel", role: .cancel) {}
             Button("Create") { model.createBoard(named: newBoardName) }
+                .disabled(BoardsController.boardName(newBoardName) == nil)
         }
     }
 

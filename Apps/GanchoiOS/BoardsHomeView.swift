@@ -1,5 +1,6 @@
 import ClipboardCore
 import GanchoAI
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import GanchoTelemetry
@@ -63,7 +64,7 @@ struct MoveToBoardSheet: View {
                             .focused($newFieldFocused)
                             .submitLabel(.done)
                             .onSubmit(createAndFile)
-                        if !newBoardName.trimmingCharacters(in: .whitespaces).isEmpty {
+                        if BoardsController.boardName(newBoardName) != nil {
                             Button("Add", action: createAndFile).ganchoTextButton()
                         }
                     }
@@ -97,7 +98,7 @@ struct MoveToBoardSheet: View {
     }
 
     private func createAndFile() {
-        let name = newBoardName
+        guard let name = BoardsController.boardName(newBoardName) else { return }
         newBoardName = ""
         newFieldFocused = false
         Task {
@@ -175,6 +176,7 @@ struct BoardsHomeView: View {
                     model.createBoard(named: newBoardName)
                     Task { await reload() }
                 }
+                .disabled(BoardsController.boardName(newBoardName) == nil)
             }
             .alert("Rename board", isPresented: renamePresented) {
                 TextField("Board name", text: $renameField)
@@ -182,6 +184,7 @@ struct BoardsHomeView: View {
                 Button("Rename") {
                     if let renameTarget { model.renameBoard(renameTarget, name: renameField) }
                 }
+                .disabled(BoardsController.boardName(renameField) == nil)
             }
             .sheet(item: $appearanceTarget) { board in
                 BoardIdentityEditor(board: board) { colorHex, emoji in

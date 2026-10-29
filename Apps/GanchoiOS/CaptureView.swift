@@ -58,6 +58,7 @@ struct CaptureView: View {
                         TextField("Board name", text: $newBoardName)
                         Button("Cancel", role: .cancel) {}
                         Button("Create") { model.createBoard(named: newBoardName) }
+                            .disabled(BoardsController.boardName(newBoardName) == nil)
                     }
                     .alert("Rename board", isPresented: renamePresented) {
                         TextField("Board name", text: $renameField)
@@ -67,6 +68,7 @@ struct CaptureView: View {
                                 model.renameBoard(renameTarget, name: renameField)
                             }
                         }
+                        .disabled(BoardsController.boardName(renameField) == nil)
                     }
                     .refreshable { await model.forceSync() }
                     .accessibilityIdentifier("capture-screen")
