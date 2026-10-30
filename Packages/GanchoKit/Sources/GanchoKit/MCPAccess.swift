@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// How much clip data an MCP client may see. Exposure and mutation are
@@ -60,6 +61,9 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
     /// When present, a clip changed after review is outside the pack. Nil for
     /// packs that predate revision binding.
     public var clipRevisions: [String: String]?
+    /// The reviewed representation per clip id (uuidString keys). A missing
+    /// entry, or a pack that predates representations, means the original.
+    public var clipRepresentations: [String: MCPClipRepresentation]?
 
     public init(
         name: String,
@@ -67,7 +71,8 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
         boardName: String? = nil,
         clipIDs: Set<UUID> = [],
         timeScope: MCPTimeScope = .allTime,
-        clipRevisions: [String: String]? = nil
+        clipRevisions: [String: String]? = nil,
+        clipRepresentations: [String: MCPClipRepresentation]? = nil
     ) {
         self.name = name
         self.boardID = boardID
@@ -75,6 +80,11 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
         self.clipIDs = clipIDs
         self.timeScope = timeScope
         self.clipRevisions = clipRevisions
+        self.clipRepresentations = clipRepresentations
+    }
+
+    public func representation(of id: UUID) -> MCPClipRepresentation {
+        clipRepresentations?[id.uuidString] ?? .original
     }
 
     public var isExplicit: Bool {
@@ -100,6 +110,28 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
     public func isReviewedRevision(_ item: ClipItem) -> Bool {
         guard let clipRevisions else { return true }
         return clipRevisions[item.id.uuidString] == item.contextRevision
+    }
+}
+
+/// What a selected-context grant exposes for one clip.
+public enum MCPClipRepresentation: Sendable, Equatable, Codable {
+    /// The clip's own content.
+    case original
+    /// Only the text recognized from an image, and only while it still hashes
+    /// to the reviewed value. Never the image bytes or any other field.
+    case recognizedText(sha256: String)
+
+    public static func recognizedText(reviewing text: String) -> MCPClipRepresentation {
+        .recognizedText(sha256: digest(of: text))
+    }
+
+    public func authorizes(recognizedText text: String) -> Bool {
+        guard case .recognizedText(let sha256) = self else { return false }
+        return sha256 == Self.digest(of: text)
+    }
+
+    private static func digest(of text: String) -> String {
+        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 }
 
@@ -377,6 +409,8 @@ public enum MCPClipReadResult: Sendable, Equatable {
     case sensitive
     case metadata(ClipItem)
     case content(ClipItem, ClipContent?)
+    /// The reviewed text recognized from an image clip, in place of its content.
+    case recognizedText(ClipItem, String)
 }
 
 /// The narrow store surface MCP tools need. Per-clip reads go only through

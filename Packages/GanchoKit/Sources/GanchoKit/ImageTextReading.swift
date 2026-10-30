@@ -13,6 +13,12 @@ public protocol ImageTextReading: Sendable {
     func permitsImageText(id: UUID, now: Date) async throws -> Bool
 }
 
+/// Text already recognized for a permitted image. Narrower than
+/// ``ImageTextReading``: it never reads the image itself.
+public protocol StoredImageTextReading: Sendable {
+    func storedImageText(id: UUID, now: Date) async throws -> String?
+}
+
 extension GRDBClipboardStore: ImageTextReading {
     /// Exactly the columns the permission predicate reads. Deliberately NOT
     /// `ClipRow.metadataColumns`: that list carries `title` and `preview`, so
@@ -48,6 +54,28 @@ extension GRDBClipboardStore: ImageTextReading {
         }
         guard case .binary(let data, _) = try await content(for: id) else { return nil }
         return .image(data)
+    }
+
+}
+
+extension GRDBClipboardStore: StoredImageTextReading {
+    public func storedImageText(id: UUID, now: Date) async throws -> String? {
+        try await writer.read { db in
+            guard
+                let row = try ClipRow.filter(key: id.uuidString)
+                    .select(Self.permissionColumns + [Column("contentText")])
+                    .asRequest(of: Row.self).fetchOne(db)
+            else { return nil }
+            let expiresAt: Date? = row["expiresAt"]
+            let text: String? = row["contentText"]
+            guard
+                Self.permitsImageText(
+                    kind: row["kind"], isArchived: row["isArchived"],
+                    isSensitive: row["isSensitive"], expiresAt: expiresAt, now: now),
+                let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else { return nil }
+            return text
+        }
     }
 
     private static func permitsImageText(_ row: ClipRow, now: Date) -> Bool {

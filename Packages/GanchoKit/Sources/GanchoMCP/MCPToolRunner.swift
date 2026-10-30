@@ -139,7 +139,7 @@ public struct MCPToolRunner: Sendable {
             dateRange: pack.timeScope.lowerBound(relativeTo: currentTime).map { $0...currentTime },
             boardID: pack.boardID,
             markedOnly: grant.scope == .boards,
-            includedIDs: try await searchableIDs(in: pack),
+            includedIDs: try await searchableIDs(in: pack, grant: grant),
             excludesSensitive: true,
             metadataOnly: metadataOnly)
         // A selected board is already stronger than broad "marked" scope and
@@ -151,6 +151,11 @@ public struct MCPToolRunner: Sendable {
             !pack.isReviewedRevision(item) || ClipSafePresentation.requiresMasking(item)
                 || (!pack.clipIDs.isEmpty && !pack.clipIDs.contains(item.id))
         }
+        var current: [ClipItem] = []
+        for hit in hits where try await hasReviewedRepresentation(hit.id, in: pack, grant: grant) {
+            current.append(hit)
+        }
+        hits = current
 
         let summaries = hits.map(ClipSummary.init)
         await record(.searchClips, grant: grant, count: summaries.count)
@@ -196,6 +201,12 @@ public struct MCPToolRunner: Sendable {
                 ClipDetail(
                     summary: ClipSummary(item: item), content: body,
                     contentWithheld: body == nil))
+        case .recognizedText(let item, let text):
+            await record(.getClip, grant: grant, count: 1)
+            return ok(
+                ClipDetail(
+                    summary: ClipSummary(item: item), content: text, contentWithheld: false,
+                    representation: .recognizedText))
         }
     }
 
@@ -224,7 +235,7 @@ public struct MCPToolRunner: Sendable {
         case .sensitive:
             await record(.createPin, grant: grant, denial: .sensitive)
             return MCPToolResult(text: "Sensitive clips cannot be pinned over MCP.", isError: true)
-        case .metadata, .content:
+        case .metadata, .content, .recognizedText:
             break
         }
 
@@ -287,13 +298,18 @@ public struct MCPToolRunner: Sendable {
         }
         var clips: [StackClip] = []
         for raw in args.ids {
-            guard let id = UUID(uuidString: raw),
-                case .content(let item, let content) = try await readForMCP(id: id, grant: grant),
-                let body = contentText(content)
-            else {
+            guard let id = UUID(uuidString: raw) else { continue }
+            switch try await readForMCP(id: id, grant: grant) {
+            case .content(let item, let content):
+                guard let body = contentText(content) else { continue }
+                clips.append(StackClip(id: raw, title: item.title, text: body))
+            case .recognizedText(let item, let text):
+                clips.append(
+                    StackClip(
+                        id: raw, title: item.title, text: text, representation: .recognizedText))
+            case .missing, .outsideContext, .sensitive, .metadata:
                 continue
             }
-            clips.append(StackClip(id: raw, title: item.title, text: body))
         }
         await record(.pasteStack, grant: grant, count: clips.count)
         return ok(
@@ -323,13 +339,35 @@ public struct MCPToolRunner: Sendable {
     /// A reviewed selection authorizes revisions, not just ids. Narrow before
     /// LIMIT so a changed clip cannot displace an unchanged match. Search hits
     /// are checked again above in case an edit races this preliminary read.
-    private func searchableIDs(in pack: MCPContextPack) async throws -> Set<UUID>? {
+    private func searchableIDs(
+        in pack: MCPContextPack, grant: MCPClientGrant
+    ) async throws -> Set<UUID>? {
         let selectedIDs = pack.clipIDs.isEmpty ? nil : pack.clipIDs
         guard let revisions = pack.clipRevisions else { return selectedIDs }
         let ids = revisions.keys.compactMap(UUID.init(uuidString:)).filter {
             selectedIDs?.contains($0) ?? true
         }
-        return Set(try await store.items(ids: ids).filter(pack.isReviewedRevision).map(\.id))
+        var searchable: Set<UUID> = []
+        for item in try await store.items(ids: ids) where pack.isReviewedRevision(item) {
+            if try await hasReviewedRepresentation(item.id, in: pack, grant: grant) {
+                searchable.insert(item.id)
+            }
+        }
+        return searchable
+    }
+
+    /// Recognized text changes without a new revision, so a search could match
+    /// text nobody reviewed. The snapshot read compares it with the reviewed text.
+    private func hasReviewedRepresentation(
+        _ id: UUID, in pack: MCPContextPack, grant: MCPClientGrant
+    ) async throws -> Bool {
+        guard pack.representation(of: id) != .original else { return true }
+        var policyGrant = grant
+        policyGrant.scope = .metadata
+        guard case .metadata = try await readForMCP(id: id, grant: policyGrant) else {
+            return false
+        }
+        return true
     }
 
     private func readForMCP(id: UUID, grant: MCPClientGrant) async throws -> MCPClipReadResult {

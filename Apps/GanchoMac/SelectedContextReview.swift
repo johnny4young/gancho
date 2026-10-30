@@ -11,6 +11,7 @@ struct SelectedContextReview: View {
     @Environment(\.dismiss) private var dismiss
     let ids: [UUID]
     @State private var parts: [CombinedTextPart] = []
+    @State private var approvedRecognizedText: Set<UUID> = []
     @State private var loading = true
     @State private var failed = false
     @State private var changed = false
@@ -29,7 +30,9 @@ struct SelectedContextReview: View {
             )
             .panelFont(.caption)
             if loading { ProgressView() }
-            TextSelectionReviewList(parts: $parts, disabled: operation != nil || grant != nil)
+            TextSelectionReviewList(
+                parts: $parts, disabled: operation != nil || grant != nil,
+                approvedRecognizedText: $approvedRecognizedText)
             ScrollView {
                 Text(verbatim: prepared?.markdown ?? "")
                     .panelFont(.body)
@@ -92,9 +95,8 @@ struct SelectedContextReview: View {
         }
         .padding(20).frame(width: 580, height: 570)
         .task { await load() }
-        .onChange(of: parts, initial: true) { _, current in
-            prepared = try? SelectedContextFormatter.format(current)
-        }
+        .onChange(of: parts, initial: true) { prepare() }
+        .onChange(of: approvedRecognizedText) { prepare() }
         .onChange(of: model.previewsHidden) { _, hidden in
             if hidden { cancel() }
         }
@@ -106,6 +108,11 @@ struct SelectedContextReview: View {
         .onDisappear { invalidate() }
     }
 
+    private func prepare() {
+        prepared = try? SelectedContextFormatter.format(
+            parts, approvedRecognizedText: approvedRecognizedText)
+    }
+
     private func load() async {
         let request = generation
         defer { loading = false }
@@ -114,7 +121,8 @@ struct SelectedContextReview: View {
             return
         }
         do {
-            let loaded = try await CombinedTextService().load(ids: ids, from: store)
+            let loaded = try await CombinedTextService().load(
+                ids: ids, from: store, recognizedText: model.storedImageTextReader)
             guard !Task.isCancelled, generation == request, !model.previewsHidden
             else { return }
             parts = loaded
@@ -126,6 +134,7 @@ struct SelectedContextReview: View {
         failed = false
         changed = false
         let expected = parts
+        let approved = approvedRecognizedText
         let name = clientName
         let revision = NSPasteboard.general.changeCount
         let request = generation
@@ -133,7 +142,8 @@ struct SelectedContextReview: View {
             defer { if generation == request { operation = nil } }
             do {
                 let outcome = try await SelectedContextDelivery.perform(
-                    expected: expected, from: store,
+                    expected: expected, approvedRecognizedText: approved, from: store,
+                    recognizedText: model.storedImageTextReader,
                     isAllowed: {
                         generation == request && !model.preferences.isPrivateModePaused
                             && model.pendingDeletionIDs.isDisjoint(with: expected.map(\.id))
@@ -153,6 +163,8 @@ struct SelectedContextReview: View {
                 switch outcome {
                 case .delivered: if !asGrant { dismiss() }
                 case .changed(let current):
+                    approvedRecognizedText = SelectedContextDelivery.retainedApprovals(
+                        approved, reviewed: expected, current: current)
                     parts = current
                     changed = true
                 case .blocked: failed = true
@@ -187,6 +199,7 @@ struct SelectedContextReview: View {
         operation?.cancel()
         operation = nil
         parts = []
+        approvedRecognizedText = []
         grant = nil
         clientName = ""
     }

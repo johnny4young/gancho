@@ -4,13 +4,19 @@ import GanchoKit
 public struct CombinedTextPart: Identifiable, Sendable, Equatable {
     public enum Content: Sendable, Equatable {
         case text(String)
+        /// An image's stored OCR text. Only a caller that asks for it receives
+        /// it, and it is never delivered until the user approves it explicitly.
+        case recognizedText(String)
         case unavailable, incompatible, protected, tooLarge
     }
     /// Bounded display-only excerpt. The complete text remains unchanged for
     /// validation and delivery.
     public var preview: String? {
-        guard case .text(let text) = content else { return nil }
-        return BoundedPreview.make(text, maximumScalars: 80)
+        switch content {
+        case .text(let text), .recognizedText(let text):
+            BoundedPreview.make(text, maximumScalars: 80)
+        case .unavailable, .incompatible, .protected, .tooLarge: nil
+        }
     }
 
     public let id: UUID
@@ -28,7 +34,12 @@ public struct CombinedTextService: Sendable {
 
     public init() {}
 
-    public func load(ids: [UUID], from store: any ClipReading) async throws -> [CombinedTextPart] {
+    /// `recognizedText` opts images into their stored OCR text; without it an
+    /// image stays incompatible, as every combined-copy surface expects.
+    public func load(
+        ids: [UUID], from store: any ClipReading,
+        recognizedText: (any StoredImageTextReading)? = nil
+    ) async throws -> [CombinedTextPart] {
         guard ids.count <= Self.maximumClips else { throw TextCompositionError.tooLarge }
         let visible = Dictionary(
             try await store.items(ids: ids).map { ($0.id, $0) },
@@ -45,6 +56,11 @@ public struct CombinedTextService: Sendable {
                     || item.expiresAt.map({ $0 <= .now }) == true
                 {
                     content = .protected
+                } else if item.kind == .image, let recognizedText,
+                    let text = try await recognizedText.storedImageText(id: id, now: .now)
+                {
+                    content =
+                        text.utf8.count > Self.maximumUTF8Bytes ? .tooLarge : .recognizedText(text)
                 } else if item.kind == .image || item.kind == .fileReference {
                     content = .incompatible
                 } else if case .text(let text) = try await store.content(for: id) {
@@ -66,7 +82,10 @@ public struct CombinedTextService: Sendable {
             uniquingKeysWith: { first, _ in first })
         try Task.checkCancellation()
         return parts.map { part in
-            guard case .text = part.content else { return part }
+            switch part.content {
+            case .text, .recognizedText: break
+            case .unavailable, .incompatible, .protected, .tooLarge: return part
+            }
             guard let before = visible[part.id], let after = current[part.id],
                 !ClipSafePresentation.requiresMasking(after), after.kind == before.kind,
                 after.updatedAt == before.updatedAt, after.contentHash == before.contentHash,

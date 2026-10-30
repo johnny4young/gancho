@@ -56,6 +56,12 @@ struct SearchResult: Encodable {
     let scope: String
 }
 
+/// Present only when `content` is not the clip's own body.
+enum ContentRepresentation: String, Encodable {
+    /// OCR output from an image: a reviewed derivative, not verbatim source text.
+    case recognizedText
+}
+
 struct ClipDetail: Encodable {
     let summary: ClipSummary
     /// The content body — nil when the scope withholds it.
@@ -63,6 +69,7 @@ struct ClipDetail: Encodable {
     /// True when metadata/boards scope refused the body; the agent still sees
     /// the summary and the reason.
     let contentWithheld: Bool
+    var representation: ContentRepresentation?
 }
 
 struct CreatePinResult: Encodable {
@@ -75,6 +82,7 @@ struct StackClip: Encodable {
     let id: String
     let title: String
     let text: String
+    var representation: ContentRepresentation?
 }
 
 struct PasteStackResult: Encodable {

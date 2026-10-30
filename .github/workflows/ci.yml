@@ -256,6 +256,7 @@ jobs:
             -only-testing:GanchoUITests/BoardNameUITests/testLibraryBoardNamesEnglish \
             -only-testing:GanchoUITests/BoardNameUITests/testPanelBoardNamesEnglish \
             -only-testing:GanchoUITests/VisualLibraryUITests \
+            -only-testing:GanchoUITests/SelectedContextUITests/testRecognizedTextNeedsApprovalBeforeCopyOrGrant \
             -only-testing:GanchoUITests/PanelDisplayPreferencesUITests/testPanelSizeAndTextSizePersistAcrossRelaunch \
             -only-testing:GanchoUITests/LibrarySnippetDraftUITests/testTypedBodySurvivesRefreshAndSavesOnSelectionChange \
             -only-testing:GanchoUITests/LibrarySnippetDraftUITests/testFailedNavigationSaveKeepsEditedSnippet \
