@@ -39,6 +39,8 @@ unanswered queries; top-K is retrieval, not an abstention or confidence guarante
 A synthetic corpus does not prove all real-world relevance; raw output and the
 toolchain used belong with the evaluation evidence, not in product claims.
 
+Image retrieval has its own benchmark: [multimodal evaluation](MULTIMODAL-EVALUATION.md).
+
 ## Explicit panel suggestions
 
 The macOS panel's **Meaning** mode sits beside Exact, Fuzzy and Regex in the search
