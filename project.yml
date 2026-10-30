@@ -556,6 +556,7 @@ targets:
           - ClipboardCore
           - GanchoAI
           - GanchoAppCore
+          - GanchoDesign
     info:
       path: Apps/GanchoWidgets/Info.plist
       properties:

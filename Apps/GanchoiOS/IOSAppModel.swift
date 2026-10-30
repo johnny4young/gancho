@@ -234,6 +234,7 @@ final class IOSAppModel {
             guard let self else { return }
             let wasSyncing = self.syncStatus == .syncing
             self.syncStatus = status
+            if case .upToDate(let at) = status { WidgetState.syncedAt = at ?? .now }
             // A finished cycle may have pulled new boards/clips from iCloud.
             // Refresh the lists so they appear without having to background and
             // reopen the app.
@@ -243,7 +244,10 @@ final class IOSAppModel {
                 self.reloadWidgets()
             }
         }
-        syncController.onIdle = { [weak self] in self?.syncStatus = .idle }
+        syncController.onIdle = { [weak self] in
+            self?.syncStatus = .idle
+            WidgetState.syncedAt = nil
+        }
         // Content-free sync-trouble trail → the Privacy Center's "Recent issues"
         // (fetched records that fail to decode/apply, non-transient save errors).
         syncController.diagnostics = diagnostics
