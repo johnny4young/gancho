@@ -42,10 +42,14 @@ final class SelectedContextUITests: XCTestCase {
     }
 
     /// The seeded image is the newest row and carries stored OCR text only.
-    @MainActor private func verifyRecognizedText(_ language: String, _ appearance: String) throws {
-        continueAfterFailure = false
+    @MainActor
+    func testReviewedImageIsGrantedButNotCopied() throws { try verifyReviewedImage("en", "light") }
+
+    /// Opens the review for the seeded image (newest row) and one text clip.
+    @MainActor private func openImageReview(
+        _ language: String, _ appearance: String
+    ) throws -> (app: GanchoUITestApplication, preview: XCUIElement, rowCount: Int) {
         let app = launch(language, appearance, extraArguments: ["-seed-recognized-text-image"])
-        defer { app.terminate() }
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         XCTAssertTrue(rows.element(boundBy: 3).waitForExistence(timeout: 15))
         let count = rows.count
@@ -58,6 +62,32 @@ final class SelectedContextUITests: XCTestCase {
         action.click()
         let preview = app.descendants(matching: .any)["ai-context-preview"].firstMatch
         XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        return (app, preview, count)
+    }
+
+    @MainActor private func verifyReviewedImage(_ language: String, _ appearance: String) throws {
+        continueAfterFailure = false
+        let (app, preview, count) = try openImageReview(language, appearance)
+        defer { app.terminate() }
+        let copy = app.buttons["ai-context-copy-button"].firstMatch
+        let share = app.buttons["text-selection-share-image-button"].firstMatch
+        XCTAssertTrue(share.waitForHittable(timeout: 5))
+        XCTAssertFalse(copy.isEnabled, "an image is not shared until something is chosen")
+        share.click()
+        let pixels = app.descendants(matching: .any)["ai-context-shared-image"].firstMatch
+        XCTAssertTrue(pixels.waitForExistence(timeout: 10), "the outbound pixels are shown")
+        XCTAssertFalse(share.exists)
+        XCTAssertFalse(copy.isEnabled, "pixels cannot be copied as Markdown")
+        try keepRender(
+            of: "@sheet", in: app,
+            named: "Selected context review — reviewed image — \(language) — \(appearance)")
+        try verifyGrant(in: app, preview: preview, originalCount: count)
+    }
+
+    @MainActor private func verifyRecognizedText(_ language: String, _ appearance: String) throws {
+        continueAfterFailure = false
+        let (app, preview, count) = try openImageReview(language, appearance)
+        defer { app.terminate() }
         let copy = app.buttons["ai-context-copy-button"].firstMatch
         let use = app.buttons["text-selection-use-recognized-text-button"].firstMatch
         XCTAssertTrue(use.waitForHittable(timeout: 5))

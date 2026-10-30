@@ -102,19 +102,49 @@ public struct MCPToolDescriptor: Encodable, Sendable {
     }
 }
 
-/// The payload `tools/call` returns: text content blocks plus an error flag.
-/// Gancho returns a single JSON text block the agent parses.
+/// The payload `tools/call` returns: content blocks plus an error flag.
+/// Gancho returns a JSON text block the agent parses, followed by an image
+/// block only when a grant shares reviewed pixels.
 public struct MCPToolResult: Encodable, Sendable {
-    public struct TextContent: Encodable, Sendable {
-        public let type = "text"
-        public let text: String
-    }
+    public typealias Content = MCPToolContent
 
-    public let content: [TextContent]
+    public let content: [Content]
     public let isError: Bool
 
     public init(text: String, isError: Bool = false) {
-        self.content = [TextContent(text: text)]
+        self.init(content: [.text(text)], isError: isError)
+    }
+
+    public init(content: [Content], isError: Bool = false) {
+        self.content = content
         self.isError = isError
     }
+}
+
+/// One block of a tool result.
+public enum MCPToolContent: Encodable, Sendable, Equatable {
+    case text(String)
+    /// Encoded as base64 with its MIME type, per the MCP tools schema.
+    case image(Data, mimeType: String)
+
+    /// The block's text; empty for an image block.
+    public var text: String {
+        guard case .text(let text) = self else { return "" }
+        return text
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .text(let text):
+            try container.encode("text", forKey: .type)
+            try container.encode(text, forKey: .text)
+        case .image(let data, let mimeType):
+            try container.encode("image", forKey: .type)
+            try container.encode(data.base64EncodedString(), forKey: .data)
+            try container.encode(mimeType, forKey: .mimeType)
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey { case type, text, data, mimeType }
 }

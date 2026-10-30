@@ -44,7 +44,7 @@ struct MCPRecognizedTextToolTests {
                 clipRevisions: Dictionary(
                     uniqueKeysWithValues: items.map { ($0.id.uuidString, $0.contextRevision) }),
                 clipRepresentations: approvesImageText
-                    ? [fixture.image.id.uuidString: .recognizedText(reviewing: Self.reviewedText)]
+                    ? [fixture.image.id.uuidString: [.recognizedText(reviewing: Self.reviewedText)]]
                     : nil))
         return MCPToolRunner(
             store: store ?? fixture.store, grantProvider: { .active(grant) }, log: { _ in })
