@@ -12,6 +12,9 @@ struct SelectedContextReview: View {
     let ids: [UUID]
     @State private var parts: [CombinedTextPart] = []
     @State private var approvedRecognizedText: Set<UUID> = []
+    @State private var sharedImages: [UUID: ReviewedImageDerivative] = [:]
+    @State private var preparingImages: Set<UUID> = []
+    @State private var imageFailed = false
     @State private var loading = true
     @State private var failed = false
     @State private var changed = false
@@ -32,12 +35,26 @@ struct SelectedContextReview: View {
             if loading { ProgressView() }
             TextSelectionReviewList(
                 parts: $parts, disabled: operation != nil || grant != nil,
-                approvedRecognizedText: $approvedRecognizedText)
+                imageChoices: ImageReviewChoices(
+                    approvedText: $approvedRecognizedText,
+                    sharedImages: Set(sharedImages.keys), preparingImages: preparingImages,
+                    shareImage: shareImage))
             ScrollView {
                 Text(verbatim: prepared?.markdown ?? "")
                     .panelFont(.body)
                     .textSelection(.disabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                // The exact outbound pixels, scaled only for display.
+                ForEach(parts.filter { sharedImages[$0.id] != nil }) { part in
+                    if let image = sharedImages[part.id], let pixels = NSImage(data: image.data) {
+                        Image(nsImage: pixels).resizable().scaledToFit()
+                            .frame(maxWidth: .infinity, maxHeight: 220, alignment: .leading)
+                            .accessibilityLabel(
+                                Text("Reviewed image, \(image.width) × \(image.height) pixels")
+                            )
+                            .accessibilityIdentifier("ai-context-shared-image")
+                    }
+                }
             }
             .frame(minHeight: 100)
             .accessibilityElement(children: .contain)
@@ -47,6 +64,14 @@ struct SelectedContextReview: View {
                     "Couldn’t prepare or share this context. Try again; existing access is unchanged."
                 )
                 .foregroundStyle(.red)
+            }
+            if imageFailed {
+                Text("Couldn’t prepare this image. Remove it or share its text instead.")
+                    .foregroundStyle(.red)
+            }
+            if prepared?.isCopyable == false {
+                Text("Images are shared only through MCP access, not copied.")
+                    .panelFont(.caption).foregroundStyle(.secondary)
             }
             if prepared == nil && !loading {
                 Text("Remove incompatible clips or reduce the context below 64 KiB.")
@@ -89,7 +114,7 @@ struct SelectedContextReview: View {
                 Spacer()
                 Button("Copy Markdown") { deliver(asGrant: false) }.keyboardShortcut(.defaultAction)
                     .ganchoButtonStyle(.primary)
-                    .disabled(loading || prepared == nil || operation != nil)
+                    .disabled(loading || prepared?.isCopyable != true || operation != nil)
                     .accessibilityIdentifier("ai-context-copy-button")
             }
         }
@@ -97,6 +122,7 @@ struct SelectedContextReview: View {
         .task { await load() }
         .onChange(of: parts, initial: true) { prepare() }
         .onChange(of: approvedRecognizedText) { prepare() }
+        .onChange(of: sharedImages) { prepare() }
         .onChange(of: model.previewsHidden) { _, hidden in
             if hidden { cancel() }
         }
@@ -110,7 +136,27 @@ struct SelectedContextReview: View {
 
     private func prepare() {
         prepared = try? SelectedContextFormatter.format(
-            parts, approvedRecognizedText: approvedRecognizedText)
+            parts, approvedRecognizedText: approvedRecognizedText, reviewedImages: sharedImages)
+    }
+
+    private func shareImage(_ id: UUID) {
+        guard let store = model.textReuseReader, operation == nil else { return }
+        let request = generation
+        imageFailed = false
+        preparingImages.insert(id)
+        Task {
+            defer { if generation == request { preparingImages.remove(id) } }
+            do {
+                let derivative = try await ReviewedImagePreparation.derivative(
+                    for: id, from: store)
+                guard !Task.isCancelled, generation == request, !model.previewsHidden,
+                    parts.contains(where: { $0.id == id })
+                else { return }
+                sharedImages[id] = derivative
+            } catch {
+                if generation == request { imageFailed = true }
+            }
+        }
     }
 
     private func load() async {
@@ -135,6 +181,7 @@ struct SelectedContextReview: View {
         changed = false
         let expected = parts
         let approved = approvedRecognizedText
+        let images = sharedImages
         let name = clientName
         let revision = NSPasteboard.general.changeCount
         let request = generation
@@ -142,7 +189,8 @@ struct SelectedContextReview: View {
             defer { if generation == request { operation = nil } }
             do {
                 let outcome = try await SelectedContextDelivery.perform(
-                    expected: expected, approvedRecognizedText: approved, from: store,
+                    expected: expected, approvedRecognizedText: approved,
+                    reviewedImages: images, from: store,
                     recognizedText: model.storedImageTextReader,
                     isAllowed: {
                         generation == request && !model.preferences.isPrivateModePaused
@@ -156,6 +204,9 @@ struct SelectedContextReview: View {
                         if asGrant {
                             grant = try model.createSelectedContextGrant(prepared, clientName: name)
                         } else {
+                            guard prepared.isCopyable else {
+                                throw SelectedContextError.incompatibleSelection
+                            }
                             writePlainText(prepared.markdown)
                         }
                     })
@@ -165,6 +216,8 @@ struct SelectedContextReview: View {
                 case .changed(let current):
                     approvedRecognizedText = SelectedContextDelivery.retainedApprovals(
                         approved, reviewed: expected, current: current)
+                    sharedImages = SelectedContextDelivery.retainedImages(
+                        images, reviewed: expected, current: current)
                     parts = current
                     changed = true
                 case .blocked: failed = true
@@ -200,6 +253,9 @@ struct SelectedContextReview: View {
         operation = nil
         parts = []
         approvedRecognizedText = []
+        sharedImages = [:]
+        preparingImages = []
+        imageFailed = false
         grant = nil
         clientName = ""
     }

@@ -203,13 +203,9 @@ public struct MCPToolRunner: Sendable {
                 ClipDetail(
                     summary: ClipSummary(item: item), content: body,
                     contentWithheld: body == nil))
-        case .recognizedText(let item, let text):
+        case .reviewed(let item, let text, let image):
             await record(.getClip, grant: grant, count: 1)
-            return ok(
-                ClipDetail(
-                    summary: ClipSummary(recognizedTextOf: item), content: text,
-                    contentWithheld: false,
-                    representation: .recognizedText))
+            return reviewedDetail(item, text: text, image: image, in: grant.contextPack)
         }
     }
 
@@ -238,7 +234,7 @@ public struct MCPToolRunner: Sendable {
         case .sensitive:
             await record(.createPin, grant: grant, denial: .sensitive)
             return MCPToolResult(text: "Sensitive clips cannot be pinned over MCP.", isError: true)
-        case .metadata, .content, .recognizedText:
+        case .metadata, .content, .reviewed:
             break
         }
 
@@ -306,9 +302,11 @@ public struct MCPToolRunner: Sendable {
             case .content(let item, let content):
                 guard let body = contentText(content) else { continue }
                 clips.append(StackClip(id: raw, title: item.title, text: body))
-            case .recognizedText(_, let text):
+            case .reviewed(_, let text?, _):
                 clips.append(
                     StackClip(id: raw, title: nil, text: text, representation: .recognizedText))
+            case .reviewed(_, nil, _):
+                continue
             case .missing, .outsideContext, .sensitive, .metadata:
                 continue
             }
@@ -363,7 +361,7 @@ public struct MCPToolRunner: Sendable {
     private func hasReviewedRepresentation(
         _ id: UUID, in pack: MCPContextPack, grant: MCPClientGrant
     ) async throws -> Bool {
-        guard pack.representation(of: id) != .original else { return true }
+        guard !pack.representations(of: id).isEmpty else { return true }
         var policyGrant = grant
         policyGrant.scope = .metadata
         guard case .metadata = try await readForMCP(id: id, grant: policyGrant) else {
@@ -452,7 +450,7 @@ public struct MCPToolRunner: Sendable {
         }
     }
 
-    private func ok(_ value: some Encodable) -> MCPToolResult {
+    func ok(_ value: some Encodable) -> MCPToolResult {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -470,4 +468,26 @@ public struct MCPToolRunner: Sendable {
     }
 
     static let maximumPasteStackClips = 100
+}
+
+extension MCPToolRunner {
+    /// The JSON block describes what follows; an image block is added only for
+    /// bytes that still match the reviewed derivative.
+    func reviewedDetail(
+        _ item: ClipItem, text: String?, image: Data?, in pack: MCPContextPack?
+    ) -> MCPToolResult {
+        let granted = pack?.reviewedImage(of: item.id)
+        let detail = ClipDetail(
+            summary: ClipSummary(reviewedOf: item), content: text,
+            contentWithheld: text == nil,
+            representation: text == nil ? nil : .recognizedText,
+            image: granted.map {
+                SharedImage(
+                    mimeType: $0.mimeType, width: $0.width, height: $0.height,
+                    withheld: image == nil)
+            })
+        let json = ok(detail)
+        guard let granted, let image else { return json }
+        return MCPToolResult(content: json.content + [.image(image, mimeType: granted.mimeType)])
+    }
 }

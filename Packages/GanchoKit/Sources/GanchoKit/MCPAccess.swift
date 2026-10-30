@@ -61,9 +61,9 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
     /// When present, a clip changed after review is outside the pack. Nil for
     /// packs that predate revision binding.
     public var clipRevisions: [String: String]?
-    /// The reviewed representation per clip id (uuidString keys). A missing
+    /// What was reviewed per clip id (uuidString keys). A missing or empty
     /// entry, or a pack that predates representations, means the original.
-    public var clipRepresentations: [String: MCPClipRepresentation]?
+    public var clipRepresentations: [String: [MCPClipRepresentation]]?
 
     public init(
         name: String,
@@ -72,7 +72,7 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
         clipIDs: Set<UUID> = [],
         timeScope: MCPTimeScope = .allTime,
         clipRevisions: [String: String]? = nil,
-        clipRepresentations: [String: MCPClipRepresentation]? = nil
+        clipRepresentations: [String: [MCPClipRepresentation]]? = nil
     ) {
         self.name = name
         self.boardID = boardID
@@ -83,8 +83,13 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
         self.clipRepresentations = clipRepresentations
     }
 
-    public func representation(of id: UUID) -> MCPClipRepresentation {
-        clipRepresentations?[id.uuidString] ?? .original
+    /// Empty means the clip's own content.
+    public func representations(of id: UUID) -> [MCPClipRepresentation] {
+        clipRepresentations?[id.uuidString] ?? []
+    }
+
+    public func reviewedImage(of id: UUID) -> MCPReviewedImage? {
+        representations(of: id).lazy.compactMap(\.reviewedImage).first
     }
 
     public var isExplicit: Bool {
@@ -113,25 +118,74 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
     }
 }
 
-/// What a selected-context grant exposes for one clip.
+/// One reviewed derivative of an image that a selected-context grant shares
+/// in place of the clip's own content. Each is authorized on its own.
 public enum MCPClipRepresentation: Sendable, Equatable, Codable {
-    /// The clip's own content.
-    case original
-    /// Only the text recognized from an image, and only while it still hashes
-    /// to the reviewed value. Never the image bytes or any other field.
+    /// The text recognized from the image, only while it still hashes to the
+    /// reviewed value.
     case recognizedText(sha256: String)
+    /// The exact resampled, metadata-free pixels the user reviewed.
+    case reviewedImage(MCPReviewedImage)
 
     public static func recognizedText(reviewing text: String) -> MCPClipRepresentation {
-        .recognizedText(sha256: digest(of: text))
+        .recognizedText(sha256: digest(of: Data(text.utf8)))
     }
 
     public func authorizes(recognizedText text: String) -> Bool {
         guard case .recognizedText(let sha256) = self else { return false }
-        return sha256 == Self.digest(of: text)
+        return sha256 == Self.digest(of: Data(text.utf8))
     }
 
-    private static func digest(of text: String) -> String {
-        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
+    public var reviewedImage: MCPReviewedImage? {
+        guard case .reviewedImage(let image) = self else { return nil }
+        return image
+    }
+
+    static func digest(of data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+/// Identity of a reviewed image derivative. `sha256` also names its file in
+/// the store's reviewed-image directory.
+public struct MCPReviewedImage: Sendable, Equatable, Codable {
+    public let sha256: String
+    public let mimeType: String
+    public let width: Int
+    public let height: Int
+    public let byteCount: Int
+
+    public init(_ derivative: ReviewedImageDerivative) {
+        sha256 = derivative.sha256
+        mimeType = derivative.mimeType
+        width = derivative.width
+        height = derivative.height
+        byteCount = derivative.data.count
+    }
+
+    public func authorizes(_ data: Data) -> Bool {
+        data.count == byteCount && MCPClipRepresentation.digest(of: data) == sha256
+    }
+}
+
+/// Reviewed derivatives live outside clip rows, so their owner keeps them only
+/// while a grant can still serve them.
+public protocol ReviewedImageStoring: Sendable {
+    func saveReviewedImage(_ derivative: ReviewedImageDerivative) throws
+    @discardableResult
+    func removeReviewedImages(except referenced: Set<String>) -> Int
+}
+
+extension GRDBClipboardStore: ReviewedImageStoring {}
+
+extension MCPServerConfig {
+    /// Digests of the reviewed images an active grant can still serve.
+    public func liveReviewedImages(at now: Date = .now) -> Set<String> {
+        Set(
+            grants.filter { $0.state(at: now) == .active }.flatMap { grant in
+                (grant.contextPack?.clipRepresentations ?? [:]).values.joined()
+                    .compactMap(\.reviewedImage?.sha256)
+            })
     }
 }
 
@@ -409,8 +463,9 @@ public enum MCPClipReadResult: Sendable, Equatable {
     case sensitive
     case metadata(ClipItem)
     case content(ClipItem, ClipContent?)
-    /// The reviewed text recognized from an image clip, in place of its content.
-    case recognizedText(ClipItem, String)
+    /// Reviewed derivatives of an image clip, in place of its content. A nil
+    /// image means one was granted but its file is gone or no longer matches.
+    case reviewed(ClipItem, recognizedText: String?, image: Data?)
 }
 
 /// The narrow store surface MCP tools need. Per-clip reads go only through

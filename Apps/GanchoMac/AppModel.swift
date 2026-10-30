@@ -95,6 +95,7 @@ final class AppModel {
     var storedImageTextReader: (any StoredImageTextReading)? {
         fullStore as? any StoredImageTextReading
     }
+    var reviewedImageStore: (any ReviewedImageStoring)? { fullStore as? any ReviewedImageStoring }
     var textRecipeStore: (any TextRecipeStoring)? { fullStore }
     /// Narrow concrete handle kept ONLY to construct in-module engines
     /// (`RetentionEngine`, `TierEnforcement`, `GanchoArchive`), to feed
@@ -705,6 +706,9 @@ final class AppModel {
                 MaintenanceStep("orphaned-blob-sweep") {
                     _ = try? await grdb.removeOrphanedBlobs(
                         olderThan: .now.addingTimeInterval(-3_600))
+                },
+                MaintenanceStep("reviewed-image-sweep") { [weak self] in
+                    await self?.removeUnservedReviewedImages()
                 }
             ]
             Task(priority: .utility) { await MaintenanceRunner().run(steps) }
@@ -1558,11 +1562,26 @@ final class AppModel {
             pendingDeletionIDs.isDisjoint(with: context.manifest.orderedIDs)
         else { throw SelectedContextError.incompatibleSelection }
         let grant = try SelectedContextDelivery.grant(for: context, clientName: clientName)
+        if !context.reviewedImages.isEmpty {
+            guard let images = reviewedImageStore else {
+                throw SelectedContextError.incompatibleSelection
+            }
+            for derivative in context.reviewedImages.values {
+                try images.saveReviewedImage(derivative)
+            }
+        }
         mcpConfig = try MCPServerConfig.update(in: mcpConfigDirectory) { config in
             config.isEnabled = true
             config.grants.append(grant)
         }
+        removeUnservedReviewedImages()
         return grant
+    }
+
+    /// Reviewed pixels outlive their grant only until the next sweep: revoke,
+    /// a new grant, or launch maintenance.
+    func removeUnservedReviewedImages() {
+        reviewedImageStore?.removeReviewedImages(except: mcpConfig.liveReviewedImages())
     }
 
     func revokeMCPGrant(id: UUID) {
@@ -1570,6 +1589,7 @@ final class AppModel {
             guard let index = config.grants.firstIndex(where: { $0.id == id }) else { return }
             config.grants[index].revokedAt = .now
         }
+        removeUnservedReviewedImages()
     }
 
     private func updateMCPConfig(_ mutate: (inout MCPServerConfig) -> Void) {

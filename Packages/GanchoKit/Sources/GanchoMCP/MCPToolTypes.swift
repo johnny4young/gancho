@@ -49,9 +49,9 @@ struct ClipSummary: Encodable {
         sourceApp = item.sourceAppBundleID
     }
 
-    /// A recognized-text grant shares the reviewed text and only the fields
-    /// that identify the clip; the review never showed the others.
-    init(recognizedTextOf item: ClipItem) {
+    /// A reviewed share carries only the fields that identify the clip; the
+    /// review never showed the others.
+    init(reviewedOf item: ClipItem) {
         id = item.id.uuidString
         title = nil
         preview = nil
@@ -62,10 +62,10 @@ struct ClipSummary: Encodable {
     }
 
     init(item: ClipItem, in pack: MCPContextPack?) {
-        if pack?.representation(of: item.id) ?? .original == .original {
+        if pack?.representations(of: item.id).isEmpty ?? true {
             self.init(item: item)
         } else {
-            self.init(recognizedTextOf: item)
+            self.init(reviewedOf: item)
         }
     }
 }
@@ -90,6 +90,16 @@ struct ClipDetail: Encodable {
     /// the summary and the reason.
     let contentWithheld: Bool
     var representation: ContentRepresentation?
+    /// Describes the image block that follows, when reviewed pixels are shared.
+    var image: SharedImage?
+}
+
+struct SharedImage: Encodable {
+    let mimeType: String
+    let width: Int
+    let height: Int
+    /// The file no longer matches what was reviewed, so no image block follows.
+    let withheld: Bool
 }
 
 struct CreatePinResult: Encodable {

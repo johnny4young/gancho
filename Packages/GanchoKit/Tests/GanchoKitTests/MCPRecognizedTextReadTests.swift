@@ -40,7 +40,7 @@ struct MCPRecognizedTextReadTests {
 
     private func grant(
         _ fixture: Fixture, scope: MCPAccessScope = .all,
-        representations: [UUID: MCPClipRepresentation]?
+        representations: [UUID: [MCPClipRepresentation]]?
     ) -> MCPClientGrant {
         let items = [fixture.image, fixture.note]
         return MCPClientGrant(
@@ -59,7 +59,7 @@ struct MCPRecognizedTextReadTests {
     ) -> MCPClientGrant {
         grant(
             fixture, scope: scope,
-            representations: [fixture.image.id: .recognizedText(reviewing: Self.reviewedText)])
+            representations: [fixture.image.id: [.recognizedText(reviewing: Self.reviewedText)]])
     }
 
     private func read(
@@ -73,7 +73,7 @@ struct MCPRecognizedTextReadTests {
     func returnsReviewedText() async throws {
         let fixture = try await makeFixture()
         let result = try await read(fixture.image.id, approvedImageGrant(fixture), in: fixture)
-        guard case .recognizedText(let item, let text) = result else {
+        guard case .reviewed(let item, let text?, nil) = result else {
             Issue.record("expected recognized text, got \(result)")
             return
         }
@@ -113,7 +113,8 @@ struct MCPRecognizedTextReadTests {
     func textClipCannotUseRecognizedText() async throws {
         let fixture = try await makeFixture()
         let grant = grant(
-            fixture, representations: [fixture.note.id: .recognizedText(reviewing: "Deploy note")])
+            fixture, representations: [fixture.note.id: [.recognizedText(reviewing: "Deploy note")]]
+        )
         #expect(try await read(fixture.note.id, grant, in: fixture) == .outsideContext)
     }
 
@@ -135,9 +136,9 @@ struct MCPRecognizedTextReadTests {
 
     @Test(
         "A grant without representations keeps returning the image, never its OCR text",
-        arguments: [nil, [:]] as [[UUID: MCPClipRepresentation]?])
+        arguments: [nil, [:]] as [[UUID: [MCPClipRepresentation]]?])
     func legacyGrantNeverReturnsRecognizedText(
-        representations: [UUID: MCPClipRepresentation]?
+        representations: [UUID: [MCPClipRepresentation]]?
     ) async throws {
         let fixture = try await makeFixture()
         let result = try await read(
@@ -154,19 +155,19 @@ struct MCPRecognizedTextReadTests {
         let id = UUID()
         let pack = MCPContextPack(
             name: "Reviewed", clipIDs: [id],
-            clipRepresentations: [id.uuidString: .recognizedText(reviewing: "text")])
+            clipRepresentations: [id.uuidString: [.recognizedText(reviewing: "text")]])
         let decoded = try JSONDecoder().decode(
             MCPContextPack.self, from: JSONEncoder().encode(pack))
         #expect(decoded == pack)
-        #expect(decoded.representation(of: id).authorizes(recognizedText: "text"))
-        #expect(!decoded.representation(of: id).authorizes(recognizedText: "text "))
+        #expect(decoded.representations(of: id).first?.authorizes(recognizedText: "text") == true)
+        #expect(decoded.representations(of: id).first?.authorizes(recognizedText: "text ") == false)
 
         var legacy =
             try JSONSerialization.jsonObject(with: JSONEncoder().encode(pack)) as? [String: Any]
         legacy?.removeValue(forKey: "clipRepresentations")
         let legacyPack = try JSONDecoder().decode(
             MCPContextPack.self, from: JSONSerialization.data(withJSONObject: legacy ?? [:]))
-        #expect(legacyPack.representation(of: id) == .original)
+        #expect(legacyPack.representations(of: id).isEmpty)
     }
 
     @Test("An unknown representation fails to decode instead of widening access")
@@ -176,7 +177,7 @@ struct MCPRecognizedTextReadTests {
             try JSONSerialization.jsonObject(
                 with: JSONEncoder().encode(MCPContextPack(name: "Reviewed", clipIDs: [id])))
             as? [String: Any]
-        object?["clipRepresentations"] = [id.uuidString: ["rawImage": [String: String]()]]
+        object?["clipRepresentations"] = [id.uuidString: [["rawImage": [String: String]()]]]
         #expect(throws: DecodingError.self) {
             try JSONDecoder().decode(
                 MCPContextPack.self, from: JSONSerialization.data(withJSONObject: object ?? [:]))

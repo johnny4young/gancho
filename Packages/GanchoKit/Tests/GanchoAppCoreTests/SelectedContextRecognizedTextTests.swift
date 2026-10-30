@@ -55,10 +55,14 @@ struct SelectedContextRecognizedTextTests {
             ])
     }
 
-    @Test("An image without stored text stays incompatible")
-    func imageWithoutTextIsIncompatible() async throws {
+    @Test("An image without stored text offers only its pixels, and blocks until chosen")
+    func imageWithoutTextOffersOnlyPixels() async throws {
         let fixture = try await makeFixture(imageText: nil)
-        #expect(try await load(fixture).last?.content == .incompatible)
+        let parts = try await load(fixture)
+        #expect(parts.last?.content == .image)
+        #expect(throws: SelectedContextError.incompatibleSelection) {
+            try SelectedContextFormatter.format(parts, approvedRecognizedText: [fixture.image])
+        }
     }
 
     @Test("Recognized text that reads as a secret is protected, not offered")
@@ -104,7 +108,7 @@ struct SelectedContextRecognizedTextTests {
                 "## Clip 2 (text recognized from an image)\n\n```text\n\(Self.reviewedText)\n```"))
         #expect(prepared.representations.keys.sorted() == [image.id])
         #expect(
-            prepared.representations[image.id]?.authorizes(recognizedText: Self.reviewedText)
+            prepared.representations[image.id]?.first?.authorizes(recognizedText: Self.reviewedText)
                 == true)
     }
 
@@ -120,8 +124,10 @@ struct SelectedContextRecognizedTextTests {
             for: SelectedContextFormatter.format([note]), clientName: "Client")
 
         let pack = try #require(mixed.contextPack)
-        #expect(pack.representation(of: image.id).authorizes(recognizedText: Self.reviewedText))
-        #expect(pack.representation(of: note.id) == .original)
+        #expect(
+            pack.representations(of: image.id).first?.authorizes(recognizedText: Self.reviewedText)
+                == true)
+        #expect(pack.representations(of: note.id).isEmpty)
         #expect(textOnly.contextPack?.clipRepresentations == nil)
     }
 
@@ -140,7 +146,8 @@ struct SelectedContextRecognizedTextTests {
         let prepared = try #require(delivered)
         #expect(Set(prepared.revisions.keys) == Set(fixture.ids))
         #expect(
-            prepared.representations[fixture.image]?.authorizes(recognizedText: Self.reviewedText)
+            prepared.representations[fixture.image]?.first?.authorizes(
+                recognizedText: Self.reviewedText)
                 == true)
     }
 
