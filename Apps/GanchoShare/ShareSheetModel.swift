@@ -38,8 +38,9 @@ import SwiftUI
         if ClipSafePresentation.requiresMasking(kind: prepared.kind ?? .text, isSensitive: false) {
             return true
         }
+        // The preview shows the start; the app checks the whole text on drain.
         return prepared.capture.textRepresentation.map {
-            SensitiveDataDetector().detect($0) != nil
+            SensitiveDataDetector().detect(String($0.prefix(16_000))) != nil
         } ?? false
     }
 
@@ -76,17 +77,21 @@ import SwiftUI
         if selectedBoardIDs.remove(board.id) == nil { selectedBoardIDs.insert(board.id) }
     }
 
-    /// True when every capture landed in the inbox.
-    func save() -> Bool {
+    /// True when every capture landed in the inbox. Sealing and writing run
+    /// off the main thread, so a large image never freezes the sheet.
+    func save() async -> Bool {
+        guard !isSaving else { return false }
         isSaving = true
         defer { isSaving = false }
-        let choices = choices
-        var saved = 0
-        for capture in captures {
+        let inbox = inbox
+        let prepared = captures.map { capture in
             var prepared = capture
             prepared.choices = choices
-            if (try? inbox.deposit(prepared)) != nil { saved += 1 }
+            return prepared
         }
+        let saved = await Task.detached {
+            prepared.filter { (try? inbox.deposit($0)) != nil }.count
+        }.value
         saveFailed = saved < captures.count
         return !saveFailed
     }

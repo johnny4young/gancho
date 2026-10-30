@@ -201,6 +201,13 @@ final class IOSAppModel {
             if let override = Self.uiTestTelemetryConsentOverride {
                 telemetryConsent = override
             }
+            // `-share-saves-instantly YES|NO` pins the share sheet's switch,
+            // which outlives a run in the App Group.
+            if let index = CommandLine.arguments.firstIndex(of: "-share-saves-instantly"),
+                CommandLine.arguments.indices.contains(index + 1)
+            {
+                ShareSheetPreference.setSavesInstantly(CommandLine.arguments[index + 1] == "YES")
+            }
         #endif
         self.telemetryConsent = telemetryConsent
         activationTracker = ActivationTracker(defaults: defaults)

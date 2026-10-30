@@ -4,18 +4,25 @@ import XCTest
 /// will be saved, and Gancho receives it with the title, board and pin chosen.
 final class ShareSheetUITests: XCTestCase {
     @MainActor
-    func testSharingFromSafariSavesTheTitleBoardAndPin() throws {
-        let gancho = XCUIApplication()
-        gancho.launchArguments = [
-            "-skip-welcome-on-launch", "-use-temp-durable-store", "-seed-sample-boards",
-            "-AppleLanguages", "(en)"
-        ]
-        gancho.launch()
+    func testTheInstantSwitchSavesWithoutTheSheet() throws {
+        let gancho = try launchGancho(instant: true)
         defer { gancho.terminate() }
-        guard
-            gancho.descendants(matching: .any)["capture-screen"].firstMatch
-                .waitForExistence(timeout: 10)
-        else { throw XCTSkip("capture screen is not reachable on this runner") }
+        let safari = try openShareSheetInSafari()
+        defer { safari.terminate() }
+        XCTAssertFalse(
+            safari.descendants(matching: .any)["share-save-button"].firstMatch
+                .waitForExistence(timeout: 4), "no sheet with the switch on")
+        gancho.activate()
+        let row = gancho.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == 'clip-row' AND label CONTAINS %@", "example.com")
+        ).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15), "the share was saved at once")
+    }
+
+    @MainActor
+    func testSharingFromSafariSavesTheTitleBoardAndPin() throws {
+        let gancho = try launchGancho(instant: false)
+        defer { gancho.terminate() }
         // The seeded boards must exist before the sheet reads their snapshot.
         let seeded = gancho.buttons.matching(
             NSPredicate(format: "label BEGINSWITH %@", "Seed board 1")
@@ -67,6 +74,24 @@ final class ShareSheetUITests: XCTestCase {
         chip.tap()
         XCTAssertTrue(
             row.waitForExistence(timeout: 5), "and on the board chosen in the sheet")
+    }
+
+    @MainActor
+    private func launchGancho(instant: Bool) throws -> XCUIApplication {
+        let gancho = XCUIApplication()
+        gancho.launchArguments = [
+            "-skip-welcome-on-launch", "-use-temp-durable-store", "-seed-sample-boards",
+            "-share-saves-instantly", instant ? "YES" : "NO", "-AppleLanguages", "(en)"
+        ]
+        gancho.launch()
+        guard
+            gancho.descendants(matching: .any)["capture-screen"].firstMatch
+                .waitForExistence(timeout: 10)
+        else {
+            gancho.terminate()
+            throw XCTSkip("capture screen is not reachable on this runner")
+        }
+        return gancho
     }
 
     /// Safari on a page, its share sheet, and Gancho picked from the row.

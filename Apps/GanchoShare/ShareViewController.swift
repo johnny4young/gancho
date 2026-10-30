@@ -49,10 +49,11 @@ final class ShareViewController: UIViewController {
             rootView: ShareSheetView(
                 model: model,
                 onSave: { [weak self] in
-                    if model.save() { self?.finish(saved: true) }
+                    Task { if await model.save() { self?.finish(saved: true) } }
                 },
                 onCancel: { [weak self] in
-                    self?.extensionContext?.completeRequest(returningItems: nil)
+                    self?.extensionContext?.cancelRequest(
+                        withError: NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
                 }))
         addChild(sheet)
         sheet.view.frame = view.bounds
