@@ -145,6 +145,10 @@ public struct MCPToolRunner: Sendable {
         // A selected board is already stronger than broad "marked" scope and
         // avoids an unnecessary second condition on the same junction table.
         if pack.boardID != nil { query.markedOnly = false }
+        query.contentOnlyIDs = Set(
+            (pack.clipRepresentations ?? [:]).compactMap { id, representation in
+                representation == .original ? nil : UUID(uuidString: id)
+            })
 
         var hits = try await store.search(query, limit: limit)
         hits.removeAll { item in

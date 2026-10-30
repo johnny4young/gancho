@@ -353,6 +353,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
                 """
             var arguments: [any DatabaseValueConvertible] = [match]
             Self.appendFilters(for: query, to: &sql, arguments: &arguments)
+            Self.appendRepresentationMatch(
+                for: query, match: match, to: &sql, arguments: &arguments)
             sql += " ORDER BY bm25(clip_fts) LIMIT ?"
             arguments.append(limit)
             return try ClipRow.fetchAll(db, sql: sql, arguments: StatementArguments(arguments))
@@ -381,6 +383,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             let regex = try? NSRegularExpression(
                 pattern: query.text, options: [.caseInsensitive])
         else { throw ClipSearchError.invalidRegularExpression }
+        let contentOnlyIDs = Set(query.contentOnlyIDs.map(\.uuidString))
 
         return try await writer.read { db in
             var sql = "SELECT clip.* FROM clip WHERE clip.isArchived = 0"
@@ -396,7 +399,10 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
                 let content =
                     query.metadataOnly
                     ? "" : String((row.contentText ?? "").prefix(Self.regexHaystackLimit))
-                let haystacks = [row.title, row.preview, content]
+                let contentOnly = contentOnlyIDs.contains(row.id)
+                let haystacks =
+                    contentOnly
+                    ? (query.metadataOnly ? [] : [content]) : [row.title, row.preview, content]
                 let matches = haystacks.contains { text in
                     regex.firstMatch(
                         in: text, range: NSRange(text.startIndex..., in: text)) != nil

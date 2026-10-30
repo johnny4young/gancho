@@ -39,6 +39,10 @@ public struct ClipSearchQuery: Sendable, Equatable {
     public var excludesSensitive: Bool
     /// Match only title and preview, never the stored body.
     public var metadataOnly: Bool
+    /// These clips expose only their stored text representation. Their title
+    /// and preview cannot establish a match. With metadata-only scope they
+    /// have no searchable fields. Applied before search ranking and LIMIT.
+    public var contentOnlyIDs: Set<UUID> = []
 
     public init(
         text: String,

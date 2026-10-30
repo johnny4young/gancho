@@ -12,6 +12,8 @@ Only that text is shared. Copying and grants never include the image or its file
 
 Over MCP, `get_clip` and `paste_stack` label that text with `"representation": "recognizedText"`, and the hidden fields are omitted from the response rather than sent empty. Grants created before this change, or for clips you did not choose this way, behave exactly as before and never return recognized text.
 
+`search_clips` can match an approved image only through its reviewed recognized text, never its hidden title or preview. This restriction applies before ranking and the result limit. Metadata-only scope has no searchable text fields for that representation; regex still requires content access. Ordinary text clips keep their existing search behavior.
+
 Sharing recognized text is not in a published release yet. The output preserves excerpt text in dynamically sized fences; quotation is not a guarantee that an external model will ignore hostile instructions.
 
 Each review owns an ordered manifest. MCP authorization uses a separate set of exactly those IDs, never the manifest's presentation order or all clipboard history. Gancho revalidates the reviewed content immediately before copying or creating a grant. A changed clipboard is preserved.
