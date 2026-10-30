@@ -306,7 +306,7 @@ public struct MCPToolRunner: Sendable {
             case .content(let item, let content):
                 guard let body = contentText(content) else { continue }
                 clips.append(StackClip(id: raw, title: item.title, text: body))
-            case .recognizedText(let item, let text):
+            case .recognizedText(_, let text):
                 clips.append(
                     StackClip(id: raw, title: nil, text: text, representation: .recognizedText))
             case .missing, .outsideContext, .sensitive, .metadata:
