@@ -83,6 +83,35 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
         self.clipRepresentations = clipRepresentations
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case name, boardID, boardName, clipIDs, timeScope, clipRevisions, clipRepresentations
+    }
+
+    /// Packs written when a clip could share only one representation stored a
+    /// single value per clip; they still decode, as a one-element list. Anything
+    /// else that does not decode still fails, so no grant can widen silently.
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let representations: [String: [MCPClipRepresentation]]?
+        do {
+            representations = try values.decodeIfPresent(
+                [String: [MCPClipRepresentation]].self, forKey: .clipRepresentations)
+        } catch DecodingError.typeMismatch {
+            representations = try values.decodeIfPresent(
+                [String: MCPClipRepresentation].self, forKey: .clipRepresentations
+            )?.mapValues { [$0] }
+        }
+        self.init(
+            name: try values.decode(String.self, forKey: .name),
+            boardID: try values.decodeIfPresent(UUID.self, forKey: .boardID),
+            boardName: try values.decodeIfPresent(String.self, forKey: .boardName),
+            clipIDs: try values.decode(Set<UUID>.self, forKey: .clipIDs),
+            timeScope: try values.decode(MCPTimeScope.self, forKey: .timeScope),
+            clipRevisions: try values.decodeIfPresent(
+                [String: String].self, forKey: .clipRevisions),
+            clipRepresentations: representations)
+    }
+
     /// Empty means the clip's own content.
     public func representations(of id: UUID) -> [MCPClipRepresentation] {
         clipRepresentations?[id.uuidString] ?? []

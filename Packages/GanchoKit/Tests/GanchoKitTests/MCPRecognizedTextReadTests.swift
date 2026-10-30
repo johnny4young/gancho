@@ -170,6 +170,25 @@ struct MCPRecognizedTextReadTests {
         #expect(legacyPack.representations(of: id).isEmpty)
     }
 
+    @Test("A pack that stored one representation per clip still decodes, as a list")
+    func singleRepresentationPacksDecode() throws {
+        let id = UUID()
+        var object =
+            try JSONSerialization.jsonObject(
+                with: JSONEncoder().encode(MCPContextPack(name: "Reviewed", clipIDs: [id])))
+            as? [String: Any]
+        object?["clipRepresentations"] = [id.uuidString: ["recognizedText": ["sha256": "abc"]]]
+        let pack = try JSONDecoder().decode(
+            MCPContextPack.self, from: JSONSerialization.data(withJSONObject: object ?? [:]))
+        #expect(pack.representations(of: id) == [.recognizedText(sha256: "abc")])
+
+        object?["clipRepresentations"] = [id.uuidString: ["rawImage": [String: String]()]]
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(
+                MCPContextPack.self, from: JSONSerialization.data(withJSONObject: object ?? [:]))
+        }
+    }
+
     @Test("An unknown representation fails to decode instead of widening access")
     func unknownRepresentationIsRejected() throws {
         let id = UUID()

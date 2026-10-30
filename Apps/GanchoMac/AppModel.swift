@@ -1570,9 +1570,15 @@ final class AppModel {
                 try images.saveReviewedImage(derivative)
             }
         }
-        mcpConfig = try MCPServerConfig.update(in: mcpConfigDirectory) { config in
-            config.isEnabled = true
-            config.grants.append(grant)
+        do {
+            mcpConfig = try MCPServerConfig.update(in: mcpConfigDirectory) { config in
+                config.isEnabled = true
+                config.grants.append(grant)
+            }
+        } catch {
+            // No grant references the pixels just stored; do not leave them behind.
+            removeUnservedReviewedImages()
+            throw error
         }
         removeUnservedReviewedImages()
         return grant

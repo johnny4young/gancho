@@ -14,6 +14,7 @@ struct SelectedContextReview: View {
     @State private var approvedRecognizedText: Set<UUID> = []
     @State private var sharedImages: [UUID: ReviewedImageDerivative] = [:]
     @State private var preparingImages: Set<UUID> = []
+    @State private var imageTasks: [UUID: Task<Void, Never>] = [:]
     @State private var imageFailed = false
     @State private var loading = true
     @State private var failed = false
@@ -44,16 +45,8 @@ struct SelectedContextReview: View {
                     .panelFont(.body)
                     .textSelection(.disabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                // The exact outbound pixels, scaled only for display.
                 ForEach(parts.filter { sharedImages[$0.id] != nil }) { part in
-                    if let image = sharedImages[part.id], let pixels = NSImage(data: image.data) {
-                        Image(nsImage: pixels).resizable().scaledToFit()
-                            .frame(maxWidth: .infinity, maxHeight: 220, alignment: .leading)
-                            .accessibilityLabel(
-                                Text("Reviewed image, \(image.width) × \(image.height) pixels")
-                            )
-                            .accessibilityIdentifier("ai-context-shared-image")
-                    }
+                    if let image = sharedImages[part.id] { ReviewedImagePreview(derivative: image) }
                 }
             }
             .frame(minHeight: 100)
@@ -122,7 +115,8 @@ struct SelectedContextReview: View {
         .task { await load() }
         .onChange(of: parts, initial: true) { prepare() }
         .onChange(of: approvedRecognizedText) { prepare() }
-        .onChange(of: sharedImages) { prepare() }
+        // A derivative never changes in place, so its id is enough to observe.
+        .onChange(of: Set(sharedImages.keys)) { prepare() }
         .onChange(of: model.previewsHidden) { _, hidden in
             if hidden { cancel() }
         }
@@ -144,8 +138,13 @@ struct SelectedContextReview: View {
         let request = generation
         imageFailed = false
         preparingImages.insert(id)
-        Task {
-            defer { if generation == request { preparingImages.remove(id) } }
+        imageTasks[id] = Task {
+            defer {
+                if generation == request {
+                    preparingImages.remove(id)
+                    imageTasks[id] = nil
+                }
+            }
             do {
                 let derivative = try await ReviewedImagePreparation.derivative(
                     for: id, from: store)
@@ -254,6 +253,8 @@ struct SelectedContextReview: View {
         parts = []
         approvedRecognizedText = []
         sharedImages = [:]
+        imageTasks.values.forEach { $0.cancel() }
+        imageTasks = [:]
         preparingImages = []
         imageFailed = false
         grant = nil
@@ -263,5 +264,28 @@ struct SelectedContextReview: View {
     private func cancel() {
         invalidate()
         dismiss()
+    }
+}
+
+/// The exact outbound pixels, scaled only for display. Decoded once per
+/// derivative rather than on every render of the review.
+private struct ReviewedImagePreview: View {
+    let derivative: ReviewedImageDerivative
+    @State private var pixels: NSImage?
+
+    var body: some View {
+        Group {
+            if let pixels {
+                Image(nsImage: pixels).resizable().scaledToFit()
+                    .accessibilityLabel(
+                        Text("Reviewed image, \(derivative.width) × \(derivative.height) pixels")
+                    )
+                    .accessibilityIdentifier("ai-context-shared-image")
+            } else {
+                ProgressView()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: 220, alignment: .leading)
+        .task { pixels = NSImage(data: derivative.data) }
     }
 }

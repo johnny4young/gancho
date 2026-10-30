@@ -249,6 +249,8 @@ public enum ReviewedImagePreparation {
             item.expiresAt.map({ $0 > .now }) ?? true,
             case .binary(let data, _)? = try await store.content(for: id)
         else { throw ReviewedImageDerivative.Failure.unreadable }
+        // Decoding is the expensive step; a closed review should not pay for it.
+        try Task.checkCancellation()
         return try ReviewedImageDerivative.make(from: data)
     }
 }
