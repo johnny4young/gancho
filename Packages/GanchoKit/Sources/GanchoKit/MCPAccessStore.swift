@@ -8,6 +8,12 @@ extension GRDBClipboardStore: MCPClipStore {
     private enum MCPRowRead: Sendable {
         case finished(MCPClipReadResult)
         case payload(ClipRow)
+        case reviewed(ClipItem, recognizedText: String?)
+    }
+
+    private enum ReviewedShareCheck {
+        case original, refused
+        case reviewed(recognizedText: String?)
     }
 
     public func readForMCP(
@@ -34,12 +40,12 @@ extension GRDBClipboardStore: MCPClipStore {
             } else if requiresContextPack {
                 return .finished(.outsideContext)
             }
+            let shares = try Self.checkReviewedShares(
+                of: item, grant.contextPack?.representations(of: id) ?? [], in: db)
+            if case .refused = shares { return .finished(.outsideContext) }
             if ClipSafePresentation.requiresMasking(item) { return .finished(.sensitive) }
-            if grant.scope == .metadata
-                || (grant.scope == .boards && !item.isPinned && boardIDs.isEmpty)
-            {
-                return .finished(.metadata(item))
-            }
+            if Self.withholdsBody(grant, item, boardIDs) { return .finished(.metadata(item)) }
+            if case .reviewed(let text) = shares { return .reviewed(item, recognizedText: text) }
             // Only an authorized content read selects payload columns. The row
             // is captured before leaving the same policy/membership snapshot.
             guard let payload = try ClipRow.filter(key: id.uuidString).fetchOne(db) else {
@@ -47,10 +53,65 @@ extension GRDBClipboardStore: MCPClipStore {
             }
             return .payload(payload)
         }
+        return try resolve(snapshot, image: grant.contextPack?.reviewedImage(of: id))
+    }
+
+    /// Payload files are read after the snapshot closes, by the identity it captured.
+    private func resolve(
+        _ snapshot: MCPRowRead, image: MCPReviewedImage?
+    ) throws -> MCPClipReadResult {
         switch snapshot {
         case .finished(let result): return result
         case .payload(let row): return .content(row.item, try content(from: row))
+        case .reviewed(let item, let text):
+            return .reviewed(item, recognizedText: text, image: image.flatMap(reviewedImageData))
         }
+    }
+
+    private static func withholdsBody(
+        _ grant: MCPClientGrant, _ item: ClipItem, _ boardIDs: Set<UUID>
+    ) -> Bool {
+        grant.scope == .metadata
+            || (grant.scope == .boards && !item.isPinned && boardIDs.isEmpty)
+    }
+
+    /// Reviewed shares cover one image only. Re-recognition rewrites its text
+    /// without a new revision, so the text itself is compared inside the
+    /// caller's snapshot; the image's pixels are pinned by the clip revision.
+    private static func checkReviewedShares(
+        of item: ClipItem, _ shares: [MCPClipRepresentation], in db: Database
+    ) throws -> ReviewedShareCheck {
+        guard !shares.isEmpty else { return .original }
+        guard item.kind == .image else { return .refused }
+        let textShare = shares.first { $0.reviewedImage == nil }
+        guard let textShare else { return .reviewed(recognizedText: nil) }
+        guard
+            let text = try String.fetchOne(
+                db, sql: "SELECT contentText FROM clip WHERE id = ?",
+                arguments: [item.id.uuidString]),
+            textShare.authorizes(recognizedText: text)
+        else { return .refused }
+        return .reviewed(recognizedText: text)
+    }
+
+    /// The derivative is read by its digest and checked again: a missing,
+    /// damaged or substituted file is withheld, never replaced by the original.
+    private func reviewedImageData(_ image: MCPReviewedImage) -> Data? {
+        guard let data = try? blobsForMaintenance.reviewedImages.read(hash: image.sha256),
+            image.authorizes(data)
+        else { return nil }
+        return data
+    }
+
+    /// Stores a reviewed derivative so a grant can serve exactly these bytes.
+    public func saveReviewedImage(_ derivative: ReviewedImageDerivative) throws {
+        try blobsForMaintenance.reviewedImages.write(derivative.data)
+    }
+
+    /// Deletes reviewed derivatives that no live grant references.
+    @discardableResult
+    public func removeReviewedImages(except referenced: Set<String>) -> Int {
+        blobsForMaintenance.reviewedImages.removeAll(except: referenced)
     }
 
     /// Kept with the MCP adapter rather than the core store migrations so the

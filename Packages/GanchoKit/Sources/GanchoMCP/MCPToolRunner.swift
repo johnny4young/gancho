@@ -120,7 +120,7 @@ public struct MCPToolRunner: Sendable {
                 query.markedOnly = grant.scope == .boards
                 var hits = try await store.search(query, limit: min(max(args.limit ?? 25, 1), 100))
                 hits.removeAll(where: ClipSafePresentation.requiresMasking)
-                let summaries = hits.map(ClipSummary.init)
+                let summaries = hits.map { ClipSummary(item: $0) }
                 await record(.searchClips, grant: grant, count: summaries.count)
                 return ok(
                     SearchResult(
@@ -132,6 +132,9 @@ public struct MCPToolRunner: Sendable {
 
         let limit = min(max(args.limit ?? 25, 1), 100)
         let currentTime = now()
+        let searchable = try await searchableIDs(in: pack, grant: grant)
+        let reviewed: Set<UUID> =
+            searchable?.filter { !pack.representations(of: $0).isEmpty } ?? []
         var query = ClipSearchQuery(
             text: args.query,
             mode: Self.mode(args.mode),
@@ -139,7 +142,7 @@ public struct MCPToolRunner: Sendable {
             dateRange: pack.timeScope.lowerBound(relativeTo: currentTime).map { $0...currentTime },
             boardID: pack.boardID,
             markedOnly: grant.scope == .boards,
-            includedIDs: try await searchableIDs(in: pack),
+            includedIDs: searchable?.subtracting(reviewed),
             excludesSensitive: true,
             metadataOnly: metadataOnly)
         // A selected board is already stronger than broad "marked" scope and
@@ -147,12 +150,18 @@ public struct MCPToolRunner: Sendable {
         if pack.boardID != nil { query.markedOnly = false }
 
         var hits = try await store.search(query, limit: limit)
+        hits += try await reviewedHits(query, among: reviewed, in: pack, limit: limit)
         hits.removeAll { item in
             !pack.isReviewedRevision(item) || ClipSafePresentation.requiresMasking(item)
                 || (!pack.clipIDs.isEmpty && !pack.clipIDs.contains(item.id))
         }
+        var current: [ClipItem] = []
+        for hit in hits where try await hasReviewedRepresentation(hit.id, in: pack, grant: grant) {
+            current.append(hit)
+        }
+        hits = Array(current.prefix(limit))
 
-        let summaries = hits.map(ClipSummary.init)
+        let summaries = hits.map { ClipSummary(item: $0, in: pack) }
         await record(.searchClips, grant: grant, count: summaries.count)
         return ok(
             SearchResult(clips: summaries, count: summaries.count, scope: grant.scope.rawValue))
@@ -185,7 +194,9 @@ public struct MCPToolRunner: Sendable {
             // records that the body itself was never exposed.
             await record(.getClip, grant: grant, count: 1, denial: .scope)
             return ok(
-                ClipDetail(summary: ClipSummary(item: item), content: nil, contentWithheld: true))
+                ClipDetail(
+                    summary: ClipSummary(item: item, in: grant.contextPack), content: nil,
+                    contentWithheld: true))
         case .content(let item, let content):
             await record(.getClip, grant: grant, count: 1)
             // The payload row came from the authorized snapshot, but blob bytes
@@ -196,6 +207,9 @@ public struct MCPToolRunner: Sendable {
                 ClipDetail(
                     summary: ClipSummary(item: item), content: body,
                     contentWithheld: body == nil))
+        case .reviewed(let item, let text, let image):
+            await record(.getClip, grant: grant, count: 1)
+            return reviewedDetail(item, text: text, image: image, in: grant.contextPack)
         }
     }
 
@@ -224,7 +238,7 @@ public struct MCPToolRunner: Sendable {
         case .sensitive:
             await record(.createPin, grant: grant, denial: .sensitive)
             return MCPToolResult(text: "Sensitive clips cannot be pinned over MCP.", isError: true)
-        case .metadata, .content:
+        case .metadata, .content, .reviewed:
             break
         }
 
@@ -287,13 +301,19 @@ public struct MCPToolRunner: Sendable {
         }
         var clips: [StackClip] = []
         for raw in args.ids {
-            guard let id = UUID(uuidString: raw),
-                case .content(let item, let content) = try await readForMCP(id: id, grant: grant),
-                let body = contentText(content)
-            else {
+            guard let id = UUID(uuidString: raw) else { continue }
+            switch try await readForMCP(id: id, grant: grant) {
+            case .content(let item, let content):
+                guard let body = contentText(content) else { continue }
+                clips.append(StackClip(id: raw, title: item.title, text: body))
+            case .reviewed(_, let text?, _):
+                clips.append(
+                    StackClip(id: raw, title: nil, text: text, representation: .recognizedText))
+            case .reviewed(_, nil, _):
+                continue
+            case .missing, .outsideContext, .sensitive, .metadata:
                 continue
             }
-            clips.append(StackClip(id: raw, title: item.title, text: body))
         }
         await record(.pasteStack, grant: grant, count: clips.count)
         return ok(
@@ -323,13 +343,35 @@ public struct MCPToolRunner: Sendable {
     /// A reviewed selection authorizes revisions, not just ids. Narrow before
     /// LIMIT so a changed clip cannot displace an unchanged match. Search hits
     /// are checked again above in case an edit races this preliminary read.
-    private func searchableIDs(in pack: MCPContextPack) async throws -> Set<UUID>? {
+    private func searchableIDs(
+        in pack: MCPContextPack, grant: MCPClientGrant
+    ) async throws -> Set<UUID>? {
         let selectedIDs = pack.clipIDs.isEmpty ? nil : pack.clipIDs
         guard let revisions = pack.clipRevisions else { return selectedIDs }
         let ids = revisions.keys.compactMap(UUID.init(uuidString:)).filter {
             selectedIDs?.contains($0) ?? true
         }
-        return Set(try await store.items(ids: ids).filter(pack.isReviewedRevision).map(\.id))
+        var searchable: Set<UUID> = []
+        for item in try await store.items(ids: ids) where pack.isReviewedRevision(item) {
+            if try await hasReviewedRepresentation(item.id, in: pack, grant: grant) {
+                searchable.insert(item.id)
+            }
+        }
+        return searchable
+    }
+
+    /// Recognized text changes without a new revision, so a search could match
+    /// text nobody reviewed. The snapshot read compares it with the reviewed text.
+    private func hasReviewedRepresentation(
+        _ id: UUID, in pack: MCPContextPack, grant: MCPClientGrant
+    ) async throws -> Bool {
+        guard !pack.representations(of: id).isEmpty else { return true }
+        var policyGrant = grant
+        policyGrant.scope = .metadata
+        guard case .metadata = try await readForMCP(id: id, grant: policyGrant) else {
+            return false
+        }
+        return true
     }
 
     private func readForMCP(id: UUID, grant: MCPClientGrant) async throws -> MCPClipReadResult {
@@ -412,7 +454,7 @@ public struct MCPToolRunner: Sendable {
         }
     }
 
-    private func ok(_ value: some Encodable) -> MCPToolResult {
+    func ok(_ value: some Encodable) -> MCPToolResult {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -430,4 +472,42 @@ public struct MCPToolRunner: Sendable {
     }
 
     static let maximumPasteStackClips = 100
+}
+
+extension MCPToolRunner {
+    /// The JSON block describes what follows; an image block is added only for
+    /// bytes that still match the reviewed derivative.
+    func reviewedDetail(
+        _ item: ClipItem, text: String?, image: Data?, in pack: MCPContextPack?
+    ) -> MCPToolResult {
+        let granted = pack?.reviewedImage(of: item.id)
+        let detail = ClipDetail(
+            summary: ClipSummary(reviewedOf: item), content: text,
+            contentWithheld: text == nil,
+            representation: text == nil ? nil : .recognizedText,
+            image: granted.map {
+                SharedImage(
+                    mimeType: $0.mimeType, width: $0.width, height: $0.height,
+                    withheld: image == nil)
+            })
+        let json = ok(detail)
+        guard let granted, let image else { return json }
+        return MCPToolResult(content: json.content + [.image(image, mimeType: granted.mimeType)])
+    }
+
+    /// Reviewed clips may match only on the text the user reviewed: never on
+    /// their hidden title or preview, never on an image's unshared OCR text,
+    /// and not at all under metadata scope. An empty query still lists them.
+    /// Relevance scores of separate queries do not compare, so these follow.
+    func reviewedHits(
+        _ query: ClipSearchQuery, among ids: Set<UUID>, in pack: MCPContextPack, limit: Int
+    ) async throws -> [ClipItem] {
+        let hasText = !query.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let matchable = hasText ? ids.filter { pack.sharesRecognizedText(of: $0) } : ids
+        guard !matchable.isEmpty else { return [] }
+        var scoped = query
+        scoped.includedIDs = matchable
+        scoped.bodyOnly = true
+        return try await store.search(scoped, limit: limit)
+    }
 }

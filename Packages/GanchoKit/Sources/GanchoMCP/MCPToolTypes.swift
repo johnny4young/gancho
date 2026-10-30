@@ -32,10 +32,10 @@ struct PasteStackArgs: Decodable {
 /// the app shows in lists.
 struct ClipSummary: Encodable {
     let id: String
-    let title: String
-    let preview: String
+    let title: String?
+    let preview: String?
     let kind: String
-    let isPinned: Bool
+    let isPinned: Bool?
     let createdAt: Date
     let sourceApp: String?
 
@@ -48,12 +48,38 @@ struct ClipSummary: Encodable {
         createdAt = item.createdAt
         sourceApp = item.sourceAppBundleID
     }
+
+    /// A reviewed share carries only the fields that identify the clip; the
+    /// review never showed the others.
+    init(reviewedOf item: ClipItem) {
+        id = item.id.uuidString
+        title = nil
+        preview = nil
+        kind = item.kind.rawValue
+        isPinned = nil
+        createdAt = item.createdAt
+        sourceApp = nil
+    }
+
+    init(item: ClipItem, in pack: MCPContextPack?) {
+        if pack?.representations(of: item.id).isEmpty ?? true {
+            self.init(item: item)
+        } else {
+            self.init(reviewedOf: item)
+        }
+    }
 }
 
 struct SearchResult: Encodable {
     let clips: [ClipSummary]
     let count: Int
     let scope: String
+}
+
+/// Present only when `content` is not the clip's own body.
+enum ContentRepresentation: String, Encodable {
+    /// OCR output from an image: a reviewed derivative, not verbatim source text.
+    case recognizedText
 }
 
 struct ClipDetail: Encodable {
@@ -63,6 +89,17 @@ struct ClipDetail: Encodable {
     /// True when metadata/boards scope refused the body; the agent still sees
     /// the summary and the reason.
     let contentWithheld: Bool
+    var representation: ContentRepresentation?
+    /// Describes the image block that follows, when reviewed pixels are shared.
+    var image: SharedImage?
+}
+
+struct SharedImage: Encodable {
+    let mimeType: String
+    let width: Int
+    let height: Int
+    /// The file no longer matches what was reviewed, so no image block follows.
+    let withheld: Bool
 }
 
 struct CreatePinResult: Encodable {
@@ -73,8 +110,9 @@ struct CreatePinResult: Encodable {
 
 struct StackClip: Encodable {
     let id: String
-    let title: String
+    let title: String?
     let text: String
+    var representation: ContentRepresentation?
 }
 
 struct PasteStackResult: Encodable {

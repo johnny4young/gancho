@@ -53,6 +53,7 @@ extension AppModel {
             seedPeekLinkIfRequested(),
             seedSnippetsIfRequested(),
             seedManualOCRIfRequested(),
+            seedRecognizedTextImageIfRequested(),
             seedMultiFileDragIfRequested(),
             seedPrivateActivityReceiptIfRequested()
         ].compactMap { $0 }
@@ -402,6 +403,45 @@ extension AppModel {
                     contentHash: "manual-ocr-fixture")
                 _ = try? await fullStore.insert(
                     item, content: .binary(data: data, typeIdentifier: "public.png"))
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
+    }
+
+    /// UI-test hook: one synthetic image whose recognized text is stored directly,
+    /// so selected-context review is deterministic without running Vision.
+    /// Automatic OCR is switched off so nothing rewrites that text, which is why
+    /// the isolated defaults suite is required too.
+    private func seedRecognizedTextImageIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-recognized-text-image"),
+                CommandLine.arguments.contains("-use-temp-durable-store"),
+                Self.uiTestDefaultsSuiteName() != nil, let fullStore
+            else { return nil }
+            intelligence.searchableScreenshots = false
+            let size = NSSize(width: 320, height: 120)
+            let image = NSImage(size: size)
+            image.lockFocus()
+            NSColor.systemIndigo.setFill()
+            NSRect(origin: .zero, size: size).fill()
+            image.unlockFocus()
+            guard let tiff = image.tiffRepresentation,
+                let data = NSBitmapImageRep(data: tiff)?.representation(
+                    using: .png, properties: [:])
+            else { return nil }
+            return Task {
+                // Newer than the source-app fixtures, so it is the first row.
+                let item = ClipItem(
+                    createdAt: Date(timeIntervalSince1970: 1_800_000_010), kind: .image,
+                    title: "Synthetic diagram", contentHash: "recognized-text-fixture")
+                guard
+                    (try? await fullStore.insert(
+                        item, content: .binary(data: data, typeIdentifier: "public.png"))) != nil
+                else { return }
+                try? await fullStore.attachExtractedText(
+                    id: item.id, text: "Synthetic queue between API and workers")
                 await refreshRecents()
             }
         #else
