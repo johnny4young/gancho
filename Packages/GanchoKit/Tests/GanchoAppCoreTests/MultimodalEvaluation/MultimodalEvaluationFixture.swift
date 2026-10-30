@@ -7,22 +7,34 @@ import GanchoAI
 
 /// A disposable store seeded the way enrichment seeds it: real Vision OCR, and
 /// secret-looking OCR text dropped before it becomes searchable.
-struct MultimodalEvaluationFixture {
+final class MultimodalEvaluationFixture {
     let store: GRDBClipboardStore
+    let blobDirectory: URL
     /// Text bodies plus stored OCR text. An image is absent when OCR read nothing
     /// or its text was dropped as a secret.
     let searchableText: [UUID: String]
     let imageIDs: Set<UUID>
 
+    private init(
+        store: GRDBClipboardStore, blobDirectory: URL, searchableText: [UUID: String],
+        imageIDs: Set<UUID>
+    ) {
+        self.store = store
+        self.blobDirectory = blobDirectory
+        self.searchableText = searchableText
+        self.imageIDs = imageIDs
+    }
+
+    deinit { try? FileManager.default.removeItem(at: blobDirectory) }
+
     static func make(
         captures: [MultimodalEvaluationCorpus.Capture],
         configure: (inout ClipItem) -> Void = { _ in }
     ) async throws -> MultimodalEvaluationFixture {
+        let blobDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "multimodal-evaluation-\(UUID())")
         let store = GRDBClipboardStore(
-            writer: try DatabaseQueue(),
-            blobs: BlobStore(
-                directory: FileManager.default.temporaryDirectory.appendingPathComponent(
-                    "multimodal-evaluation-\(UUID())")))
+            writer: try DatabaseQueue(), blobs: BlobStore(directory: blobDirectory))
         try store.migrate()
         var searchableText: [UUID: String] = [:]
         var imageIDs: Set<UUID> = []
@@ -49,7 +61,8 @@ struct MultimodalEvaluationFixture {
             }
         }
         return MultimodalEvaluationFixture(
-            store: store, searchableText: searchableText, imageIDs: imageIDs)
+            store: store, blobDirectory: blobDirectory, searchableText: searchableText,
+            imageIDs: imageIDs)
     }
 }
 
@@ -106,4 +119,10 @@ struct OCRSemanticStrategy<Embedder: TextEmbedding>: MultimodalRetrievalStrategy
         let fresh = related.filter { visible.contains($0) && seen.insert($0).inserted }
         return Array((lexical + fresh).prefix(limit))
     }
+}
+
+/// Every text maps to the same vector, so ranking alone can never exclude a row.
+struct ConstantEmbedding: TextEmbedding {
+    let dimension = 4
+    func vector(for text: String) throws -> [Float] { [1, 0, 0, 0] }
 }

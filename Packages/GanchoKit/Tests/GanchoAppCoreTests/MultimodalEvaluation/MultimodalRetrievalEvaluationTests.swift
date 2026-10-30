@@ -42,13 +42,6 @@ struct MultimodalRetrievalEvaluationTests {
             cards[strategy.name] = card
         }
 
-        for query in Corpus.queries {
-            let literal = try await lexical.rank(query.text, limit: Self.cutoff)
-            let hybrid = try await semantic.rank(query.text, limit: Self.cutoff)
-            #expect(
-                Array(hybrid.prefix(literal.count)) == literal,
-                "\(query.name): semantic results must follow the literal ones unchanged")
-        }
         let lexicalCard = try #require(cards[lexical.name])
         #expect(
             lexicalCard.total(where: { $0.category == .identifier }).recall == 1,
@@ -70,7 +63,7 @@ struct MultimodalRetrievalEvaluationTests {
             card.tallies.sorted { $0.key < $1.key }.map { bucket, tally in
                 ReceiptRow(
                     bucket: bucket.label, answered: tally.answered,
-                    recallAtCutoff: tally.recall, meanReciprocalRank: tally.meanReciprocalRank,
+                    recallAtCutoff: tally.recall, mrrAtCutoff: tally.meanReciprocalRankAtCutoff,
                     wrongTopImage: tally.wrongTopImage, unanswered: tally.unanswered,
                     unansweredWithResults: tally.unansweredWithResults, misses: tally.misses)
             }
@@ -123,7 +116,7 @@ private struct ReceiptRow: Encodable {
     let bucket: String
     let answered: Int
     let recallAtCutoff: Double?
-    let meanReciprocalRank: Double?
+    let mrrAtCutoff: Double?
     let wrongTopImage: Int
     let unanswered: Int
     let unansweredWithResults: Int

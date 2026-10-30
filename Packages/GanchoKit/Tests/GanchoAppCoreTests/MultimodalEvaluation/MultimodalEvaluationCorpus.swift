@@ -6,11 +6,15 @@ import Foundation
 enum MultimodalEvaluationCorpus {
     /// Bump when a capture, query or expected answer changes, so receipts stay comparable.
     static let revision = 1
+    /// Content digest for `revision`; the corpus tests fail when the two drift apart.
+    static let revisionFingerprint =
+        "aba77152e5e4cc0743677fdf6ed2bac9df6cd1933a615156f0960a36b29cc1cc"
 
     enum Colour: String, CaseIterable { case red, blue, green, yellow, purple, orange }
     enum ShapeKind: String { case circle, square, triangle }
 
-    /// `frame` is in a 0…1 unit square with a top-left origin.
+    /// `frame` uses a top-left origin. x and y are fractions of the canvas width and
+    /// height; width and height are both fractions of its height, so squares stay square.
     struct Shape: Equatable {
         let kind: ShapeKind
         let colour: Colour

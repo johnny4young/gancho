@@ -1,4 +1,5 @@
 import CoreGraphics
+import CryptoKit
 import Foundation
 import ImageIO
 import Testing
@@ -84,6 +85,14 @@ struct MultimodalEvaluationCorpusTests {
         }
     }
 
+    @Test("The corpus content matches the fingerprint recorded for its revision")
+    func revisionFingerprint() {
+        let actual = Self.fingerprint()
+        #expect(
+            actual == Corpus.revisionFingerprint,
+            "The corpus changed: bump `revision` and record fingerprint \(actual)")
+    }
+
     @Test("Every image renders as a decodable PNG of the canvas size, identically twice")
     func rendering() throws {
         for capture in Corpus.captures where capture.scene.isImage {
@@ -102,6 +111,18 @@ struct MultimodalEvaluationCorpusTests {
         #expect(throws: SyntheticCaptureRenderer.RenderError.textScene) {
             try SyntheticCaptureRenderer.png(for: .text("note"))
         }
+    }
+
+    private static func fingerprint() -> String {
+        let captures = Corpus.captures.map { "\($0.key)|\($0.scene)" }
+        let queries = Corpus.queries.map { query in
+            [
+                query.name, query.language, query.category.rawValue, "\(query.heldOut)",
+                query.text, query.expectedKeys.sorted().joined(separator: ",")
+            ].joined(separator: "|")
+        }
+        let digest = SHA256.hash(data: Data((captures + queries).joined(separator: "\n").utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     /// Order-insensitive words, the most OCR text can tell about a scene.
@@ -142,7 +163,7 @@ struct MultimodalRetrievalScorecardTests {
         let tally = card.total()
         #expect(tally.answered == 1)
         #expect(tally.recall == 1)
-        #expect(try #require(tally.meanReciprocalRank).isApproximatelyEqual(to: 1.0 / 3.0))
+        #expect(try #require(tally.meanReciprocalRankAtCutoff).isApproximatelyEqual(to: 1.0 / 3.0))
         #expect(tally.misses.isEmpty)
         #expect(tally.wrongTopImage == 0, "the first result is not an image")
     }
@@ -153,7 +174,7 @@ struct MultimodalRetrievalScorecardTests {
         card.record(query(), expected: [note], ranked: [other, image, note])
         let tally = card.total()
         #expect(tally.recall == 0)
-        #expect(tally.meanReciprocalRank == 0)
+        #expect(tally.meanReciprocalRankAtCutoff == 0)
         #expect(tally.misses == ["sample"])
     }
 

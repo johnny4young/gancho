@@ -26,7 +26,8 @@ struct MultimodalRetrievalScorecard {
         var misses: [String] = []
 
         var recall: Double? { answered == 0 ? nil : recallSum / Double(answered) }
-        var meanReciprocalRank: Double? {
+        /// Answers ranked past the cutoff contribute 0, so this is MRR@cutoff.
+        var meanReciprocalRankAtCutoff: Double? {
             answered == 0 ? nil : reciprocalRankSum / Double(answered)
         }
     }

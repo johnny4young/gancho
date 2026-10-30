@@ -62,9 +62,3 @@ struct MultimodalEvaluationPrivacyTests {
         #expect(ranked == [Self.visible.id])
     }
 }
-
-/// Every text maps to the same vector, so ranking alone can never exclude a row.
-private struct ConstantEmbedding: TextEmbedding {
-    let dimension = 4
-    func vector(for text: String) throws -> [Float] { [1, 0, 0, 0] }
-}

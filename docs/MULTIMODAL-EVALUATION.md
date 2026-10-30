@@ -34,7 +34,8 @@ clipboard history is used.
   report held-out.
 
 Changing a capture, query or answer requires bumping
-`MultimodalEvaluationCorpus.revision`.
+`MultimodalEvaluationCorpus.revision` and recording the new
+`revisionFingerprint`; the corpus tests fail until both change.
 
 ## Strategies
 
@@ -49,18 +50,18 @@ conforming to `MultimodalRetrievalStrategy` in the test target.
 
 ## Results reported
 
-For each strategy, language, category and split: Recall@5, mean reciprocal rank,
-missed queries, unanswered queries that still returned results, and wrong-image
-selections (an unexpected image ranked first).
+For each strategy, language, category and split: Recall@5, MRR@5 (an answer
+ranked below 5th scores 0), missed queries, unanswered queries that still
+returned results, and wrong-image selections (an unexpected image ranked first).
 
 The opt-in run asserts only what must hold on any machine: every identifier is
-found through OCR, literal search returns nothing for unanswered queries,
-semantic results never reorder literal ones, and shape images yield no OCR text.
-Relevance numbers are reported, not gated.
+found through OCR, literal search returns nothing for unanswered queries, and
+shape images yield no OCR text. Relevance numbers are reported, not gated.
 
 The corpus, scoring and privacy suites run in every `make test` without model
-assets: corpus integrity, deterministic rendering, scoring arithmetic, secret OCR
-dropped, and expired and sensitive clips vetoed by both strategies.
+assets: corpus integrity and fingerprint, deterministic rendering, scoring
+arithmetic, literal matches kept ahead of semantic ones, secret OCR dropped, and
+expired and sensitive clips vetoed by both strategies.
 
 ## Limits
 
