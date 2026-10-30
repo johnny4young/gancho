@@ -95,6 +95,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On iPad the clipboard card sits under the sidebar with its own Paste
   button, so the history starts with your clips; with the sidebar hidden,
   Paste and the card move back to the history.
+- A large Gancho widget lists six recent clips, with board chips (All,
+  Favorites and your first boards) that scope them, when Gancho last synced,
+  and Save clipboard and Open Gancho. Passwords and keys show their kind, the
+  stored mask and the time they have left.
+- The "ready to paste" Live Activity offers Copy again and Open in Gancho
+  (never Copy again for a password or key), and ends once something else was
+  copied.
 - Sharing to Gancho on iPhone and iPad shows what will be saved: the item,
   its title (the page title the app hands over, editable), boards to add it
   to (or a new one) and a Pin switch. "Save instantly from the share sheet" in
