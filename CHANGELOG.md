@@ -95,6 +95,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On iPad the clipboard card sits under the sidebar with its own Paste
   button, so the history starts with your clips; with the sidebar hidden,
   Paste and the card move back to the history.
+- Sharing to Gancho on iPhone and iPad shows what will be saved: the item,
+  its title (the page title the app hands over, editable), boards to add it
+  to (or a new one) and a Pin switch. "Save instantly from the share sheet" in
+  Settings brings back the one-tap save.
 - On iPad, drag a clip from the history or its detail into the app beside
   Gancho: a link drops as a link, an image as a PNG, text as text. Passwords,
   keys and cards never lift.

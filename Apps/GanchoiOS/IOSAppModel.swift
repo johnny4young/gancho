@@ -99,7 +99,9 @@ final class IOSAppModel {
     }
     /// Content-free recent app options and aggregate counts.
     var sourceApps: [ClipSourceApp] { history.sourceApps }
-    var boards: [Pinboard] = []
+    var boards: [Pinboard] = [] {
+        didSet { if boards != oldValue { publishBoardSnapshot() } }
+    }
     /// A resolved widget/Spotlight deep link; the capture shell consumes it.
     var deepLinkClip: ClipItem?
     /// Row thumbnails, decoded from the store's small cached thumbnail bytes.
@@ -198,6 +200,13 @@ final class IOSAppModel {
             // previous run left in the runner's real defaults.
             if let override = Self.uiTestTelemetryConsentOverride {
                 telemetryConsent = override
+            }
+            // `-share-saves-instantly YES|NO` pins the share sheet's switch,
+            // which outlives a run in the App Group.
+            if let index = CommandLine.arguments.firstIndex(of: "-share-saves-instantly"),
+                CommandLine.arguments.indices.contains(index + 1)
+            {
+                ShareSheetPreference.setSavesInstantly(CommandLine.arguments[index + 1] == "YES")
             }
         #endif
         self.telemetryConsent = telemetryConsent
@@ -437,6 +446,16 @@ final class IOSAppModel {
     func refreshBoards() async {
         guard let full else { return }
         boards = (try? await full.pinboards()) ?? []
+    }
+
+    /// The boards the share sheet offers, sealed in the App Group: the
+    /// extension never opens the store.
+    private func publishBoardSnapshot() {
+        guard store.isDurable,
+            let key = try? StoreContentKey.load(
+                keychainAccessGroup: KeychainPassphraseStore.iosSharedAccessGroup)
+        else { return }
+        try? SharedBoardSnapshot.inAppGroup(key: key)?.write(boards)
     }
 
     private func recordBoardFailure(_ message: String.LocalizationValue) {
@@ -1247,14 +1266,33 @@ final class IOSAppModel {
         case .inserted(let outcome):
             await presentIngestion(
                 outcome, capture: delivery.prepared.capture, scheduleEnrichment: false)
+            if let choices = delivery.prepared.choices {
+                await applyShareChoices(choices, to: outcome.item, isNew: outcome.isNew)
+            }
             flashNote(
                 outcome.isNew
                     ? String(localized: "Saved") : String(localized: "Already in your history"),
                 kind: .success)
             await enrichInbox(outcome)
         case .replayed(let outcome):
+            if let outcome, let choices = delivery.prepared.choices {
+                await applyShareChoices(choices, to: outcome.item, isNew: outcome.isNew)
+            }
             if let outcome { await enrichInbox(outcome) }
         }
+    }
+
+    /// The share sheet's title, boards and pin, through the same paths as the
+    /// app's own controls (membership and pins sync), and safe to repeat.
+    private func applyShareChoices(
+        _ choices: SharedInbox.ShareChoices, to item: ClipItem, isNew: Bool
+    ) async {
+        await refreshBoards()
+        let plan = ShareChoicesPlan(choices, existing: boards, item: item, isNew: isNew)
+        if let title = plan.title { _ = await updateClipTitle(item, title: title) }
+        if plan.pins { await togglePin(item) }
+        if let name = plan.newBoardName { _ = await createBoard(named: name, filing: item) }
+        for board in plan.boards { await setBoardMembership(item, board: board, member: true) }
     }
 
     /// Keep the inbox file until post-commit work has run. A crash before this

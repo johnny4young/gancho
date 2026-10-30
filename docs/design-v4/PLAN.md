@@ -89,7 +89,15 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
    - Q51 (GC-33): an app row shows a letter tile (the initial of its name on a colour its name always picks), never a bundled icon. Types are the Mac's five groups (Links, Code, Colors, Images, Secrets) plus All types, each with its tint and count; no "Text" group. Each section washes its active row in the accent at 16 % with a semibold name (All clips, All types, All apps included); "All apps" stays; no checkmarks. Paste lives in the docked card while the sidebar shows and returns to the history toolbar, with the status row, while it is hidden; never two at once. `Select` (multi-select) is out of scope and recorded as its own item.
    - Without asking (house rules and earlier answers): headers count like the iPhone's (Q46), Pinned stays first, `BoardIdentityMark` stays a circle, the docked card keeps every status state, the keyboard legend and Copy's ⌘⏎ show only with a hardware keyboard attached, and the detail drops its 680 pt cap.
    - Q52 (GC-34): the detail's hero (a link's card, an image) and the history rows both drag, with the Mac's rule (nothing masked lifts). The dashed hint first answered as a dismissible tip was dropped on 2026-10-26 under the owner's "no filler copy" rule: no helper text, the drag is the system's long-press lift.
-17. Cross-app rules from the owner's threads:
+17. Answers given on 2026-10-30 to the Phase 13 questions (all the recommended option):
+   - Delivery: four PRs. 13a share sheet (GC-V4-15), 13b large widget + Live Activity (GC-V4-16, GC-V4-17), 13c text in image on iPhone (GC-V4-18), 13d the keyboard's inserted mark (GC-V4-19).
+   - Q53 (GC-V4-15): the editable title is the one the sharing app hands over (a page title), with no model and no network in the extension. The app writes a sealed board snapshot to the App Group whenever boards change; the extension reads it and never opens the store. The sheet shows by default; "Save instantly from the share sheet" in Settings › Capture on iPhone brings back the blind save; Shortcuts and the Action Button stay instant.
+   - No filler copy (owner rule, 2026-10-26): the share footer, "written on-device" and the text-in-image footer are dropped.
+   - Q54 (GC-V4-16): the large widget's chips are All, Favorites and the user's boards in app order, as many as fit (at most four); a tap scopes the six rows. A masked row reads like the iPhone's (kind name, stored mask, lock, time left). Small and medium only swap the paperclip for the Gancho mark.
+   - Q55 (GC-V4-17): "Copy again" is not offered for a sensitive clip; "Open in Gancho" stays. The activity ends when Gancho captures again, or at the next foreground when the pasteboard changed (its change count, never its content), besides the 3-minute dismiss.
+   - Q32 + Q56 (GC-V4-18): on iPhone, text in an image is read when the clip opens, on device, and not stored; regions come from a fresh pass even when Pro has the text cached. Nothing is copied without a tap. A line with a secret stays out of "Copy all" until revealed, and Translate is hidden while one is held back.
+   - Q57 (GC-V4-19): every row inserted into the current field is marked (tint + pill) until the document changes; images, which go to the pasteboard, are not marked.
+18. Cross-app rules from the owner's threads:
    - Only propose what beats the current UI; code wins over v2 boards and site screenshots.
    - Each piece of data appears once per screen.
    - Canvas annotations are not UI.
@@ -106,7 +114,7 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
 Live sources match the expected numbers exactly. Maybe: GC-V4-22, with owner note "no entiendo la utilidad de esto, pero siento que no es necesario". Skip: GC-V4-20.
 
 By type: UI 29 · bug 6 · feature 31 · system 7.  
-By status: blocked 17 · done 54 · not implemented 1 · pending decision 1.
+By status: blocked 16 · done 55 · not implemented 1 · pending decision 1.
 
 ## Plan table
 
@@ -169,7 +177,7 @@ Type: UI / feature / bug / system. Pick is the Design Picks state. Phase refers 
 | GC-36 | UI | pick | — | Onboarding | iPhone first run: page 2 explains 'Sensed, not read' with example row, keyboard/widget/share rows | IOSOnboardingView.swift; GanchoiOSApp.swift:35,:115-124; PasteboardStatusRow.swift; CaptureView.swift:447 | Page 1, copy, paste control exist; paging + page 2 new | GC-V5-2 | UI: iOS paging + flag; snapshot 390×844 | 10 | done — f9e0153 (Q44: Next on page 1; a label above the system Paste control; a paste opens the saved clip; iPad included); IOSOnboardingUITests + page 2 captures light/dark |
 | GC-V4-13 | feature | pick | — | Library | Kind chips + Newest/Oldest sort in the scope header with a total count | ClipKindFilter.swift:7-32; LibraryView+Browsing.swift:27-33; GRDBClipboardStore.swift:441 | ClipKindFilter + chip UI exist; kind filter in query, ascending sort, total count new | GC-V4-5 | Store tests for order + count; UI chip test; snapshot | 8 | done — de38569, 8710ba1 (Q37: the panel's kind set; Newest / Oldest; the header reads the store total); LibraryBrowseTests + LibraryBrowseUITests + snapshot library |
 | GC-V4-14 | feature | pick | — | Peek | Colour hero: swatch band, HEX/RGB/HSL/Swift rows with copy, contrast cards (on white / on #1C1C1E), Convert ⇧⏎; fix 8-digit hex parser mismatch found in DevActions | ClipPeek.swift:495-506; DevActions.swift:238-249,:546-630 (:551 bug); ContrastingForeground.swift; Color+Hex.swift | convertColor exists; Swift format, contrastRatio, ⇧⏎ new | SY-V4-3, GC-V4-2, GC-16 | Unit: formats, ratios (#008080 = 4.77/3.56), 8-digit hex parity; UI seeded colour clip; snapshot | 5 | done — 179ea87, d3e4bbe, 9ac2ba8, 2c818c1 (Q29: dock is Paste into <App> · Plain · Convert ⇧⏎ · Pin · Board; ratios truncated to one decimal, AA / AA Large / below AA; Swift with 3 trimmed decimals); ColorValueTests + ContrastTokenTests + DevActionsTests + PeekColorUITests + snapshots panel-color-peek |
-| GC-V4-15 | feature | pick | — | iPhoneSurfaces | Share sheet shows what will be saved: preview, title, board chips + New board, Pin it, Save, footer; 'Add to board' header 16/8 pt; 'Save instantly' setting keeps today's path | ShareViewController.swift:15-101; SharedInbox.swift:63-66; IOSAppModel.swift:1061; IOSSettingsView.swift:51-57; project.yml:459 | Extraction + sealed inbox exist; sheet, PreparedCapture fields, drain, GanchoShare string catalog new | GC-V5-2 | Unit: PreparedCapture round-trip + drain; snapshot; device share; memory check | 13 | blocked: Q53 |
+| GC-V4-15 | feature | pick | — | iPhoneSurfaces | Share sheet shows what will be saved: preview, title, board chips + New board, Pin it, Save, footer; 'Add to board' header 16/8 pt; 'Save instantly' setting keeps today's path | ShareViewController.swift:15-101; SharedInbox.swift:63-66; IOSAppModel.swift:1061; IOSSettingsView.swift:51-57; project.yml:459 | Extraction + sealed inbox exist; sheet, PreparedCapture fields, drain, GanchoShare string catalog new | GC-V5-2 | Unit: PreparedCapture round-trip + drain; snapshot; device share; memory check | 13 | done — 41dfed7, 4cf1d95, e09f578 (Q53: the sharing app's title; a sealed board list; the sheet by default; no footer); ShareChoicesTests + ShareChoicesPlanTests + ShareSheetUITests (Safari end to end) + captures |
 | GC-V4-16 | feature | pick | — | iPhoneSurfaces | Large widget: 6 rows, board chips (10 pt below header, 12 pt above list), rows 8 pt apart, sync age, masked countdown, Save + Open | RecentClipsWidget.swift:16-125; WidgetClips.swift:34-89 | Small/medium, masking, Save intent exist; large layout, chip intent, last-sync date new | GC-V7-1, GC-V6-8 | Unit: entry; snapshot .systemLarge measuring 10/12/8 | 13 | blocked: Q54 |
 | GC-V4-17 | feature | pick | — | iPhoneSurfaces | Live Activity 'Copy again' + 'Open in Gancho'; ends on next copy | ClipLiveActivity.swift:17-77; ClipActivity.swift:10-26; ClipActivityController.swift:24-58 | Activity, masking, 3-min end exist; clip id in state, LiveActivityIntent new | GC-V6-8 | Unit: intent eligibility; device test | 13 | blocked: Q55 |
 | GC-V4-18 | feature | pick | — | iPhoneSurfaces | Text in image on iPhone: regions, per-line copy, secret line held back, Copy all · N, Save text, Translate | ManualImageTextService.swift; ImageTextReading.swift; ManualOCRSession.swift; ClipDetailView.swift:287-306 | OCR stack exists in packages; iOS views + per-line hold-back new | GC-27, GC-V5-2 | Unit: per-line sensitivity; UI seeded; snapshot | 13 | blocked: Q32, Q56 |
@@ -440,7 +448,7 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
   - Should ⌃⌘V get a default?
   - Recipes are documented as copy-only. May they paste?
 - **Q31 GC-12 saved prompts.** Saving a prompt as a recipe breaks the deterministic recipe contract. Add a new step kind, or a separate list of saved prompts?
-- **Q32 OCR behaviour.** OCR runs only on ⇧⌘C and auto-copies; the boards show it read on peek open with "Clipboard unchanged". Also, the per-line hold-back is new. Which behaviour?
+- **Q32 OCR behaviour — RESOLVED for iPhone 2026-10-30: read on open, no auto-copy, per-line hold-back** (the Mac keeps ⇧⌘C). OCR runs only on ⇧⌘C and auto-copies; the boards show it read on peek open with "Clipboard unchanged". Also, the per-line hold-back is new. Which behaviour?
 - **Q33 — RESOLVED 2026-10-24: the app opens its own menu at the helper's icon.** GC-24. The helper process owns the menu and is content-free. Which approach?
   - The main app shows its own menu at the helper's button.
   - Widen the bridge (this breaks its one-preview rule).
@@ -502,14 +510,14 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
   - Where does Paste go in compact layouts?
   - Is `Select` in scope?
 - **Q52 GC-34 — RESOLVED 2026-10-25/26: hero and rows drag; no hint (no filler copy).** Do rows drag too? Is the drag hint permanent or a one-time tip?
-- **Q53 GC-V4-15 share sheet.**
+- **Q53 GC-V4-15 share sheet — RESOLVED 2026-10-30: the sharing app's title; a sealed board snapshot; the sheet by default.**
   - Where does the title come from inside the extension?
   - How does the extension read the board list?
   - What is the default of "Save instantly"?
-- **Q54 GC-V4-16.** Which boards get chips? Masked row text?
-- **Q55 GC-V4-17.** "Copy again" for a secret from the lock screen: hide it, or require unlock?
-- **Q56 GC-V4-18.** Pro enrichment already stores OCR text, so the footer "nothing is stored" is untrue. Change the footer or the behaviour?
-- **Q57 GC-V4-19.** Is one row marked inserted, or every inserted row?
+- **Q54 GC-V4-16 — RESOLVED 2026-10-30: All + Favorites + boards that fit; the iPhone's masked row.** Which boards get chips? Masked row text?
+- **Q55 GC-V4-17 — RESOLVED 2026-10-30: not offered for a secret.** "Copy again" for a secret from the lock screen: hide it, or require unlock?
+- **Q56 GC-V4-18 — RESOLVED 2026-10-30: read fresh on open, nothing stored, no footer.** Pro enrichment already stores OCR text, so the footer "nothing is stored" is untrue. Change the footer or the behaviour?
+- **Q57 GC-V4-19 — RESOLVED 2026-10-30: every row inserted into the current field.** Is one row marked inserted, or every inserted row?
 
 ### Novel features
 
@@ -568,6 +576,9 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 - **Found in Phase 12, not caused by it:** the iPad history marks its selected row with the system's full accent fill and white text, where the board draws a 14 % wash; the row's grey source line reads poorly on it. The List's native selection (which gives ↑↓ for free) is kept; restyling it is for the row-layout pass above.
 - **Found in Phase 12, testing note:** the iPad simulator drops the first synthesized key event after launch (the same on `main`), so the ⌘F test sends the shortcut once more when focus has not arrived. iOS exposes keyboard focus to UI tests only through key-value coding.
 - **Found in Phase 12, resolved there:** a link shared or dragged left Gancho as plain text only; it now goes as `public.url` first (a Notes link, a Mail anchor), its text after.
+- **Found in Phase 13, resolved there (privacy review):** the share sheet could have prefilled a secret as the title (some apps hand the shared text over as the item's content text) and previewed a plain-text key unmasked. The suggested title is now never the shared text, a secret the extension's detector sees previews masked and takes no title, and a protected clip takes no title or pin when the app applies the choices.
+- **Found in Phase 13, resolved there:** the app published the board list only from one refresh path, so boards created by other paths missed the share sheet; it now publishes whenever its boards change.
+- **Found in Phase 13, testing note:** XCUITest drives the share extension through Safari (its sheet shows up in Safari's element tree); a share sheet opened from Gancho's own Share button is not visible to XCUITest.
 - **Found in Phase 12, kept on purpose:** on a link's card, a long press on the URL line selects text (part of a URL can still be copied); the rest of the card lifts the link. The drag test grabs the card by its host.
 - **Found in Phase 12, not changed (privacy review note):** a link that carries credentials or a token in its query lifts and shares like any link, as its plain text already did; flagging such URLs belongs at capture time, not in drag.
 - **Found in Phase 12, testing note:** XCUITest cannot drop into another app, so the drag test drops on Gancho's own search field (a system text field accepts text drops). A secret delivers nothing there; whether it lifts at all is covered by the drag rule's unit tests, since safe delivery also refuses it.

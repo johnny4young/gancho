@@ -1,3 +1,4 @@
+import ClipboardCore
 import GanchoAppCore
 import GanchoDesign
 import GanchoKit
@@ -70,6 +71,7 @@ extension IOSSettingsView {
             ) {
                 Text("On").foregroundStyle(.secondary)
             }
+            ShareSheetInstantToggle()
             Link(destination: URL(string: "https://gancho.app/shortcuts")!) {
                 captureRow(
                     "Shortcuts & Action Button", systemImage: "bolt",
@@ -120,5 +122,17 @@ extension IOSSettingsView {
             Spacer(minLength: 0)
             trailing()
         }
+    }
+}
+
+/// The share sheet shows what it will save; this switch brings back the
+/// blind instant save. The extension reads it from the App Group.
+private struct ShareSheetInstantToggle: View {
+    @State private var on = ShareSheetPreference.savesInstantly()
+
+    var body: some View {
+        Toggle("Save instantly from the share sheet", isOn: $on)
+            .onChange(of: on) { _, value in ShareSheetPreference.setSavesInstantly(value) }
+            .accessibilityIdentifier("settings-share-instant")
     }
 }
