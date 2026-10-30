@@ -10,7 +10,7 @@ An image whose text Gancho already recognized shows **Use recognized text** in t
 
 Only that text is shared. Copying and grants never include the image or its file, and a granted client sees only the image's ID, type and capture time: its title, preview, pin state and source app stay hidden. Recognized text that reads as a secret is protected and cannot be chosen. A grant stores a SHA-256 digest of the reviewed text. If Gancho recognizes the image again and the text changes, the grant stops returning it, search stops matching it, and the review asks you to choose it again. An image without recognized text stays incompatible.
 
-Over MCP, `get_clip` and `paste_stack` label that text with `"representation": "recognizedText"`, and the hidden fields are omitted from the response rather than sent empty. Grants created before this change, or for clips you did not choose this way, behave exactly as before and never return recognized text.
+Over MCP, `get_clip` and `paste_stack` label that text with `"representation": "recognizedText"`, and the hidden fields are omitted from the response rather than sent empty. `search_clips` matches a chosen image only on its reviewed text, never on its hidden title or preview, and under metadata-only access it matches no text of a chosen image at all. Grants created before this change, or for clips you did not choose this way, behave exactly as before and never return recognized text.
 
 ## Reviewed images
 
@@ -18,7 +18,7 @@ Any image in the review also offers **Share image**. Gancho prepares a copy for 
 
 Choosing the pixels never shares the recognized text, and choosing the text never shares the pixels; you can choose both. Markdown cannot carry pixels, so a context that shares any image can be granted but not copied.
 
-The reviewed copy is stored encrypted with the rest of the store, under a name derived from its SHA-256 digest, and the grant records that digest. `get_clip` returns the JSON block followed by an MCP image block with exactly those bytes. If the file is missing or no longer matches, the JSON reports the image as withheld and no image block is sent; the original image is never sent instead. `paste_stack` is text only, so an image shared only as pixels is skipped. Revoking a grant, creating a new one, or the next launch deletes reviewed copies that no active grant can still serve.
+The reviewed copy is stored encrypted with the rest of the store, under a name derived from its SHA-256 digest, and the grant records that digest. `get_clip` returns the JSON block followed by an MCP image block with exactly those bytes. If the file is missing or no longer matches, the JSON reports the image as withheld and no image block is sent; the original image is never sent instead. `paste_stack` is text only, so an image shared only as pixels is skipped. Search never matches the recognized text of an image shared only as pixels; an empty query still lists it. Revoking a grant, creating a new one, or the next launch deletes reviewed copies that no active grant can still serve.
 
 Whether a client actually shows the image to its model is up to that client.
 

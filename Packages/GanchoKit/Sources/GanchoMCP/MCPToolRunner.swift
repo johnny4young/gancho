@@ -132,6 +132,9 @@ public struct MCPToolRunner: Sendable {
 
         let limit = min(max(args.limit ?? 25, 1), 100)
         let currentTime = now()
+        let searchable = try await searchableIDs(in: pack, grant: grant)
+        let reviewed: Set<UUID> =
+            searchable?.filter { !pack.representations(of: $0).isEmpty } ?? []
         var query = ClipSearchQuery(
             text: args.query,
             mode: Self.mode(args.mode),
@@ -139,7 +142,7 @@ public struct MCPToolRunner: Sendable {
             dateRange: pack.timeScope.lowerBound(relativeTo: currentTime).map { $0...currentTime },
             boardID: pack.boardID,
             markedOnly: grant.scope == .boards,
-            includedIDs: try await searchableIDs(in: pack, grant: grant),
+            includedIDs: searchable?.subtracting(reviewed),
             excludesSensitive: true,
             metadataOnly: metadataOnly)
         // A selected board is already stronger than broad "marked" scope and
@@ -147,6 +150,7 @@ public struct MCPToolRunner: Sendable {
         if pack.boardID != nil { query.markedOnly = false }
 
         var hits = try await store.search(query, limit: limit)
+        hits += try await reviewedHits(query, among: reviewed, in: pack, limit: limit)
         hits.removeAll { item in
             !pack.isReviewedRevision(item) || ClipSafePresentation.requiresMasking(item)
                 || (!pack.clipIDs.isEmpty && !pack.clipIDs.contains(item.id))
@@ -155,7 +159,7 @@ public struct MCPToolRunner: Sendable {
         for hit in hits where try await hasReviewedRepresentation(hit.id, in: pack, grant: grant) {
             current.append(hit)
         }
-        hits = current
+        hits = Array(current.prefix(limit))
 
         let summaries = hits.map { ClipSummary(item: $0, in: pack) }
         await record(.searchClips, grant: grant, count: summaries.count)
@@ -489,5 +493,21 @@ extension MCPToolRunner {
         let json = ok(detail)
         guard let granted, let image else { return json }
         return MCPToolResult(content: json.content + [.image(image, mimeType: granted.mimeType)])
+    }
+
+    /// Reviewed clips may match only on the text the user reviewed: never on
+    /// their hidden title or preview, never on an image's unshared OCR text,
+    /// and not at all under metadata scope. An empty query still lists them.
+    /// Relevance scores of separate queries do not compare, so these follow.
+    func reviewedHits(
+        _ query: ClipSearchQuery, among ids: Set<UUID>, in pack: MCPContextPack, limit: Int
+    ) async throws -> [ClipItem] {
+        let hasText = !query.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let matchable = hasText ? ids.filter { pack.sharesRecognizedText(of: $0) } : ids
+        guard !matchable.isEmpty else { return [] }
+        var scoped = query
+        scoped.includedIDs = matchable
+        scoped.bodyOnly = true
+        return try await store.search(scoped, limit: limit)
     }
 }

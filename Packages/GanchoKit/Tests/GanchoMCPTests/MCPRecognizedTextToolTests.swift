@@ -164,6 +164,32 @@ struct MCPRecognizedTextToolTests {
         #expect(try await search("workers").isEmpty)
     }
 
+    @Test("Search never matches a reviewed image's hidden title, and ordinary clips still match")
+    func searchIgnoresHiddenTitle() async throws {
+        let fixture = try await makeFixture()
+        let runner = runner(fixture)
+        func search(_ query: String) async throws -> [String?] {
+            let result = await runner.call(
+                tool: "search_clips", arguments: .object(["query": .string(query)]))
+            return try resultJSON(result)["clips"]?.arrayValue?.map { $0["id"]?.stringValue } ?? []
+        }
+        #expect(try await search("roadmap").isEmpty, "the title is hidden, so it cannot match")
+        #expect(try await search("workers") == [fixture.image.id.uuidString])
+        #expect(try await search("Deploy") == [fixture.note.id.uuidString])
+    }
+
+    @Test("Under metadata scope a reviewed image matches no text at all")
+    func metadataSearchSkipsReviewedImages() async throws {
+        let fixture = try await makeFixture()
+        let runner = runner(fixture, scope: .metadata)
+        for query in ["workers", "roadmap", "Image"] {
+            let result = await runner.call(
+                tool: "search_clips", arguments: .object(["query": .string(query)]))
+            #expect(
+                try resultJSON(result)["clips"]?.arrayValue?.isEmpty == true, "\(query)")
+        }
+    }
+
     @Test("Text re-recognized while a search runs is filtered from its results")
     func searchRechecksHitsAfterTheQuery() async throws {
         let fixture = try await makeFixture()

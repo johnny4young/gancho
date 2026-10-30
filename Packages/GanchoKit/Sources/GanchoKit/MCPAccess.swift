@@ -88,6 +88,10 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
         clipRepresentations?[id.uuidString] ?? []
     }
 
+    public func sharesRecognizedText(of id: UUID) -> Bool {
+        representations(of: id).contains { $0.reviewedImage == nil }
+    }
+
     public func reviewedImage(of id: UUID) -> MCPReviewedImage? {
         representations(of: id).lazy.compactMap(\.reviewedImage).first
     }

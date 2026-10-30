@@ -125,6 +125,20 @@ struct MCPReviewedImageToolTests {
         #expect(try resultJSON(result)["image"] == nil)
     }
 
+    @Test("Search never matches the OCR text of an image shared only as pixels")
+    func searchIgnoresUnsharedText() async throws {
+        let fixture = try await makeFixture()
+        let runner = runner(fixture, imageOnly(fixture))
+        func search(_ query: String) async throws -> [String?] {
+            let result = await runner.call(
+                tool: "search_clips", arguments: .object(["query": .string(query)]))
+            return try resultJSON(result)["clips"]?.arrayValue?.map { $0["id"]?.stringValue } ?? []
+        }
+        #expect(try await search("workers").isEmpty, "the recognized text was not shared")
+        #expect(try await search("roadmap").isEmpty, "the title is hidden")
+        #expect(try await search("") == [fixture.image.id.uuidString], "it can still be listed")
+    }
+
     @Test("paste_stack skips an image whose only share is its pixels")
     func pasteStackSkipsImageOnlyShares() async throws {
         let fixture = try await makeFixture()
