@@ -253,7 +253,7 @@ struct SelectedContextReview: View {
         parts = []
         approvedRecognizedText = []
         sharedImages = [:]
-        imageTasks.values.forEach { $0.cancel() }
+        for task in imageTasks.values { task.cancel() }
         imageTasks = [:]
         preparingImages = []
         imageFailed = false

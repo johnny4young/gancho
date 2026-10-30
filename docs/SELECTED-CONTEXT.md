@@ -14,7 +14,7 @@ Over MCP, `get_clip` and `paste_stack` label that text with `"representation": "
 
 ## Reviewed images
 
-Any image in the review also offers **Share image**. Gancho prepares a copy for review: the first frame, rotated upright, at most 1,568 pixels on its longest side, re-encoded as PNG (or JPEG when PNG would exceed 2 MB) with no EXIF, GPS or other metadata from the original. The review shows exactly those pixels. Images that declare more than 50 million pixels are refused before anything is decoded.
+Any image in the review also offers **Share image**. Gancho prepares a copy for review: the first frame, rotated upright, at most 1,568 pixels on its longest side, re-encoded as PNG (or JPEG when PNG would exceed 2 MB, with transparent areas turned white) with no EXIF, GPS or other metadata from the original. The review shows exactly those pixels. Images that declare more than 50 million pixels are refused before anything is decoded.
 
 Choosing the pixels never shares the recognized text, and choosing the text never shares the pixels; you can choose both. Markdown cannot carry pixels, so a context that shares any image can be granted but not copied.
 

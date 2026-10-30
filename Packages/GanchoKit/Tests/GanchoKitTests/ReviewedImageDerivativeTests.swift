@@ -8,8 +8,9 @@ import UniformTypeIdentifiers
 
 /// Synthetic images only; every fixture is drawn in memory.
 enum ReviewedImageFixture {
+    /// `transparentRows` clears that many rows at the top to fully transparent.
     static func image(
-        width: Int, height: Int, noise: Bool = false
+        width: Int, height: Int, noise: Bool = false, transparentRows: Int = 0
     ) -> CGImage {
         let context = CGContext(
             data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
@@ -21,6 +22,7 @@ enum ReviewedImageFixture {
                 state = state &* 1_664_525 &+ 1_013_904_223
                 pixels[index] = state | 0xFF00_0000
             }
+            for index in 0..<(context.bytesPerRow / 4 * transparentRows) { pixels[index] = 0 }
         } else {
             context.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1))
             context.fill(CGRect(x: 0, y: 0, width: width, height: height))
@@ -37,6 +39,22 @@ enum ReviewedImageFixture {
         CGImageDestinationAddImage(destination, image, properties as CFDictionary)
         precondition(CGImageDestinationFinalize(destination))
         return output as Data
+    }
+
+    /// RGBA of the top-left pixel after decoding, as 0…255 components.
+    static func topLeftPixel(of data: Data) -> [UInt8] {
+        let source = CGImageSourceCreateWithData(data as CFData, nil)!
+        let image = CGImageSourceCreateImageAtIndex(source, 0, nil)!
+        var pixel = [UInt8](repeating: 0, count: 4)
+        let context = CGContext(
+            data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        // Draw so the image's top-left pixel lands on the 1×1 canvas.
+        context.draw(
+            image,
+            in: CGRect(x: 0, y: 1 - image.height, width: image.width, height: image.height))
+        return pixel
     }
 
     static func properties(of data: Data) -> [CFString: Any] {
@@ -110,6 +128,19 @@ struct ReviewedImageDerivativeTests {
         let derivative = try ReviewedImageDerivative.make(from: source)
         #expect(derivative.mimeType == "image/jpeg")
         #expect(derivative.data.count <= ReviewedImageDerivative.maximumEncodedBytes)
+    }
+
+    /// ImageIO's JPEG encoder flattens alpha onto white; this pins that behavior so a
+    /// change in the encoder cannot start sending black regions unnoticed.
+    @Test("Transparent pixels turn white, not black, when the fallback is JPEG")
+    func jpegFallbackComposesOnWhite() throws {
+        let source = Fixture.encode(
+            Fixture.image(width: 1_200, height: 1_200, noise: true, transparentRows: 200))
+        #expect(Fixture.topLeftPixel(of: source)[3] == 0, "the source corner is transparent")
+        let derivative = try ReviewedImageDerivative.make(from: source)
+        #expect(derivative.mimeType == "image/jpeg")
+        let corner = Fixture.topLeftPixel(of: derivative.data)
+        #expect(corner.prefix(3).allSatisfy { $0 >= 240 }, "got \(corner)")
     }
 
     @Test("A header that declares too many pixels is refused before decoding")
