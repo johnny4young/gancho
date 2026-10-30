@@ -176,6 +176,26 @@ signed direct-download DMG must build with re-signed helpers and pass
 
 ## October 2026 maintenance review
 
+### Sparkle 2.10.1 patch candidate
+
+The [official 2.10.1 release](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.1)
+fixes premature installation from NFC Unicode paths, release-note URL whitespace,
+custom-prefix appcast parsing, and localization/appcast-generation details. Its
+macOS 12 minimum remains below Gancho's macOS 26 floor. The candidate updates
+the framework download and canary pin together; its tarball SHA-256 matches the
+official release asset digest:
+`1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27`.
+
+Checksum/download and synthetic cache tests are independent of release signing.
+They do not satisfy the signed direct-download DMG gate above. Before merging,
+build that DMG with a matching Developer ID provisioning profile, re-sign the
+nested Sparkle helpers, and pass `codesign --verify --deep --strict`. An Apple
+Development-signed fixture is development evidence only. Keep the signed updater
+smoke gate before release; do not publish an appcast or release to validate this
+candidate. KeyboardShortcuts remains on its existing exact-version hold.
+
+### Earlier maintenance baseline
+
 SQLCipher and Sparkle adopt the stable releases reported by the October 5
 canary. KeyboardShortcuts 3.1.0 is deferred after native validation; its
 intentional hold does not suppress the canary's newer-release warning. This
