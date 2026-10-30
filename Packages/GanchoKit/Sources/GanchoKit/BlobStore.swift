@@ -27,6 +27,17 @@ public struct BlobStore: Sendable {
         directory.appendingPathComponent("thumbnails", isDirectory: true)
     }
 
+    /// Reviewed MCP image derivatives. They belong to grants, not clip rows, so
+    /// the clip orphan sweep must never treat the directory as a blob.
+    static let reviewedImagesDirectoryName = "reviewed-images"
+
+    var reviewedImages: BlobStore {
+        BlobStore(
+            directory: directory.appendingPathComponent(
+                Self.reviewedImagesDirectoryName, isDirectory: true),
+            encryptionKeyData: encryptionKeyData)
+    }
+
     /// Thumbnail bounding box in pixels. 256 covers list rows on Retina.
     public static let thumbnailMaxPixelSize = 256
 
@@ -177,7 +188,8 @@ public struct BlobStore: Sendable {
             (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
         var removed = 0
         for name in files
-        where name != "thumbnails" && !name.hasPrefix(".")
+        where name != "thumbnails" && name != Self.reviewedImagesDirectoryName
+            && !name.hasPrefix(".")
             && !referenced.contains(name) && isOlder(name, than: cutoff)
         {
             delete(hash: name)

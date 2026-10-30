@@ -12556,6 +12556,102 @@
           }
         }
       }
+    },
+    "Share image": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share image"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir imagen"
+          }
+        }
+      }
+    },
+    "Image shared": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image shared"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagen compartida"
+          }
+        }
+      }
+    },
+    "Image without recognized text": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image without recognized text"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagen sin texto reconocido"
+          }
+        }
+      }
+    },
+    "Couldn’t prepare this image. Remove it or share its text instead.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t prepare this image. Remove it or share its text instead."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo preparar esta imagen. Quítala o comparte su texto."
+          }
+        }
+      }
+    },
+    "Images are shared only through MCP access, not copied.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Images are shared only through MCP access, not copied."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las imágenes solo se comparten con acceso MCP, no se copian."
+          }
+        }
+      }
+    },
+    "Reviewed image, %lld × %lld pixels": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reviewed image, %lld × %lld pixels"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagen revisada, %lld × %lld píxeles"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
