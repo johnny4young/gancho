@@ -19,8 +19,7 @@ struct MCPRecognizedTextToolTests {
         let store = try MCPTestStore.make()
         let reviewedAt = Date.now.addingTimeInterval(-60)
         let image = ClipItem(
-            updatedAt: reviewedAt, kind: .image, title: "Private roadmap",
-            preview: "Hidden screenshot",
+            updatedAt: reviewedAt, kind: .image, title: "Private roadmap", preview: "Image",
             contentHash: "wire-image", sourceAppBundleID: "com.example.private", isPinned: true)
         try await store.insert(
             image,
@@ -165,6 +164,32 @@ struct MCPRecognizedTextToolTests {
         #expect(try await search("workers").isEmpty)
     }
 
+    @Test("Search never matches a reviewed image's hidden title, and ordinary clips still match")
+    func searchIgnoresHiddenTitle() async throws {
+        let fixture = try await makeFixture()
+        let runner = runner(fixture)
+        func search(_ query: String) async throws -> [String?] {
+            let result = await runner.call(
+                tool: "search_clips", arguments: .object(["query": .string(query)]))
+            return try resultJSON(result)["clips"]?.arrayValue?.map { $0["id"]?.stringValue } ?? []
+        }
+        #expect(try await search("roadmap").isEmpty, "the title is hidden, so it cannot match")
+        #expect(try await search("workers") == [fixture.image.id.uuidString])
+        #expect(try await search("Deploy") == [fixture.note.id.uuidString])
+    }
+
+    @Test("Under metadata scope a reviewed image matches no text at all")
+    func metadataSearchSkipsReviewedImages() async throws {
+        let fixture = try await makeFixture()
+        let runner = runner(fixture, scope: .metadata)
+        for query in ["workers", "roadmap", "Image"] {
+            let result = await runner.call(
+                tool: "search_clips", arguments: .object(["query": .string(query)]))
+            #expect(
+                try resultJSON(result)["clips"]?.arrayValue?.isEmpty == true, "\(query)")
+        }
+    }
+
     @Test("Text re-recognized while a search runs is filtered from its results")
     func searchRechecksHitsAfterTheQuery() async throws {
         let fixture = try await makeFixture()
@@ -185,7 +210,7 @@ struct MCPRecognizedTextToolTests {
         arguments: ["fuzzy", "exact", "regex"])
     func searchIgnoresHiddenMetadata(mode: String) async throws {
         let fixture = try await makeFixture()
-        for word in ["Private", "Hidden", "Private workers"] {
+        for word in ["Private", "Image", "Private workers"] {
             let result = await runner(fixture).call(
                 tool: "search_clips",
                 arguments: .object([
@@ -201,7 +226,7 @@ struct MCPRecognizedTextToolTests {
         arguments: ["fuzzy", "exact"])
     func metadataSearchHasNoImageText(mode: String) async throws {
         let fixture = try await makeFixture()
-        for word in ["Private", "Hidden", "workers"] {
+        for word in ["Private", "Image", "workers"] {
             let result = await runner(fixture, scope: .metadata).call(
                 tool: "search_clips",
                 arguments: .object(["query": .string(word), "mode": .string(mode)]))

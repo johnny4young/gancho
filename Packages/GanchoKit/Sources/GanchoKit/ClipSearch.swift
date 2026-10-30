@@ -39,10 +39,9 @@ public struct ClipSearchQuery: Sendable, Equatable {
     public var excludesSensitive: Bool
     /// Match only title and preview, never the stored body.
     public var metadataOnly: Bool
-    /// These clips expose only their stored text representation. Their title
-    /// and preview cannot establish a match. With metadata-only scope they
-    /// have no searchable fields. Applied before search ranking and LIMIT.
-    public var contentOnlyIDs: Set<UUID> = []
+    /// Match only the stored body, never title or preview. Combined with
+    /// `metadataOnly`, no field can match.
+    public var bodyOnly: Bool
 
     public init(
         text: String,
@@ -57,7 +56,8 @@ public struct ClipSearchQuery: Sendable, Equatable {
         pinnedOnly: Bool = false,
         includedIDs: Set<UUID>? = nil,
         excludesSensitive: Bool = false,
-        metadataOnly: Bool = false
+        metadataOnly: Bool = false,
+        bodyOnly: Bool = false
     ) {
         self.text = text
         self.mode = mode
@@ -72,6 +72,7 @@ public struct ClipSearchQuery: Sendable, Equatable {
         self.includedIDs = includedIDs
         self.excludesSensitive = excludesSensitive
         self.metadataOnly = metadataOnly
+        self.bodyOnly = bodyOnly
     }
 
     /// Builds the FTS5 MATCH expression. Every token is double-quoted (with
@@ -81,6 +82,7 @@ public struct ClipSearchQuery: Sendable, Equatable {
     /// the quotes, the only place FTS5 honors it.
     func ftsMatchExpression() -> String? {
         guard let expression = unscopedMatchExpression() else { return nil }
+        if bodyOnly { return "{contentText} : (\(expression))" }
         return metadataOnly ? "{title preview} : (\(expression))" : expression
     }
 

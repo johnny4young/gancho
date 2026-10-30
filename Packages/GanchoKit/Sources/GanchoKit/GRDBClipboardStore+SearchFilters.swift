@@ -2,25 +2,6 @@ import Foundation
 import GRDB
 
 extension GRDBClipboardStore {
-    /// Restrict recognized-text representations in the same SQL query as
-    /// matching, before BM25 and LIMIT. Filtering serialized hits is too late:
-    /// a hidden title could already have displaced a permitted match.
-    static func appendRepresentationMatch(
-        for query: ClipSearchQuery, match: String, to sql: inout String,
-        arguments: inout [any DatabaseValueConvertible]
-    ) {
-        guard !query.contentOnlyIDs.isEmpty else { return }
-        let ids = query.contentOnlyIDs.map(\.uuidString).sorted()
-        let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ",")
-        sql += " AND (clip.id NOT IN (\(placeholders))"
-        arguments.append(contentsOf: ids)
-        if !query.metadataOnly {
-            sql += " OR clip.rowid IN (SELECT rowid FROM clip_fts WHERE clip_fts MATCH ?)"
-            arguments.append("contentText : (\(match))")
-        }
-        sql += ")"
-    }
-
     /// Shared WHERE clauses for metadata and authorization filters. Keeping
     /// these predicates in SQL ensures excluded rows never consume LIMIT.
     static func appendFilters(

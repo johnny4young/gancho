@@ -10,9 +10,7 @@ An image whose text Gancho already recognized shows **Use recognized text** in t
 
 Only that text is shared. Copying and grants never include the image or its file, and a granted client sees only the image's ID, type and capture time: its title, preview, pin state and source app stay hidden. Recognized text that reads as a secret is protected and cannot be chosen. A grant stores a SHA-256 digest of the reviewed text. If Gancho recognizes the image again and the text changes, the grant stops returning it, search stops matching it, and the review asks you to choose it again. An image without recognized text stays incompatible.
 
-Over MCP, `get_clip` and `paste_stack` label that text with `"representation": "recognizedText"`, and the hidden fields are omitted from the response rather than sent empty. Grants created before this change, or for clips you did not choose this way, behave exactly as before and never return recognized text.
-
-`search_clips` can match an approved image only through its reviewed recognized text, never its hidden title or preview. This restriction applies before ranking and the result limit. Metadata-only scope has no searchable text fields for that representation; regex still requires content access. Ordinary text clips keep their existing search behavior.
+Over MCP, `get_clip` and `paste_stack` label that text with `"representation": "recognizedText"`, and the hidden fields are omitted from the response rather than sent empty. `search_clips` matches a chosen image only on its reviewed text, never on its hidden title or preview, and under metadata-only access it matches no text of a chosen image at all. Grants created before this change, or for clips you did not choose this way, behave exactly as before and never return recognized text.
 
 Sharing recognized text is not in a published release yet. The output preserves excerpt text in dynamically sized fences; quotation is not a guarantee that an external model will ignore hostile instructions.
 
