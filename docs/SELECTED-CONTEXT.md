@@ -8,9 +8,9 @@ The maximum is 100 clips and 64 KiB of UTF-8 output, including Markdown headers 
 
 An image whose text Gancho already recognized shows **Use recognized text** in the review. Until you choose it, the image blocks copying and granting like any other incompatible clip. Once chosen, the full recognized text appears in the preview under a heading that marks it as recognized from an image: it is OCR output, not the original text.
 
-Only that text is shared as content. Copying and grants never include the image or its file. Like every selected clip, the image's summary (title, preview, type, capture time and source app) is still visible to a granted client. Recognized text that reads as a secret is protected and cannot be chosen. A grant stores a SHA-256 digest of the reviewed text. If Gancho recognizes the image again and the text changes, the grant stops returning it, search stops matching it, and the review asks you to choose it again. An image without recognized text stays incompatible.
+Only that text is shared. Copying and grants never include the image or its file, and a granted client sees only the image's ID, type and capture time: its title, preview, pin state and source app stay hidden. Recognized text that reads as a secret is protected and cannot be chosen. A grant stores a SHA-256 digest of the reviewed text. If Gancho recognizes the image again and the text changes, the grant stops returning it, search stops matching it, and the review asks you to choose it again. An image without recognized text stays incompatible.
 
-Over MCP, `get_clip` and `paste_stack` label that text with `"representation": "recognizedText"`. Grants created before this change, or for clips you did not choose this way, behave exactly as before and never return recognized text.
+Over MCP, `get_clip` and `paste_stack` label that text with `"representation": "recognizedText"`, and the hidden fields are omitted from the response rather than sent empty. Grants created before this change, or for clips you did not choose this way, behave exactly as before and never return recognized text.
 
 Sharing recognized text is not in a published release yet. The output preserves excerpt text in dynamically sized fences; quotation is not a guarantee that an external model will ignore hostile instructions.
 

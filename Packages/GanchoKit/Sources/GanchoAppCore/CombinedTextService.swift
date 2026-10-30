@@ -97,11 +97,13 @@ public struct CombinedTextService: Sendable {
 
     /// Enrichment drops secret-looking OCR text when it stores it; text stored
     /// before a newer rule, or by any other writer, is checked again here.
+    /// Only selected context uses recognized text, so its smaller limit applies,
+    /// and it applies first: the detector's cost grows with the text.
     static func recognizedContent(
         _ text: String, detector: SensitiveDataDetector = SensitiveDataDetector()
     ) -> CombinedTextPart.Content {
-        if detector.detect(text) != nil { return .protected }
-        return text.utf8.count > maximumUTF8Bytes ? .tooLarge : .recognizedText(text)
+        guard text.utf8.count <= SelectedContextFormatter.maximumUTF8Bytes else { return .tooLarge }
+        return detector.detect(text) == nil ? .recognizedText(text) : .protected
     }
 
     public func compose(_ parts: [CombinedTextPart], separator: String) throws -> String? {

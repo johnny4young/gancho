@@ -32,10 +32,10 @@ struct PasteStackArgs: Decodable {
 /// the app shows in lists.
 struct ClipSummary: Encodable {
     let id: String
-    let title: String
-    let preview: String
+    let title: String?
+    let preview: String?
     let kind: String
-    let isPinned: Bool
+    let isPinned: Bool?
     let createdAt: Date
     let sourceApp: String?
 
@@ -47,6 +47,26 @@ struct ClipSummary: Encodable {
         isPinned = item.isPinned
         createdAt = item.createdAt
         sourceApp = item.sourceAppBundleID
+    }
+
+    /// A recognized-text grant shares the reviewed text and only the fields
+    /// that identify the clip; the review never showed the others.
+    init(recognizedTextOf item: ClipItem) {
+        id = item.id.uuidString
+        title = nil
+        preview = nil
+        kind = item.kind.rawValue
+        isPinned = nil
+        createdAt = item.createdAt
+        sourceApp = nil
+    }
+
+    init(item: ClipItem, in pack: MCPContextPack?) {
+        if pack?.representation(of: item.id) ?? .original == .original {
+            self.init(item: item)
+        } else {
+            self.init(recognizedTextOf: item)
+        }
     }
 }
 
@@ -80,7 +100,7 @@ struct CreatePinResult: Encodable {
 
 struct StackClip: Encodable {
     let id: String
-    let title: String
+    let title: String?
     let text: String
     var representation: ContentRepresentation?
 }

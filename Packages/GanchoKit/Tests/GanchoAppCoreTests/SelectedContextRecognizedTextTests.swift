@@ -6,7 +6,6 @@ import Testing
 @testable import GanchoAppCore
 
 @Suite("Selected context — recognized text from images")
-@MainActor
 struct SelectedContextRecognizedTextTests {
     private static let reviewedText = "Queue sits between API and workers"
 
@@ -69,9 +68,10 @@ struct SelectedContextRecognizedTextTests {
         #expect(try await load(fixture).last?.content == .protected)
     }
 
-    @Test("Recognized text over the byte limit is too large; text at the limit is offered")
+    @Test(
+        "Recognized text over the selected-context limit is too large; at the limit it is offered")
     func oversizedTextIsTooLarge() {
-        let limit = CombinedTextService.maximumUTF8Bytes
+        let limit = SelectedContextFormatter.maximumUTF8Bytes
         let atLimit = String(repeating: "a", count: limit)
         #expect(CombinedTextService.recognizedContent(atLimit) == .recognizedText(atLimit))
         #expect(CombinedTextService.recognizedContent(atLimit + "a") == .tooLarge)
@@ -109,6 +109,7 @@ struct SelectedContextRecognizedTextTests {
     }
 
     @Test("The grant carries representations only for approved images")
+    @MainActor
     func grantCarriesRepresentations() throws {
         let note = CombinedTextPart(id: UUID(), content: .text("Deploy note"))
         let image = CombinedTextPart(id: UUID(), content: .recognizedText(Self.reviewedText))
@@ -125,6 +126,7 @@ struct SelectedContextRecognizedTextTests {
     }
 
     @Test("Delivery binds the reviewed digest and the reviewed revisions")
+    @MainActor
     func deliveryBindsReviewedText() async throws {
         let fixture = try await makeFixture()
         let reviewed = try await load(fixture)
@@ -143,6 +145,7 @@ struct SelectedContextRecognizedTextTests {
     }
 
     @Test("Text re-recognized after review stops delivery and must be approved again")
+    @MainActor
     func rewrittenTextNeedsNewApproval() async throws {
         let fixture = try await makeFixture()
         let reviewed = try await load(fixture)
@@ -166,6 +169,7 @@ struct SelectedContextRecognizedTextTests {
     }
 
     @Test("Approvals survive a reload only for unchanged recognized text")
+    @MainActor
     func retainedApprovals() {
         let kept = UUID()
         let changed = UUID()

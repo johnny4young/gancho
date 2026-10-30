@@ -19,24 +19,26 @@ struct MCPRecognizedTextToolTests {
         let store = try MCPTestStore.make()
         let reviewedAt = Date.now.addingTimeInterval(-60)
         let image = ClipItem(
-            updatedAt: reviewedAt, kind: .image, title: "Diagram", preview: "Image",
-            contentHash: "wire-image")
+            updatedAt: reviewedAt, kind: .image, title: "Private roadmap", preview: "Image",
+            contentHash: "wire-image", sourceAppBundleID: "com.example.private", isPinned: true)
         try await store.insert(
             image,
             content: .binary(data: Data([0x89, 0x50, 0x4E, 0x47]), typeIdentifier: "public.png"))
         try await store.attachExtractedText(id: image.id, text: Self.reviewedText)
         let note = ClipItem(
-            updatedAt: reviewedAt, preview: "Deploy note", contentHash: "wire-note")
+            updatedAt: reviewedAt, title: "Deploy note", preview: "Deploy note",
+            contentHash: "wire-note", sourceAppBundleID: "com.example.notes")
         try await store.insert(note, content: .text("Deploy note body"))
         return Fixture(store: store, image: image, note: note)
     }
 
     private func runner(
-        _ fixture: Fixture, approvesImageText: Bool = true, store: (any MCPClipStore)? = nil
+        _ fixture: Fixture, approvesImageText: Bool = true, scope: MCPAccessScope = .all,
+        store: (any MCPClipStore)? = nil
     ) -> MCPToolRunner {
         let items = [fixture.image, fixture.note]
         let grant = MCPClientGrant(
-            clientName: "Wire fixture", scope: .all,
+            clientName: "Wire fixture", scope: scope,
             contextPack: MCPContextPack(
                 name: "Reviewed", clipIDs: Set(items.map(\.id)),
                 clipRevisions: Dictionary(
@@ -56,6 +58,16 @@ struct MCPRecognizedTextToolTests {
         result.content.map(\.text).joined()
     }
 
+    /// Only the identifying fields survive; the review never showed the rest.
+    private func expectIdentityOnly(_ summary: JSONValue?, of item: ClipItem) {
+        #expect(summary?["id"]?.stringValue == item.id.uuidString)
+        #expect(summary?["kind"]?.stringValue == "image")
+        #expect(summary?["createdAt"] != nil)
+        for hidden in ["title", "preview", "isPinned", "sourceApp"] {
+            #expect(summary?[hidden] == nil, "\(hidden) must stay hidden")
+        }
+    }
+
     @Test("get_clip returns the reviewed text, labelled as recognized text")
     func getClipReturnsRecognizedText() async throws {
         let fixture = try await makeFixture()
@@ -67,6 +79,17 @@ struct MCPRecognizedTextToolTests {
         #expect(json["representation"]?.stringValue == "recognizedText")
         #expect(json["contentWithheld"]?.boolValue == false)
         #expect(!wireText(result).contains("binary content"))
+        expectIdentityOnly(json["summary"], of: fixture.image)
+        #expect(!wireText(result).contains("Private roadmap"))
+    }
+
+    @Test("A metadata-scope read of an approved image hides the same fields")
+    func metadataReadHidesSummary() async throws {
+        let fixture = try await makeFixture()
+        let json = try resultJSON(
+            await getClip(fixture.image.id, with: runner(fixture, scope: .metadata)))
+        #expect(json["contentWithheld"]?.boolValue == true)
+        expectIdentityOnly(json["summary"], of: fixture.image)
     }
 
     @Test("get_clip of an ordinary text clip carries no representation label")
@@ -75,6 +98,8 @@ struct MCPRecognizedTextToolTests {
         let json = try resultJSON(await getClip(fixture.note.id, with: runner(fixture)))
         #expect(json["content"]?.stringValue == "Deploy note body")
         #expect(json["representation"] == nil)
+        #expect(json["summary"]?["title"]?.stringValue == "Deploy note")
+        #expect(json["summary"]?["sourceApp"]?.stringValue == "com.example.notes")
     }
 
     @Test("Re-recognized text is refused like a missing clip and never sent")
@@ -115,6 +140,7 @@ struct MCPRecognizedTextToolTests {
 
         #expect(json["combinedText"]?.stringValue == "Deploy note body\n\n\(Self.reviewedText)")
         #expect(clips.map { $0["representation"]?.stringValue } == [nil, "recognizedText"])
+        #expect(clips.map { $0["title"]?.stringValue } == ["Deploy note", nil])
     }
 
     @Test("search_clips matches reviewed text, and nothing once the text is re-recognized")
@@ -128,6 +154,11 @@ struct MCPRecognizedTextToolTests {
         }
 
         #expect(try await search("workers") == [fixture.image.id.uuidString])
+        let hit = try resultJSON(
+            await runner.call(
+                tool: "search_clips", arguments: .object(["query": .string("workers")]))
+        )["clips"]?.arrayValue?.first
+        expectIdentityOnly(hit, of: fixture.image)
         try await fixture.store.attachExtractedText(id: fixture.image.id, text: Self.replacement)
         #expect(try await search("payroll").isEmpty, "unreviewed text must not be searchable")
         #expect(try await search("workers").isEmpty)

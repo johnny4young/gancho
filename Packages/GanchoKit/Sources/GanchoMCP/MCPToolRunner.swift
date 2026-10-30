@@ -120,7 +120,7 @@ public struct MCPToolRunner: Sendable {
                 query.markedOnly = grant.scope == .boards
                 var hits = try await store.search(query, limit: min(max(args.limit ?? 25, 1), 100))
                 hits.removeAll(where: ClipSafePresentation.requiresMasking)
-                let summaries = hits.map(ClipSummary.init)
+                let summaries = hits.map { ClipSummary(item: $0) }
                 await record(.searchClips, grant: grant, count: summaries.count)
                 return ok(
                     SearchResult(
@@ -157,7 +157,7 @@ public struct MCPToolRunner: Sendable {
         }
         hits = current
 
-        let summaries = hits.map(ClipSummary.init)
+        let summaries = hits.map { ClipSummary(item: $0, in: pack) }
         await record(.searchClips, grant: grant, count: summaries.count)
         return ok(
             SearchResult(clips: summaries, count: summaries.count, scope: grant.scope.rawValue))
@@ -190,7 +190,9 @@ public struct MCPToolRunner: Sendable {
             // records that the body itself was never exposed.
             await record(.getClip, grant: grant, count: 1, denial: .scope)
             return ok(
-                ClipDetail(summary: ClipSummary(item: item), content: nil, contentWithheld: true))
+                ClipDetail(
+                    summary: ClipSummary(item: item, in: grant.contextPack), content: nil,
+                    contentWithheld: true))
         case .content(let item, let content):
             await record(.getClip, grant: grant, count: 1)
             // The payload row came from the authorized snapshot, but blob bytes
@@ -205,7 +207,8 @@ public struct MCPToolRunner: Sendable {
             await record(.getClip, grant: grant, count: 1)
             return ok(
                 ClipDetail(
-                    summary: ClipSummary(item: item), content: text, contentWithheld: false,
+                    summary: ClipSummary(recognizedTextOf: item), content: text,
+                    contentWithheld: false,
                     representation: .recognizedText))
         }
     }
@@ -305,8 +308,7 @@ public struct MCPToolRunner: Sendable {
                 clips.append(StackClip(id: raw, title: item.title, text: body))
             case .recognizedText(let item, let text):
                 clips.append(
-                    StackClip(
-                        id: raw, title: item.title, text: text, representation: .recognizedText))
+                    StackClip(id: raw, title: nil, text: text, representation: .recognizedText))
             case .missing, .outsideContext, .sensitive, .metadata:
                 continue
             }
