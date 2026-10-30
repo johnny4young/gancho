@@ -89,6 +89,7 @@ struct RecentClipsLargeView: View {
                     : AnyShapeStyle(.primary))
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func row(_ clip: WidgetClipEntry) -> some View {

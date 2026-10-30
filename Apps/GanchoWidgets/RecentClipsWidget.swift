@@ -24,6 +24,11 @@ struct RecentClipsEntry: TimelineEntry {
     var chips: [Pinboard] = []
     var boardID: UUID?
     var syncedAt: Date?
+
+    func at(_ date: Date) -> RecentClipsEntry {
+        RecentClipsEntry(
+            date: date, clips: clips, chips: chips, boardID: boardID, syncedAt: syncedAt)
+    }
 }
 
 struct RecentClipsProvider: TimelineProvider {
@@ -42,10 +47,13 @@ struct RecentClipsProvider: TimelineProvider {
         let large = context.family == .systemLarge
         Task {
             let entry = await Self.load(large: large)
-            // Periodic refresh; the app also reloads timelines right after a
-            // capture, so the widget rarely waits this long.
-            completion(
-                Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(900))))
+            // The app also reloads timelines right after a capture; this one
+            // refreshes sooner when a row expires, and repeats the rows every
+            // five minutes so their ages move.
+            let refresh = WidgetClips.nextRefresh(after: entry.date, entries: entry.clips)
+            let entries = stride(from: 0, to: refresh.timeIntervalSince(entry.date), by: 300)
+                .map { entry.at(entry.date.addingTimeInterval($0)) }
+            completion(Timeline(entries: entries, policy: .after(refresh)))
         }
     }
 

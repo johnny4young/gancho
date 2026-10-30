@@ -121,4 +121,26 @@ struct WidgetClipsTests {
         #expect(chips.map(\.name) == ["Favorites", "Brand", "Work"])
         #expect(WidgetClips.boardChips([work], limit: 0).isEmpty)
     }
+
+    @Test("a timeline refreshes at the first row's expiry when it comes before the interval")
+    func refreshAtExpiry() {
+        let now = Date(timeIntervalSince1970: 1_000)
+        func entry(expiring offset: TimeInterval?) -> WidgetClipEntry {
+            WidgetClipEntry(
+                id: UUID(), title: "", displayText: "•••", kind: .secret, isSensitive: true,
+                expiresAt: offset.map { now.addingTimeInterval($0) })
+        }
+        #expect(WidgetClips.nextRefresh(after: now, entries: []) == now.addingTimeInterval(900))
+        #expect(
+            WidgetClips.nextRefresh(
+                after: now,
+                entries: [entry(expiring: 120), entry(expiring: 60), entry(expiring: nil)]
+            ) == now.addingTimeInterval(60))
+        #expect(
+            WidgetClips.nextRefresh(after: now, entries: [entry(expiring: 3_600)])
+                == now.addingTimeInterval(900))
+        #expect(
+            WidgetClips.nextRefresh(after: now, entries: [entry(expiring: -5)])
+                == now.addingTimeInterval(900), "an already expired row doesn't spin the timeline")
+    }
 }

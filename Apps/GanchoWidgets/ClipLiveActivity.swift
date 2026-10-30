@@ -113,8 +113,7 @@ private struct ClipActivityActions: View {
 }
 
 private func clipURL(_ state: ClipActivityAttributes.ContentState) -> URL {
-    state.clipID.flatMap { URL(string: "gancho://clip/\($0.uuidString)") } ?? URL(
-        string: "gancho://")!
+    state.clipID.flatMap(WidgetClips.deepLink(to:)) ?? URL(string: "gancho://")!
 }
 
 /// Gancho's mark — the real brand icon (the green tile + white hook from the

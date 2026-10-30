@@ -78,9 +78,7 @@ public struct WidgetClipEntry: Identifiable, Sendable, Equatable, Codable {
     }
 
     /// Deep-link URL that opens this clip in the app (`gancho://clip/<id>`).
-    public var deepLinkURL: URL? {
-        URL(string: "gancho://clip/\(id.uuidString)")
-    }
+    public var deepLinkURL: URL? { WidgetClips.deepLink(to: id) }
 }
 
 /// Builds widget entries from clips. The single place the home/lock-screen
@@ -114,6 +112,21 @@ public enum WidgetClips {
         let system = boards.filter(\.isSystem)
         let user = boards.filter { !$0.isSystem }.sorted { $0.sortIndex < $1.sortIndex }
         return Array((system + user).prefix(max(limit, 0)))
+    }
+
+    /// The `gancho://clip/<uuid>` link that opens one clip in the app.
+    public static func deepLink(to id: UUID) -> URL? {
+        URL(string: "gancho://clip/\(id.uuidString)")
+    }
+
+    /// When a timeline should refresh: at the regular interval, or sooner
+    /// when a row expires first, so an expired row never lingers.
+    public static func nextRefresh(
+        after now: Date, entries: [WidgetClipEntry], interval: TimeInterval = 900
+    ) -> Date {
+        let regular = now.addingTimeInterval(interval)
+        let expiry = entries.compactMap(\.expiresAt).filter { $0 > now }.min()
+        return min(regular, expiry ?? regular)
     }
 
     /// Parses a `gancho://clip/<uuid>` deep link back into a clip id.
