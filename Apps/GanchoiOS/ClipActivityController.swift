@@ -4,6 +4,7 @@
 @preconcurrency import ActivityKit
 import Foundation
 import GanchoKit
+import UIKit
 
 /// Raises the "ready to paste" Live Activity when a clip is captured or copied.
 /// It's deliberately transient: a short, self-dismissing nudge — not a resident
@@ -30,7 +31,11 @@ final class ClipActivityController {
             preview: String(ClipSafePresentation.displayText(for: item).prefix(120)),
             kindSymbolName: item.kind.symbolName,
             isSensitive: masked,
-            sync: sync)
+            sync: sync,
+            clipID: item.id)
+        // The change count, never the content: a different one later means
+        // something else was copied, and "ready to paste" is over.
+        WidgetState.readyChangeCount = UIPasteboard.general.changeCount
         let dismissAt = Date.now.addingTimeInterval(visibleFor)
         let content = ActivityContent(state: state, staleDate: dismissAt)
         Task {
@@ -44,6 +49,16 @@ final class ClipActivityController {
             // another app), so it never becomes a permanent fixture.
             await activity.end(content, dismissalPolicy: .after(dismissAt))
         }
+    }
+
+    /// Ends "ready to paste" when the pasteboard changed since it went up,
+    /// the closest iOS lets Gancho come to seeing the next copy elsewhere.
+    func endIfPasteboardChanged() {
+        guard let shown = WidgetState.readyChangeCount,
+            shown != UIPasteboard.general.changeCount
+        else { return }
+        WidgetState.readyChangeCount = nil
+        end()
     }
 
     /// Dismiss any live activity immediately.

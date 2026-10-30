@@ -29,13 +29,16 @@ struct ClipLiveActivity: Widget {
                     SyncBadge(state.sync)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Ready to paste")
-                            .font(.caption2.bold())
-                            .foregroundStyle(.secondary)
-                        Text(displayPreview(state))
-                            .font(.callout)
-                            .lineLimit(2)
+                    VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Ready to paste")
+                                .font(.caption2.bold())
+                                .foregroundStyle(.secondary)
+                            Text(displayPreview(state))
+                                .font(.callout)
+                                .lineLimit(2)
+                        }
+                        ClipActivityActions(state: state)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -47,7 +50,7 @@ struct ClipLiveActivity: Widget {
             } minimal: {
                 GanchoMark(size: 19)
             }
-            .widgetURL(URL(string: "gancho://"))
+            .widgetURL(clipURL(state))
             .keylineTint(GanchoMark.green)
         }
     }
@@ -58,22 +61,60 @@ private struct ClipActivityLockScreen: View {
     let state: ClipActivityAttributes.ContentState
 
     var body: some View {
-        HStack(spacing: 12) {
-            GanchoMark(size: 38)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Ready to paste")
-                    .font(.caption.bold())
-                    .foregroundStyle(.secondary)
-                Text(displayPreview(state))
-                    .font(.callout)
-                    .lineLimit(1)
-                    .foregroundStyle(.primary)
+        VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                GanchoMark(size: 38)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Ready to paste")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                    Text(displayPreview(state))
+                        .font(.callout)
+                        .lineLimit(1)
+                        .foregroundStyle(.primary)
+                }
+                Spacer(minLength: 0)
+                SyncBadge(state.sync)
             }
-            Spacer(minLength: 0)
-            SyncBadge(state.sync)
+            ClipActivityActions(state: state)
         }
         .padding(14)
     }
+}
+
+/// Copy again puts the clip back on the pasteboard; a protected clip never
+/// offers it from here. Open goes to the clip in Gancho.
+private struct ClipActivityActions: View {
+    let state: ClipActivityAttributes.ContentState
+
+    var body: some View {
+        if let id = state.clipID {
+            HStack(spacing: 8) {
+                if !state.isSensitive {
+                    Button(intent: CopyClipAgainIntent(clipID: id)) {
+                        Label("Copy again", systemImage: "doc.on.doc")
+                            .font(.footnote.weight(.bold))
+                            .frame(maxWidth: .infinity, minHeight: 32)
+                            .background(GanchoMark.green, in: RoundedRectangle(cornerRadius: 10))
+                            .foregroundStyle(Color(red: 0.016, green: 0.129, blue: 0.051))
+                    }
+                    .buttonStyle(.plain)
+                }
+                Link(destination: clipURL(state)) {
+                    Text("Open in Gancho")
+                        .font(.footnote.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 32)
+                        .background(.primary.opacity(0.14), in: RoundedRectangle(cornerRadius: 10))
+                        .foregroundStyle(.primary)
+                }
+            }
+        }
+    }
+}
+
+private func clipURL(_ state: ClipActivityAttributes.ContentState) -> URL {
+    state.clipID.flatMap { URL(string: "gancho://clip/\($0.uuidString)") } ?? URL(
+        string: "gancho://")!
 }
 
 /// Gancho's mark — the real brand icon (the green tile + white hook from the
@@ -118,3 +159,25 @@ private func syncColor(_ emphasis: ClipSyncBadge.Emphasis) -> Color {
     case .neutral: .secondary
     }
 }
+
+#if DEBUG
+    private let previewLink = ClipActivityAttributes.ContentState(
+        preview: "example.com/a/b?q=a&b", kindSymbolName: "link", isSensitive: false,
+        sync: .synced, clipID: UUID())
+    private let previewSecret = ClipActivityAttributes.ContentState(
+        preview: "•••", kindSymbolName: "lock", isSensitive: true, sync: .synced, clipID: UUID())
+
+    #Preview("Expanded", as: .dynamicIsland(.expanded), using: ClipActivityAttributes()) {
+        ClipLiveActivity()
+    } contentStates: {
+        previewLink
+        previewSecret
+    }
+
+    #Preview("Lock Screen", as: .content, using: ClipActivityAttributes()) {
+        ClipLiveActivity()
+    } contentStates: {
+        previewLink
+        previewSecret
+    }
+#endif
