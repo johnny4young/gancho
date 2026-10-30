@@ -5391,6 +5391,16 @@
           }
         }
       }
+    },
+    "Save instantly from the share sheet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar al instante desde la hoja de compartir"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

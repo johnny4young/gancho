@@ -18,7 +18,9 @@ struct LocalizationTests {
         // The widget extension is its own bundle with its own catalog.
         "Apps/GanchoWidgets/Localizable.xcstrings",
         // The keyboard extension, likewise.
-        "Apps/GanchoKeyboard/Localizable.xcstrings"
+        "Apps/GanchoKeyboard/Localizable.xcstrings",
+        // The share extension shows its own sheet.
+        "Apps/GanchoShare/Localizable.xcstrings"
     ]
 
     struct Catalog {
