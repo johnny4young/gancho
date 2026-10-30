@@ -8,7 +8,7 @@ The maximum is 100 clips and 64 KiB of UTF-8 output, including Markdown headers 
 
 An image whose text Gancho already recognized shows **Use recognized text** in the review. Until you choose it, the image blocks copying and granting like any other incompatible clip. Once chosen, the full recognized text appears in the preview under a heading that marks it as recognized from an image: it is OCR output, not the original text.
 
-Only that text is shared. Copying and grants never include the image, its file or any other field, and choosing an image never adds another image's text. A grant stores a SHA-256 digest of the reviewed text. If Gancho recognizes the image again and the text changes, the grant stops returning it, search stops matching it, and the review asks you to choose it again. An image without recognized text stays incompatible.
+Only that text is shared as content. Copying and grants never include the image or its file. Like every selected clip, the image's summary (title, preview, type, capture time and source app) is still visible to a granted client. Recognized text that reads as a secret is protected and cannot be chosen. A grant stores a SHA-256 digest of the reviewed text. If Gancho recognizes the image again and the text changes, the grant stops returning it, search stops matching it, and the review asks you to choose it again. An image without recognized text stays incompatible.
 
 Over MCP, `get_clip` and `paste_stack` label that text with `"representation": "recognizedText"`. Grants created before this change, or for clips you did not choose this way, behave exactly as before and never return recognized text.
 

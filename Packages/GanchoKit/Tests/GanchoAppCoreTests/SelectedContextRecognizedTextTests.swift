@@ -62,6 +62,21 @@ struct SelectedContextRecognizedTextTests {
         #expect(try await load(fixture).last?.content == .incompatible)
     }
 
+    @Test("Recognized text that reads as a secret is protected, not offered")
+    func secretTextIsProtected() async throws {
+        let fixture = try await makeFixture(
+            imageText: "export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE")
+        #expect(try await load(fixture).last?.content == .protected)
+    }
+
+    @Test("Recognized text over the byte limit is too large; text at the limit is offered")
+    func oversizedTextIsTooLarge() {
+        let limit = CombinedTextService.maximumUTF8Bytes
+        let atLimit = String(repeating: "a", count: limit)
+        #expect(CombinedTextService.recognizedContent(atLimit) == .recognizedText(atLimit))
+        #expect(CombinedTextService.recognizedContent(atLimit + "a") == .tooLarge)
+    }
+
     @Test("Combined copy never joins recognized text")
     func combinedCopyRejectsRecognizedText() throws {
         let part = CombinedTextPart(id: UUID(), content: .recognizedText("text"))

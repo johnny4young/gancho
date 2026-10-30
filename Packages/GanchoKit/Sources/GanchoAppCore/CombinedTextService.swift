@@ -1,4 +1,5 @@
 import Foundation
+import GanchoAI
 import GanchoKit
 
 public struct CombinedTextPart: Identifiable, Sendable, Equatable {
@@ -59,8 +60,7 @@ public struct CombinedTextService: Sendable {
                 } else if item.kind == .image, let recognizedText,
                     let text = try await recognizedText.storedImageText(id: id, now: .now)
                 {
-                    content =
-                        text.utf8.count > Self.maximumUTF8Bytes ? .tooLarge : .recognizedText(text)
+                    content = Self.recognizedContent(text)
                 } else if item.kind == .image || item.kind == .fileReference {
                     content = .incompatible
                 } else if case .text(let text) = try await store.content(for: id) {
@@ -93,6 +93,15 @@ public struct CombinedTextService: Sendable {
             else { return CombinedTextPart(id: part.id, content: .unavailable) }
             return part
         }
+    }
+
+    /// Enrichment drops secret-looking OCR text when it stores it; text stored
+    /// before a newer rule, or by any other writer, is checked again here.
+    static func recognizedContent(
+        _ text: String, detector: SensitiveDataDetector = SensitiveDataDetector()
+    ) -> CombinedTextPart.Content {
+        if detector.detect(text) != nil { return .protected }
+        return text.utf8.count > maximumUTF8Bytes ? .tooLarge : .recognizedText(text)
     }
 
     public func compose(_ parts: [CombinedTextPart], separator: String) throws -> String? {

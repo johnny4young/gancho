@@ -32,7 +32,7 @@ struct MCPRecognizedTextToolTests {
     }
 
     private func runner(
-        _ fixture: Fixture, approvesImageText: Bool = true
+        _ fixture: Fixture, approvesImageText: Bool = true, store: (any MCPClipStore)? = nil
     ) -> MCPToolRunner {
         let items = [fixture.image, fixture.note]
         let grant = MCPClientGrant(
@@ -44,7 +44,8 @@ struct MCPRecognizedTextToolTests {
                 clipRepresentations: approvesImageText
                     ? [fixture.image.id.uuidString: .recognizedText(reviewing: Self.reviewedText)]
                     : nil))
-        return MCPToolRunner(store: fixture.store, grantProvider: { .active(grant) }, log: { _ in })
+        return MCPToolRunner(
+            store: store ?? fixture.store, grantProvider: { .active(grant) }, log: { _ in })
     }
 
     private func getClip(_ id: UUID, with runner: MCPToolRunner) async -> MCPToolResult {
@@ -130,5 +131,51 @@ struct MCPRecognizedTextToolTests {
         try await fixture.store.attachExtractedText(id: fixture.image.id, text: Self.replacement)
         #expect(try await search("payroll").isEmpty, "unreviewed text must not be searchable")
         #expect(try await search("workers").isEmpty)
+    }
+
+    @Test("Text re-recognized while a search runs is filtered from its results")
+    func searchRechecksHitsAfterTheQuery() async throws {
+        let fixture = try await makeFixture()
+        let racing = RewritingSearchStore(
+            base: fixture.store, imageID: fixture.image.id, replacement: Self.replacement)
+        let result = await runner(fixture, store: racing).call(
+            tool: "search_clips", arguments: .object(["query": .string("payroll")]))
+
+        #expect(try resultJSON(result)["clips"]?.arrayValue?.isEmpty == true)
+        #expect(
+            try await fixture.store.search(ClipSearchQuery(text: "payroll"), limit: 5).map(\.id)
+                == [fixture.image.id],
+            "the rewrite landed before the query, so only the second check can filter it")
+    }
+}
+
+/// Rewrites the image's recognized text after the runner's preliminary checks
+/// and immediately before its search query, as a concurrent re-recognition would.
+private struct RewritingSearchStore: MCPClipStore {
+    let base: GRDBClipboardStore
+    let imageID: UUID
+    let replacement: String
+
+    func search(_ query: ClipSearchQuery, limit: Int) async throws -> [ClipItem] {
+        try await base.attachExtractedText(id: imageID, text: replacement)
+        return try await base.search(query, limit: limit)
+    }
+    func readForMCP(
+        id: UUID, grant: MCPClientGrant, requiresContextPack: Bool, now: Date
+    ) async throws -> MCPClipReadResult {
+        try await base.readForMCP(
+            id: id, grant: grant, requiresContextPack: requiresContextPack, now: now)
+    }
+    func item(id: UUID) async throws -> ClipItem? { try await base.item(id: id) }
+    func items(ids: [UUID]) async throws -> [ClipItem] { try await base.items(ids: ids) }
+    func setPinned(id: UUID, _ pinned: Bool) async throws {
+        try await base.setPinned(id: id, pinned)
+    }
+    func pinboards() async throws -> [Pinboard] { try await base.pinboards() }
+    func createPinboard(name: String, sfSymbol: String) async throws -> Pinboard {
+        try await base.createPinboard(name: name, sfSymbol: sfSymbol)
+    }
+    func assign(clipID: UUID, toBoard boardID: UUID) async throws {
+        try await base.assign(clipID: clipID, toBoard: boardID)
     }
 }
