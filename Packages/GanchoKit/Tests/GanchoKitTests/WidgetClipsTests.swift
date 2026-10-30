@@ -84,4 +84,41 @@ struct WidgetClipsTests {
             WidgetClips.clipID(fromDeepLink: try #require(URL(string: "gancho://settings")))
                 == nil)
     }
+
+    @Test("a protected row carries only its stored mask and time left")
+    func protectedRowCarriesMaskAndExpiry() {
+        let expiry = Date(timeIntervalSince1970: 2_000_000_000)
+        let secret = ClipItem(
+            kind: .secret, preview: "●●●● 4Q2v", contentHash: "m", isSensitive: true,
+            expiresAt: expiry)
+        let entry = WidgetClips.entries(from: [secret]).first
+        #expect(entry?.maskedTail == "●●●● 4Q2v")
+        #expect(entry?.expiresAt == expiry)
+        let leaky = ClipItem(
+            kind: .secret, preview: "AKIAIOSFODNN7EXAMPLE", contentHash: "l", isSensitive: true)
+        #expect(WidgetClips.entries(from: [leaky]).first?.maskedTail == WidgetClips.masked)
+        let plain = ClipItem(preview: "hello", contentHash: "p")
+        #expect(WidgetClips.entries(from: [plain]).first?.maskedTail == nil)
+    }
+
+    @Test("an older cached entry without the new fields still decodes")
+    func legacyEntryDecodes() throws {
+        let json =
+            #"{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","title":"","displayText":"x","#
+            + #""kind":"text","isSensitive":false}"#
+        let entry = try JSONDecoder().decode(WidgetClipEntry.self, from: Data(json.utf8))
+        #expect(entry.maskedTail == nil)
+        #expect(entry.expiresAt == nil)
+    }
+
+    @Test("chips are Favorites first, then the user's boards in order, up to the limit")
+    func boardChips() {
+        let favorites = Pinboard(name: "Favorites", sortIndex: 9, isSystem: true)
+        let work = Pinboard(name: "Work", sortIndex: 1)
+        let brand = Pinboard(name: "Brand", sortIndex: 0)
+        let extra = Pinboard(name: "Extra", sortIndex: 2)
+        let chips = WidgetClips.boardChips([work, extra, favorites, brand])
+        #expect(chips.map(\.name) == ["Favorites", "Brand", "Work"])
+        #expect(WidgetClips.boardChips([work], limit: 0).isEmpty)
+    }
 }

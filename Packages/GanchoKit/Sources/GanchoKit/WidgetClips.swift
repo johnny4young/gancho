@@ -55,10 +55,16 @@ public struct WidgetClipEntry: Identifiable, Sendable, Equatable, Codable {
     /// older cached timelines still decode.
     public let sourceAppBundleID: String?
     public let createdAt: Date?
+    /// The stored mask of a protected clip ("●●●● 4Q2v"), shown under its
+    /// kind like the app's rows; nil for every other clip.
+    public let maskedTail: String?
+    /// When the clip expires, for a protected row's time left.
+    public let expiresAt: Date?
 
     public init(
         id: UUID, title: String, displayText: String, kind: ClipContentKind, isSensitive: Bool,
-        sourceAppBundleID: String? = nil, createdAt: Date? = nil
+        sourceAppBundleID: String? = nil, createdAt: Date? = nil, maskedTail: String? = nil,
+        expiresAt: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -67,6 +73,8 @@ public struct WidgetClipEntry: Identifiable, Sendable, Equatable, Codable {
         self.isSensitive = isSensitive
         self.sourceAppBundleID = sourceAppBundleID
         self.createdAt = createdAt
+        self.maskedTail = maskedTail
+        self.expiresAt = expiresAt
     }
 
     /// Deep-link URL that opens this clip in the app (`gancho://clip/<id>`).
@@ -76,9 +84,9 @@ public struct WidgetClipEntry: Identifiable, Sendable, Equatable, Codable {
 }
 
 /// Builds widget entries from clips. The single place the home/lock-screen
-/// masking rule lives: a sensitive clip is reduced to `•••` with no title, so
-/// the secret never travels into a widget timeline (which the system may cache
-/// and render on a locked device).
+/// masking rule lives: a sensitive clip keeps no title and no preview, only
+/// its stored mask (the app rows' "●●●● 4Q2v"), so the secret itself never
+/// travels into a widget timeline, which the system may cache.
 public enum WidgetClips {
     public static let masked = ClipSafePresentation.masked
 
@@ -88,14 +96,24 @@ public enum WidgetClips {
                 return WidgetClipEntry(
                     id: item.id, title: "", displayText: masked, kind: item.kind,
                     isSensitive: true, sourceAppBundleID: item.sourceAppBundleID,
-                    createdAt: item.createdAt)
+                    createdAt: item.createdAt,
+                    maskedTail: ClipSafePresentation.maskedTail(for: item),
+                    expiresAt: item.expiresAt)
             }
             return WidgetClipEntry(
                 id: item.id, title: item.title,
                 displayText: ClipSafePresentation.displayText(for: item),
                 kind: item.kind, isSensitive: false, sourceAppBundleID: item.sourceAppBundleID,
-                createdAt: item.createdAt)
+                createdAt: item.createdAt, expiresAt: item.expiresAt)
         }
+    }
+
+    /// The large widget's board chips after "All": Favorites first, then the
+    /// user's boards in the app's order, `limit` in all.
+    public static func boardChips(_ boards: [Pinboard], limit: Int = 3) -> [Pinboard] {
+        let system = boards.filter(\.isSystem)
+        let user = boards.filter { !$0.isSystem }.sorted { $0.sortIndex < $1.sortIndex }
+        return Array((system + user).prefix(max(limit, 0)))
     }
 
     /// Parses a `gancho://clip/<uuid>` deep link back into a clip id.

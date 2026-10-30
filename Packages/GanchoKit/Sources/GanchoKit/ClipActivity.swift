@@ -14,14 +14,19 @@
             public var kindSymbolName: String
             public var isSensitive: Bool
             public var sync: ClipSyncBadge
+            /// The clip the actions copy or open; nil in activities started
+            /// before they had actions.
+            public var clipID: UUID?
 
             public init(
-                preview: String, kindSymbolName: String, isSensitive: Bool, sync: ClipSyncBadge
+                preview: String, kindSymbolName: String, isSensitive: Bool, sync: ClipSyncBadge,
+                clipID: UUID? = nil
             ) {
                 self.preview = preview
                 self.kindSymbolName = kindSymbolName
                 self.isSensitive = isSensitive
                 self.sync = sync
+                self.clipID = clipID
             }
         }
 
