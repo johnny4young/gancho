@@ -92,6 +92,9 @@ final class AppModel {
     /// handle is the next property, and it says so.
     let fullStore: (any FullClipStore)?
     var textReuseReader: (any ClipReading)? { fullStore }
+    var storedImageTextReader: (any StoredImageTextReading)? {
+        fullStore as? any StoredImageTextReading
+    }
     var textRecipeStore: (any TextRecipeStoring)? { fullStore }
     /// Narrow concrete handle kept ONLY to construct in-module engines
     /// (`RetentionEngine`, `TierEnforcement`, `GanchoArchive`), to feed

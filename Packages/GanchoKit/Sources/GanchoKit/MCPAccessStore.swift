@@ -34,12 +34,19 @@ extension GRDBClipboardStore: MCPClipStore {
             } else if requiresContextPack {
                 return .finished(.outsideContext)
             }
+            let representation = grant.contextPack?.representation(of: id) ?? .original
+            let recognizedText = try Self.reviewedRecognizedText(
+                of: item, representation, in: db)
+            if representation != .original, recognizedText == nil {
+                return .finished(.outsideContext)
+            }
             if ClipSafePresentation.requiresMasking(item) { return .finished(.sensitive) }
             if grant.scope == .metadata
                 || (grant.scope == .boards && !item.isPinned && boardIDs.isEmpty)
             {
                 return .finished(.metadata(item))
             }
+            if let recognizedText { return .finished(.recognizedText(item, recognizedText)) }
             // Only an authorized content read selects payload columns. The row
             // is captured before leaving the same policy/membership snapshot.
             guard let payload = try ClipRow.filter(key: id.uuidString).fetchOne(db) else {
@@ -51,6 +58,21 @@ extension GRDBClipboardStore: MCPClipStore {
         case .finished(let result): return result
         case .payload(let row): return .content(row.item, try content(from: row))
         }
+    }
+
+    /// A recognized-text grant covers one image and only the OCR text the user
+    /// reviewed. Re-recognition rewrites that text without a new revision, so the
+    /// text itself is compared inside the caller's snapshot. Nil means refused.
+    private static func reviewedRecognizedText(
+        of item: ClipItem, _ representation: MCPClipRepresentation, in db: Database
+    ) throws -> String? {
+        guard representation != .original, item.kind == .image,
+            let text = try String.fetchOne(
+                db, sql: "SELECT contentText FROM clip WHERE id = ?",
+                arguments: [item.id.uuidString]),
+            representation.authorizes(recognizedText: text)
+        else { return nil }
+        return text
     }
 
     /// Kept with the MCP adapter rather than the core store migrations so the
