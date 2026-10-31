@@ -68,6 +68,10 @@ struct ClipPeek: View {
     @State private var ocrRevealSecret = false
     @State private var isEditingOCR = false
     @State private var isPickingColor = false
+    @State var secretReveal = SecretReveal()
+    @State var secretText: String?
+    /// Bumped by every hide, so a reveal read that finishes after one never shows.
+    @State var secretHideCount = 0
 
     init(
         item: ClipItem, text: String, isTextEditable: Bool,
@@ -113,6 +117,8 @@ struct ClipPeek: View {
             }
             if model.preferences.isPrivateModePaused {
                 PeekPrivateModeNotice()
+            } else if showsSecretHero {
+                secretSection
             } else if hidesPreview {
                 Text(verbatim: ClipSafePresentation.masked)
                     .panelFont(.body)
@@ -268,6 +274,19 @@ struct ClipPeek: View {
         .onChange(of: text) { _, newText in
             presentedText = newText
         }
+        .task(id: secretReveal) {
+            guard let until = secretReveal.until else { return }
+            try? await Task.sleep(for: .seconds(max(0, until.timeIntervalSinceNow)))
+            guard !Task.isCancelled else { return }
+            endSecretReveal()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidHide)) { _ in
+            endSecretReveal()
+        }
+        // Sharing or private mode: a revealed secret masks at once.
+        .onChange(of: model.secretRevealAllowed) { _, allowed in
+            if !allowed { endSecretReveal() }
+        }
         .onChange(of: hidesPreview) { _, hidden in
             if hidden {
                 isEditingTitle = false
@@ -347,7 +366,8 @@ struct ClipPeek: View {
             PeekProvenanceHeader(
                 item: item,
                 boards: Array(model.boards.filter { boardIDs.contains($0.id) }.prefix(3)),
-                syncState: syncState, masksProvenance: hidesPreview)
+                syncState: syncState, masksProvenance: hidesPreview,
+                showsExpiry: !showsSecretHero)
             titleRow
         }
     }
@@ -356,7 +376,11 @@ struct ClipPeek: View {
     /// keeps its selection gestures).
     private var titleRow: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            if hidesPreview {
+            if showsSecretHero {
+                Text(item.kind.cardName)
+                    .panelFont(.headline)
+                    .accessibilityIdentifier("preview-title")
+            } else if hidesPreview {
                 Text(verbatim: ClipSafePresentation.masked)
                     .panelFont(.headline)
                     .accessibilityIdentifier("preview-title")
@@ -530,7 +554,7 @@ extension ClipPeek {
         }
     }
 
-    private func actionButton(
+    func actionButton(
         _ action: PeekAction, index: Int, style: PeekActionButton.Style
     ) -> some View {
         PeekActionButton(
@@ -710,11 +734,13 @@ extension ClipPeek {
     /// The keyboard order: the dock, the More actions toggle, then the Dev
     /// Action chips. Smart Paste keeps its own menu (it is async and has a
     /// language submenu).
-    private var navActions: [PeekAction] { dockActions + toggleActions + chipActions }
+    private var navActions: [PeekAction] {
+        dockActions + toggleActions + chipActions + secretActions
+    }
 
     private var chipStartIndex: Int { dockActions.count + toggleActions.count }
 
-    private var toggleActions: [PeekAction] {
+    var toggleActions: [PeekAction] {
         guard !devActions.isEmpty else { return [] }
         return [
             PeekAction(
@@ -726,7 +752,7 @@ extension ClipPeek {
     }
 
     /// Paste variants first (the common case), then OCR, Pin and Board.
-    private var dockActions: [PeekAction] {
+    var dockActions: [PeekAction] {
         var actions: [PeekAction] = [
             PeekAction(
                 id: "preview-paste", title: pasteTitle,
@@ -791,7 +817,7 @@ extension ClipPeek {
     }
 
     /// Only the expanded Dev Actions take keyboard positions after the dock.
-    private var chipActions: [PeekAction] { showsMoreActions ? devActions : [] }
+    var chipActions: [PeekAction] { showsMoreActions ? devActions : [] }
 
     /// The per-kind Dev Actions, never for a masked or hidden preview.
     private var devActions: [PeekAction] {

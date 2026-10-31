@@ -12652,6 +12652,46 @@
           }
         }
       }
+    },
+    "Reveal for 10 s": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar por 10 s"
+          }
+        }
+      }
+    },
+    "Delete now": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar ahora"
+          }
+        }
+      }
+    },
+    "Self-destructs in %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se autodestruye en %@"
+          }
+        }
+      }
+    },
+    "Lifetime left": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vida restante"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

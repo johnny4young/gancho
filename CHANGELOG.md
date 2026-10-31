@@ -9,6 +9,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A secret's peek on the Mac shows its masked value, how long it has left
+  with a lifetime bar, "Reveal for 10 s" and "Delete now". A reveal masks
+  itself again after 10 seconds or when the panel hides, and is off while
+  the screen is shared or Private Mode is on.
 - The peek header shows where a clip came from (app, age, boards), when it
   expires, and whether it has reached iCloud ("Synced" or "Waiting to sync").
 - The active board chip shows how many clips it holds ("All clips · 128");

@@ -21,6 +21,8 @@ struct PeekProvenanceHeader: View {
     let boards: [Pinboard]
     let syncState: PeekSyncState?
     let masksProvenance: Bool
+    /// Off when the peek's own countdown already shows the expiry.
+    var showsExpiry = true
 
     var body: some View {
         FlowLayout(spacing: 6) {
@@ -39,7 +41,7 @@ struct PeekProvenanceHeader: View {
                     .help(board.displayTitle)
                 }
             }
-            if let expiresAt = item.expiresAt { expiryChip(expiresAt) }
+            if showsExpiry, let expiresAt = item.expiresAt { expiryChip(expiresAt) }
             if !masksProvenance, let syncState { syncChip(syncState) }
         }
         .accessibilityElement(children: .contain)
