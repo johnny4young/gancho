@@ -24,14 +24,17 @@ struct ClipPeek: View {
     /// Tells the panel an inline editor owns the keyboard, so a window regaining
     /// key status does not pull focus back to the search field.
     @Binding var isEditingInline: Bool
+    /// Bumped by the panel's ⌘T.
+    let transformRequest: Int
     /// Shared with the list: the peek owns the keyboard when this equals `.peek`
     /// (entered with → from the list, left with ←).
     var focus: FocusState<PanelFocus?>.Binding
     @Environment(AppModel.self) var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var recipeRequest: TextRecipeReviewRequest?
+    @State var recipeRequest: TextRecipeReviewRequest?
     @State var actionResult: String?
-    @Binding private var showsMoreActions: Bool
+    @State var showsTransformPopover = false
+    @State var transformPipeline = TransformPipeline()
     @State private var boardIDs: Set<UUID> = []
     @State private var syncState: PeekSyncState?
     /// Smart Paste can run the on-device model — show a spinner while it thinks.
@@ -76,7 +79,7 @@ struct ClipPeek: View {
     init(
         item: ClipItem, text: String, isTextEditable: Bool,
         focus: FocusState<PanelFocus?>.Binding, isEditingInline: Binding<Bool>,
-        showsMoreActions: Binding<Bool>,
+        transformRequest: Int = 0,
         addToBoard: @escaping () -> Void, addToLastBoard: @escaping () -> Void
     ) {
         self.item = item
@@ -84,7 +87,7 @@ struct ClipPeek: View {
         self.isTextEditable = isTextEditable
         self.focus = focus
         _isEditingInline = isEditingInline
-        _showsMoreActions = showsMoreActions
+        self.transformRequest = transformRequest
         self.addToBoard = addToBoard
         self.addToLastBoard = addToLastBoard
         _presentedTitle = State(initialValue: item.title)
@@ -92,7 +95,7 @@ struct ClipPeek: View {
         _presentedText = State(initialValue: text)
     }
 
-    private var hidesPreview: Bool {
+    var hidesPreview: Bool {
         model.previewsHidden || ClipSafePresentation.requiresMasking(item)
     }
 
@@ -125,63 +128,39 @@ struct ClipPeek: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .accessibilityIdentifier("peek-masked")
             } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-                            if let suggestedBoard {
-                                suggestionChip(suggestedBoard)
-                                    .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
-                            }
-                            hero
-                            if ocrShowsHere {
-                                PeekImageTextSection(
-                                    item: item, hoveredLine: $ocrHoveredLine,
-                                    copiedLine: $ocrCopiedLine,
-                                    revealSecret: $ocrRevealSecret, isEditing: $isEditingOCR)
-                            }
-                            if canTransform || canSmartPaste {
-                                ViewThatFits(in: .horizontal) {
-                                    HStack(spacing: GanchoTokens.Spacing.xxs) { transformButtons }
-                                    VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
-                                        transformButtons
-                                    }
-                                }
-                            }
-                            if translationFailed { translationUnavailableMessage }
-                            if isThinking {
-                                Label("Thinking…", systemImage: "sparkles")
-                                    .panelFont(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .symbolEffect(.pulse, options: .repeating)
-                                    .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
-                            } else if let actionResult, !actionResult.isEmpty {
-                                resultBox(actionResult)
-                                    .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
-                            }
-                            if !devActions.isEmpty {
-                                moreActionsToggle
-                                if showsMoreActions { secondaryActions }
-                            }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
+                        if let suggestedBoard {
+                            suggestionChip(suggestedBoard)
+                                .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
                         }
-                        // Scoped to the three things that come and go inside
-                        // the peek; a global transaction would also move the
-                        // editor and the scroll position.
-                        .animation(peekContentAnimation, value: suggestedBoard?.id)
-                        .animation(peekContentAnimation, value: isThinking)
-                        .animation(peekContentAnimation, value: actionResult)
-                    }
-                    .onChange(of: actionIndex) { _, index in
-                        let chipStart = chipStartIndex
-                        guard index >= chipStart, chipActions.indices.contains(index - chipStart)
-                        else { return }
-                        withAnimation(GanchoMotion.quick(reduceMotion: reduceMotion)) {
-                            proxy.scrollTo(chipActions[index - chipStart].id, anchor: .center)
+                        hero
+                        if ocrShowsHere {
+                            PeekImageTextSection(
+                                item: item, hoveredLine: $ocrHoveredLine,
+                                copiedLine: $ocrCopiedLine,
+                                revealSecret: $ocrRevealSecret, isEditing: $isEditingOCR)
+                        }
+                        if canTransform || canSmartPaste { transformButton }
+                        if !transformPipeline.isEmpty { pipelineSection }
+                        if translationFailed { translationUnavailableMessage }
+                        if isThinking {
+                            Label("Thinking…", systemImage: "sparkles")
+                                .panelFont(.caption)
+                                .foregroundStyle(.secondary)
+                                .symbolEffect(.pulse, options: .repeating)
+                                .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
+                        } else if let actionResult, !actionResult.isEmpty {
+                            resultBox(actionResult)
+                                .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
                         }
                     }
-                    .onChange(of: showsMoreActions) { _, _ in
-                        // Collapsing must not leave the keyboard on a hidden chip.
-                        if actionIndex >= navActions.count { actionIndex = dockActions.count }
-                    }
+                    // Scoped to the three things that come and go inside
+                    // the peek; a global transaction would also move the
+                    // editor and the scroll position.
+                    .animation(peekContentAnimation, value: suggestedBoard?.id)
+                    .animation(peekContentAnimation, value: isThinking)
+                    .animation(peekContentAnimation, value: actionResult)
                 }
             }
             dock
@@ -212,6 +191,8 @@ struct ClipPeek: View {
             guard !isInlineEditing else { return .ignored }
             if press.modifiers.contains(.option), !press.modifiers.contains(.command) {
                 model.paste(item, asPlainText: true)
+            } else if press.modifiers.contains(.shift), let result = pendingResult {
+                model.pasteText(result)
             } else if press.modifiers.contains(.shift), let convert = convertAction {
                 convert.run()
             } else {
@@ -243,9 +224,11 @@ struct ClipPeek: View {
         }
         .onKeyPress(.escape) {
             guard !isInlineEditing else { return .ignored }
-            // esc puts the eyedropper down before it hides the panel.
+            // esc puts the eyedropper down, then closes a transform, before it hides the panel.
             if isPickingColor {
                 isPickingColor = false
+            } else if !transformPipeline.isEmpty || actionResult != nil {
+                closeTransform()
             } else {
                 model.panel.hide()
             }
@@ -253,6 +236,9 @@ struct ClipPeek: View {
         }
         .onChange(of: focus.wrappedValue) { _, newValue in
             if newValue == .peek { actionIndex = 0 }
+        }
+        .onChange(of: transformRequest) { _, _ in
+            if canTransform || canSmartPaste { showsTransformPopover = true }
         }
         // A new request (same clip, run again) starts from a clean section.
         .onChange(of: model.manualOCR.requestID) { _, _ in
@@ -536,24 +522,6 @@ extension ClipPeek {
         suggestedBoard = await model.suggestedBoard(for: item)
     }
 
-    /// Dev Actions stay one click (or one arrow) away instead of crowding every peek.
-    @ViewBuilder private var moreActionsToggle: some View {
-        if let toggle = toggleActions.first {
-            actionButton(toggle, index: dockActions.count, style: .chip)
-        }
-    }
-
-    /// The Dev Actions as wrapping chips inside the peek's scrolling content,
-    /// so a code clip's dozen transforms never push the dock out of the panel.
-    private var secondaryActions: some View {
-        let chipStart = chipStartIndex
-        return FlowLayout(spacing: GanchoTokens.Spacing.xxs) {
-            ForEach(Array(chipActions.enumerated()), id: \.element.id) { offset, action in
-                actionButton(action, index: chipStart + offset, style: .chip)
-            }
-        }
-    }
-
     func actionButton(
         _ action: PeekAction, index: Int, style: PeekActionButton.Style
     ) -> some View {
@@ -649,48 +617,12 @@ extension ClipPeek {
             && item.kind != .image && item.kind != .fileReference && item.kind != .color
     }
 
-    @ViewBuilder private var transformButtons: some View {
-        if canTransform { transformsMenu }
-        if canSmartPaste { smartPasteMenu }
-    }
-
     /// The deterministic transforms fit any text (colour hex included) and
     /// never a masked secret. Deliberately NO availability gate — they work on
     /// every Mac, with Apple Intelligence off.
-    private var canTransform: Bool {
+    var canTransform: Bool {
         !hidesPreview
             && item.kind != .image && item.kind != .fileReference
-    }
-
-    /// Pure transforms with the result in the review box below (same flow as
-    /// the Dev Actions): see it, then Paste or Copy. `.plainText` is omitted —
-    /// it's the identity here, and "Paste plain" already covers it.
-    private var transformsMenu: some View {
-        Menu {
-            if isTextEditable, !hidesPreview, model.fullStore != nil {
-                Button("Text recipes…") { recipeRequest = TextRecipeReviewRequest(clipID: item.id) }
-                    .accessibilityIdentifier("text-recipes-action")
-                Divider()
-            }
-            ForEach(PasteTransform.allCases.filter { $0 != .plainText }, id: \.self) { transform in
-                Button(LocalizedStringKey(transform.title)) {
-                    actionResult = transform.apply(to: presentedText)
-                }
-            }
-        } label: {
-            Label("Transform", systemImage: "textformat")
-                .panelFont(.body, .medium)
-                .padding(.horizontal, GanchoTokens.Spacing.sm)
-                .padding(.vertical, GanchoTokens.Spacing.xxs)
-        }
-        .menuStyle(.borderlessButton)
-        .ganchoInkTint()
-        .sheet(item: $recipeRequest) { request in
-            TextRecipeReview(clipID: request.clipID).environment(model)
-        }
-        .fixedSize()
-        .ganchoSurface(radius: GanchoTokens.Radius.md)
-        .accessibilityIdentifier("transform-menu")
     }
 
     private func moveAction(_ delta: Int) -> KeyPress.Result {
@@ -731,25 +663,9 @@ extension ClipPeek {
 // MARK: - Keyboard actions
 
 extension ClipPeek {
-    /// The keyboard order: the dock, the More actions toggle, then the Dev
-    /// Action chips. Smart Paste keeps its own menu (it is async and has a
-    /// language submenu).
-    private var navActions: [PeekAction] {
-        dockActions + toggleActions + chipActions + secretActions
-    }
-
-    private var chipStartIndex: Int { dockActions.count + toggleActions.count }
-
-    var toggleActions: [PeekAction] {
-        guard !devActions.isEmpty else { return [] }
-        return [
-            PeekAction(
-                id: "peek-more-actions",
-                title: showsMoreActions ? "Fewer actions" : "More actions",
-                symbol: showsMoreActions ? "chevron.up" : "chevron.down"
-            ) { showsMoreActions.toggle() }
-        ]
-    }
+    /// The keyboard order: the dock, then a secret's actions. Transforms live
+    /// behind ⌘T.
+    private var navActions: [PeekAction] { dockActions + secretActions }
 
     /// Paste variants first (the common case), then OCR, Pin and Board.
     var dockActions: [PeekAction] {
@@ -814,35 +730,5 @@ extension ClipPeek {
 
     private var canPickColor: Bool {
         item.kind == .image && !hidesPreview && model.thumbnails.cached(for: item) != nil
-    }
-
-    /// Only the expanded Dev Actions take keyboard positions after the dock.
-    var chipActions: [PeekAction] { showsMoreActions ? devActions : [] }
-
-    /// The per-kind Dev Actions, never for a masked or hidden preview.
-    private var devActions: [PeekAction] {
-        guard !hidesPreview else { return [] }
-        // A colour the hero can read has Convert in the dock, not behind More actions.
-        let actions = DevActions.actions(for: item.kind).filter {
-            convertAction == nil || $0.id != .convertColor
-        }
-        return actions.map { action in
-            PeekAction(
-                id: "dev-action-\(action.id.rawValue)",
-                title: LocalizedStringKey(action.title), symbol: "wand.and.sparkles"
-            ) {
-                do {
-                    actionResult = try action.transform(presentedText)
-                } catch {
-                    actionResult = nil
-                    model.toasts.show(
-                        GanchoToast(
-                            message: "This action can’t transform this clip.", style: .warning))
-                }
-                UserDefaults.standard.set(
-                    UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
-                    forKey: "dev-actions-run")
-            }
-        }
     }
 }

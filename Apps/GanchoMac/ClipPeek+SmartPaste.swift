@@ -32,58 +32,7 @@ extension ClipPeek {
         .accessibilityIdentifier("translation-unavailable-message")
     }
 
-    /// On-device rewrite menu (the design's "Smart paste"): summarize, fix
-    /// grammar, change tone, pull key points — the result lands in the box below
-    /// for review before pasting.
-    var smartPasteMenu: some View {
-        Menu {
-            ForEach(SmartPasteAction.allCases) { action in
-                if action == .redactPII || model.smartPasteModelAvailable {
-                    Button {
-                        runSmartPaste(action)
-                    } label: {
-                        Label(LocalizedStringKey(action.titleKey), systemImage: action.symbolName)
-                    }
-                    .accessibilityIdentifier("smart-paste-\(action.id.lowercased())-action")
-                }
-            }
-            if !translationTargets.isEmpty {
-                Divider()
-                Menu {
-                    ForEach(translationTargets) { destination in
-                        let code = destination.code
-                        Button(LanguageName.localized(code: code)) {
-                            runTranslate(to: Locale.Language(identifier: code))
-                        }
-                        .disabled(!destination.isAvailable)
-                        .accessibilityIdentifier("translation-target-\(code)")
-                    }
-                } label: {
-                    Label("Translate to", systemImage: "globe")
-                }
-                .accessibilityIdentifier("translation-destinations-menu")
-            }
-            if !translationTargets.isEmpty, !translationTargets.contains(where: { $0.isAvailable })
-            {
-                Text("Install a language pair (macOS 26+) or use an available on-device model.")
-            }
-            Divider()
-            Label("Runs on your Mac — nothing leaves the device.", systemImage: "lock.shield")
-        } label: {
-            Label("Smart paste", systemImage: "sparkles")
-                .panelFont(.body, .medium)
-                .padding(.horizontal, GanchoTokens.Spacing.sm)
-                .padding(.vertical, GanchoTokens.Spacing.xxs)
-        }
-        .menuStyle(.borderlessButton)
-        .ganchoInkTint()
-        .fixedSize()
-        .ganchoSurface(radius: GanchoTokens.Radius.md)
-        .disabled(isThinking)
-        .accessibilityIdentifier("smart-paste-menu")
-    }
-
-    private func runSmartPaste(_ action: SmartPasteAction) {
+    func runSmartPaste(_ action: SmartPasteAction) {
         translationTask?.cancel()
         let request = UUID()
         translationRequestID = request
@@ -98,7 +47,7 @@ extension ClipPeek {
         }
     }
 
-    private func runTranslate(to target: Locale.Language) {
+    func runTranslate(to target: Locale.Language) {
         translationTask?.cancel()
         let request = UUID()
         translationRequestID = request

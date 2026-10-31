@@ -27,7 +27,7 @@ extension ClipPeek {
     }
 
     var secretStartIndex: Int {
-        dockActions.count + toggleActions.count + chipActions.count
+        dockActions.count
     }
 
     /// A secret's timed reveal and Delete now; no reveal while the screen is shared.

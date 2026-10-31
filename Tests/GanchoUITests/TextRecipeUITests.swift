@@ -71,7 +71,7 @@ final class TextRecipeUITests: XCTestCase {
             "-seed-clip-editing", "-force-free-tier", "-start-capture-paused",
             "-ui-test-paste-sink", "copy-only",
             "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.recipes.\(UUID())",
-            "-opaque-panel-for-ui-test", "-panel-position", "centered", "-AppleLanguages",
+            "-opaque-panel-for-ui-test", "-place-panel-for-ui-test", "-AppleLanguages",
             "(\(language))",
             "-appearance", appearance, "-panel-content-width", "720", "-panel-content-height",
             "460",
@@ -87,14 +87,13 @@ final class TextRecipeUITests: XCTestCase {
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
         XCTAssertTrue(row.waitForHittable(timeout: 10))
         row.click()
-        let transform = app.descendants(matching: .any)["transform-menu"].firstMatch
+        let transform = app.buttons["transform-button"].firstMatch
         XCTAssertTrue(transform.waitForHittable(timeout: 5))
         transform.click()
-        let recipes = app.menuItems["text-recipes-action"].firstMatch
+        let recipes = app.buttons["transform-row-recipes"].firstMatch
         XCTAssertTrue(recipes.waitForExistence(timeout: 5))
-        recipes.hover()
         try SynthesizedInput.requireForeground(app)
-        app.typeKey(.return, modifierFlags: [])
+        recipes.click()
         XCTAssertTrue(app.buttons["text-recipe-new"].firstMatch.waitForHittable(timeout: 5))
     }
 

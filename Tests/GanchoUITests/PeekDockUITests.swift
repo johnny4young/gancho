@@ -33,7 +33,7 @@ final class PeekDockUITests: XCTestCase {
     }
 
     @MainActor
-    func testDevActionsStayBehindMoreActions() throws {
+    func testDevActionsLiveInTheTransformList() throws {
         let app = launchPanel()
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
@@ -42,15 +42,22 @@ final class PeekDockUITests: XCTestCase {
         search.click()
         search.typeText("Synthetic link")
         XCTAssertTrue(app.staticTexts["peek-link-url"].firstMatch.waitForExistence(timeout: 5))
-        let more = app.buttons["peek-more-actions"].firstMatch
-        XCTAssertTrue(more.waitForExistence(timeout: 5))
-        let parse = app.buttons["dev-action-parseURL"].firstMatch
-        XCTAssertFalse(parse.exists, "developer actions start collapsed")
-        more.click()
-        XCTAssertTrue(parse.waitForExistence(timeout: 5), "More actions reveals them")
+        XCTAssertFalse(app.buttons["peek-more-actions"].firstMatch.exists)
+        let transform = app.buttons["transform-button"].firstMatch
+        XCTAssertTrue(transform.waitForExistence(timeout: 5))
+        transform.click()
+        let filter = app.textFields["transform-filter"].firstMatch
+        XCTAssertTrue(filter.waitForExistence(timeout: 5))
+        filter.typeText("parse")
+        let parse = app.buttons["transform-row-dev-parseURL"].firstMatch
+        XCTAssertTrue(parse.waitForExistence(timeout: 5), "the link's own actions are in the list")
+        XCTAssertFalse(
+            app.buttons["transform-row-text-uppercase"].firstMatch.exists, "filtered out")
+        parse.click()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["transform-pipeline"].firstMatch
+                .waitForExistence(timeout: 5), "a row opens the before / after")
         XCTAssertTrue(app.buttons["preview-paste"].firstMatch.isHittable, "Paste stays first")
-        more.click()
-        XCTAssertTrue(parse.waitForNonExistence(timeout: 5), "Fewer actions hides them again")
     }
 
     @MainActor
