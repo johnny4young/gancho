@@ -102,6 +102,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The "ready to paste" banner on the lock screen offers Copy again and Open
   in Gancho (never Copy again for a password or key), and ends once something
   else was copied.
+- The Gancho keyboard marks each clip you insert with a green tint and an
+  "inserted" pill, so a long message shows what already went in. The marks
+  clear once you leave that text field; an image, which the keyboard copies
+  instead of typing, is not marked.
 - Opening an image on iPhone and iPad reads its text on the device: each line
   is numbered over the image and listed under it, with its own copy button.
   A line holding a password or key stays masked and out of "Copy all" until
