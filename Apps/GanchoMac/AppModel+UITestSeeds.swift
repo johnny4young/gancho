@@ -51,6 +51,7 @@ extension AppModel {
             seedClipEditingIfRequested(),
             seedVisualLibraryIfRequested(),
             seedPeekLinkIfRequested(),
+            seedPeekSecretIfRequested(),
             seedSnippetsIfRequested(),
             seedManualOCRIfRequested(),
             seedRecognizedTextImageIfRequested(),
@@ -323,6 +324,27 @@ extension AppModel {
                     createdAt: Date().addingTimeInterval(-2), kind: .url, title: "Synthetic link",
                     preview: url, contentHash: "peek-link")
                 _ = try? await fullStore.insert(item, content: .text(url))
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
+    }
+
+    /// `-seed-peek-secret`: one fresh synthetic secret with nine and a half
+    /// minutes left, for the peek's countdown, reveal and Delete now.
+    private func seedPeekSecretIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-peek-secret"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            return Task {
+                let now = Date()
+                let item = ClipItem(
+                    createdAt: now.addingTimeInterval(-30), kind: .secret, preview: "●●●● 4Q2v",
+                    contentHash: "peek-secret", sourceAppBundleID: "com.apple.Terminal",
+                    isSensitive: true, expiresAt: now.addingTimeInterval(570))
+                _ = try? await fullStore.insert(item, content: .text("synthetic-peek-secret-4Q2v"))
                 await refreshRecents()
             }
         #else

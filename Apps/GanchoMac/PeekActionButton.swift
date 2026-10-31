@@ -12,6 +12,8 @@ struct PeekAction: Identifiable {
     /// The key hint under a dock button. Dock actions have one; the Dev
     /// Action chips don't.
     var shortcut: String?
+    /// Draws the chip's label in the danger ink (Delete now).
+    var isDestructive = false
     let run: () -> Void
 }
 
@@ -91,6 +93,10 @@ struct PeekActionButton: View {
             Image(systemName: action.symbol).panelFont(.caption)
             Text(action.title).panelFont(.subheadline, .medium).lineLimit(1)
         }
+        .foregroundStyle(
+            action.isDestructive
+                ? AnyShapeStyle(GanchoTokens.Palette.danger) : AnyShapeStyle(.primary)
+        )
         .padding(.horizontal, GanchoTokens.Spacing.xs)
         .padding(.vertical, 4)
         .contentShape(Capsule())
