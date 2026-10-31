@@ -191,6 +191,7 @@ final class AppModel {
     /// Bumped by every applied tier, so a slow launch lookup cannot overwrite a
     /// tier StoreKit delivered while it was in flight.
     @ObservationIgnored private var tierGeneration = 0
+    @ObservationIgnored private var stackIdleTask: Task<Void, Never>?
 
     /// Optional anonymous diagnostics are off until the user explicitly
     /// consents. Withdrawing consent tears down the transport immediately.
@@ -516,6 +517,8 @@ final class AppModel {
             privateModeDuration: { PrivateModeAutoOff.load(from: appDefaults).duration })
         monitor.denylist = SourceAppDenylist.load(from: appDefaults)
         monitor.onCapture = { [weak self] capture in
+            // A copy made here ends a paste-stack run; one from another device doesn't.
+            if !capture.isFromUniversalClipboard { self?.endStackRun() }
             self?.ingest(capture)
         }
         monitor.onPrivateModeCopy = { [weak self] in
@@ -577,6 +580,12 @@ final class AppModel {
         }
         KeyboardShortcuts.onKeyUp(for: .pasteFromStack) { [weak self] in
             self?.pasteNextFromStack()
+        }
+        KeyboardShortcuts.onKeyUp(for: .pasteStackSkip) { [weak self] in
+            self?.skipInStack()
+        }
+        KeyboardShortcuts.onKeyUp(for: .pasteStackBack) { [weak self] in
+            self?.backInStack()
         }
 
         // Sync status/idle mapping stays here (the views observe `syncStatus`);
@@ -1351,6 +1360,10 @@ final class AppModel {
     /// Queue entries (each with a stable id independent of the clip), so the UI
     /// can render and address duplicates without ClipItem.id collisions.
     var pasteStackEntries: [PasteStack.Entry] { reuseController.pasteStackEntries }
+    /// The queue with its run cursor ("3 of 5").
+    var pasteStack: PasteStack { reuseController.pasteStack }
+    /// Entries still waiting, next first.
+    var pasteStackWaiting: [ClipItem] { Array(pasteStack.items.dropFirst(pasteStack.cursor)) }
 
     func pushToStack(_ item: ClipItem) {
         pushToStack([item])
@@ -1360,6 +1373,7 @@ final class AppModel {
         guard !items.isEmpty else { return }
         reuseController.pushToStack(items)
         toasts.show(GanchoToast(message: "Added to paste stack"))
+        restartStackIdleTimer()
     }
 
     func clearStack() {
@@ -1379,6 +1393,40 @@ final class AppModel {
         paste(item)
         if pasteStackEntries.isEmpty {
             toasts.show(GanchoToast(message: "Paste stack finished"))
+        }
+        restartStackIdleTimer()
+    }
+
+    func skipInStack() {
+        reuseController.skipInStack()
+        restartStackIdleTimer()
+    }
+
+    func backInStack() {
+        reuseController.backInStack()
+        restartStackIdleTimer()
+    }
+
+    func resetStack() {
+        reuseController.resetStack()
+        restartStackIdleTimer()
+    }
+
+    /// Ends the run: pasted entries leave, waiting ones stay.
+    func endStackRun() {
+        stackIdleTask?.cancel()
+        guard pasteStack.cursor > 0 else { return }
+        reuseController.endStackRun()
+    }
+
+    /// A run ends after `PasteStack.idleLimit` without a stack action.
+    private func restartStackIdleTimer() {
+        stackIdleTask?.cancel()
+        guard pasteStack.isRunActive else { return }
+        stackIdleTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(PasteStack.idleLimit))
+            guard !Task.isCancelled else { return }
+            self?.endStackRun()
         }
     }
 

@@ -9,6 +9,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A paste-stack run keeps what already went in: the queue checks pasted
+  clips, marks the next one and the footer reads "3 of 5". Skip, Back and
+  Reset move through the run, with optional shortcuts in Settings. A run
+  ends after two minutes without a stack action or when you copy something
+  new; clips still waiting stay in the stack.
 - A secret's peek on the Mac shows its masked value, how long it has left
   with a lifetime bar, "Reveal for 10 s" and "Delete now". A reveal masks
   itself again after 10 seconds or when the panel hides, and is off while

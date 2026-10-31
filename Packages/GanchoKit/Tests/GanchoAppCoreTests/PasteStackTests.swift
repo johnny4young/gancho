@@ -4,13 +4,13 @@ import Testing
 
 @testable import GanchoAppCore
 
-@Suite("Paste stack — FIFO queue")
+@Suite("Paste stack — queue and run cursor")
 struct PasteStackTests {
     private func clip(_ tag: String) -> ClipItem {
         ClipItem(preview: tag, contentHash: tag)
     }
 
-    @Test("push appends and popFirst returns front-to-back")
+    @Test("push appends and takeNext pastes front to back, ending the run on the last")
     func fifoOrder() {
         var stack = PasteStack()
         let a = clip("a")
@@ -18,10 +18,89 @@ struct PasteStackTests {
         stack.push(a)
         stack.push(b)
         #expect(stack.count == 2)
-        #expect(stack.popFirst()?.id == a.id)
-        #expect(stack.popFirst()?.id == b.id)
-        #expect(stack.popFirst() == nil)
+        #expect(stack.takeNext()?.id == a.id)
+        #expect(stack.takeNext()?.id == b.id)
+        #expect(stack.takeNext() == nil)
         #expect(stack.isEmpty)
+    }
+
+    @Test("a run keeps pasted entries and counts its position")
+    func runKeepsPastedEntries() {
+        var stack = PasteStack()
+        let clips = (1...5).map { clip("\($0)") }
+        stack.push(contentsOf: clips)
+
+        stack.takeNext()
+        stack.takeNext()
+
+        #expect(stack.count == 5)
+        #expect(stack.cursor == 2)
+        #expect(stack.remaining == 3)
+        #expect(stack.next?.clip.id == clips[2].id)
+        #expect(stack.isRunActive)
+    }
+
+    @Test("skip, back and reset move the cursor without pasting")
+    func skipBackReset() {
+        var stack = PasteStack()
+        let clips = (1...3).map { clip("\($0)") }
+        stack.push(contentsOf: clips)
+
+        stack.back()
+        #expect(stack.cursor == 0, "back at the start stays put")
+        stack.skip()
+        #expect(stack.next?.clip.id == clips[1].id)
+        stack.back()
+        #expect(stack.next?.clip.id == clips[0].id)
+        stack.takeNext()
+        stack.takeNext()
+        stack.reset()
+        #expect(stack.next?.clip.id == clips[0].id)
+        #expect(stack.count == 3)
+        stack.skip()
+        stack.skip()
+        stack.skip()
+        #expect(stack.isEmpty, "skipping the last entry ends the run")
+    }
+
+    @Test("ending a run drops pasted entries and keeps the waiting ones")
+    func endRunKeepsWaiting() {
+        var stack = PasteStack()
+        let clips = (1...4).map { clip("\($0)") }
+        stack.push(contentsOf: clips)
+        stack.takeNext()
+
+        stack.endRun()
+
+        #expect(stack.items.map(\.id) == clips.dropFirst().map(\.id))
+        #expect(stack.cursor == 0)
+        #expect(!stack.isRunActive)
+    }
+
+    @Test("removing a pasted entry keeps the cursor on the same next entry")
+    func removeBeforeCursor() {
+        var stack = PasteStack()
+        let clips = (1...3).map { clip("\($0)") }
+        stack.push(contentsOf: clips)
+        stack.takeNext()
+
+        stack.remove(entryID: stack.entries[0].id)
+
+        #expect(stack.next?.clip.id == clips[1].id)
+        #expect(stack.cursor == 0)
+    }
+
+    @Test("only waiting entries move, never in front of the cursor")
+    func moveRespectsCursor() {
+        var stack = PasteStack()
+        let clips = (1...4).map { clip("\($0)") }
+        stack.push(contentsOf: clips)
+        stack.takeNext()
+
+        stack.move(fromOffsets: IndexSet(integer: 3), toOffset: 0)
+        #expect(stack.items.map(\.id) == [clips[0], clips[3], clips[1], clips[2]].map(\.id))
+        stack.move(fromOffsets: IndexSet(integer: 0), toOffset: 4)
+        #expect(stack.items.first?.id == clips[0].id, "a pasted entry stays put")
     }
 
     @Test("batch push preserves the visible input order")
