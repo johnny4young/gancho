@@ -5,7 +5,8 @@ import GRDB
 /// payload is read or decrypted.
 public protocol UploadStateProviding: Sendable {
     /// Whether the clip still has to reach iCloud: never uploaded, or edited
-    /// since its last upload. False for an unknown id.
+    /// since its last upload. False for an unknown id and for a secret, which
+    /// never syncs.
     func isAwaitingUpload(id: UUID) async throws -> Bool
 }
 
@@ -17,7 +18,8 @@ extension GRDBClipboardStore: UploadStateProviding {
                 sql: """
                     SELECT EXISTS(
                         SELECT 1 FROM clip
-                        WHERE id = ? AND (syncSystemFields IS NULL OR needsUpload = 1))
+                        WHERE id = ? AND isSensitive = 0
+                            AND (syncSystemFields IS NULL OR needsUpload = 1))
                     """,
                 arguments: [id.uuidString]) ?? false
         }

@@ -826,7 +826,7 @@ final class IOSAppModel {
             requiredUses: SnippetLimits.promotionSuggestionUseThreshold)
         // Copying a clip is the truest "ready to paste" moment — it's on the
         // pasteboard now — so surface it on the Live Activity too.
-        clipActivity.show(item, sync: ClipSyncBadge(syncStatus))
+        clipActivity.show(item, sync: ClipSyncBadge(syncStatus, for: item))
         await recordSuccessfulReuse(item)
         if let suggestion { await presentReuseSuggestion(suggestion) }
     }
@@ -1436,7 +1436,7 @@ final class IOSAppModel {
         reloadWidgets()
         // Surface the just-captured clip as "ready to paste" (masked if
         // sensitive) on the Dynamic Island / lock screen.
-        clipActivity.show(outcome.item, sync: ClipSyncBadge(syncStatus))
+        clipActivity.show(outcome.item, sync: ClipSyncBadge(syncStatus, for: outcome.item))
         if scheduleEnrichment { enrich(outcome) }
     }
 

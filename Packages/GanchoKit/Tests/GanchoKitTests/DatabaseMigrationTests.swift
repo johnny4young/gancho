@@ -41,9 +41,10 @@ struct DatabaseMigrationTests {
                 "v23-inbox-receipts",
                 "v24-inbox-receipt-clip", "v25-text-recipes",
                 "v26-embedding-cleanup",
-                "v27-image-size"
+                "v27-image-size",
+                "v28-local-secrets"
             ])
-        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 27)
+        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 28)
     }
 
     @Test(
@@ -73,6 +74,39 @@ struct DatabaseMigrationTests {
         }
         #expect(clipColumns.contains("imageWidth") && clipColumns.contains("imageHeight"))
         #expect(item.imageInfo == nil)
+    }
+
+    @Test("v28 takes uploaded secrets out of iCloud and keeps them on the device")
+    func localSecretsMigration() async throws {
+        let (store, directory) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try store.migrate(upTo: GanchoDatabaseMigrator.Identifier.imageSize.rawValue)
+        let secret = UUID()
+        let unackedSecret = UUID()
+        let localSecret = UUID()
+        let plain = UUID()
+        try await store.writer.write { db in
+            for (id, sensitive, fields, dirty) in [
+                (secret, 1, Data([1]) as Data?, 0), (unackedSecret, 1, nil, 1),
+                (localSecret, 1, nil, 0), (plain, 0, Data([2]), 1)
+            ] {
+                try Self.insertLegacyClip(id: id, marker: id.uuidString, in: db)
+                try db.execute(
+                    sql: "UPDATE clip SET isSensitive = ?, syncSystemFields = ?, needsUpload = ? "
+                        + "WHERE id = ?",
+                    arguments: [sensitive, fields, dirty, id.uuidString])
+            }
+        }
+
+        try store.migrate()
+
+        #expect(
+            Set(try await store.pendingDeletionRecordIDs())
+                == [secret.uuidString, unackedSecret.uuidString])
+        #expect(try await store.systemFields(for: secret) == nil)
+        #expect(try await store.content(for: secret) == .text("body \(secret.uuidString)"))
+        #expect(try await store.systemFields(for: plain) == Data([2]))
+        #expect(try await store.pendingUploadIDs() == [plain])
     }
 
     /// A store carrying enough rows AND statistics for the planner to make a

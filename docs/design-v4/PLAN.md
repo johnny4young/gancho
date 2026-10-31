@@ -97,7 +97,14 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
    - Q55 (GC-V4-17): "Copy again" is not offered for a sensitive clip; "Open in Gancho" stays. The activity ends when Gancho captures again, or at the next foreground when the pasteboard changed (its change count, never its content), besides the 3-minute dismiss.
    - Q32 + Q56 (GC-V4-18): on iPhone, text in an image is read when the clip opens, on device, and not stored; regions come from a fresh pass even when Pro has the text cached. Nothing is copied without a tap. A line with a secret stays out of "Copy all" until revealed, and Translate is hidden while one is held back.
    - Q57 (GC-V4-19): every row inserted into the current field is marked (tint + pill) until the document changes; images, which go to the pasteboard, are not marked.
-18. Cross-app rules from the owner's threads:
+18. Answers given on 2026-10-31 to the Phase 14 questions (all the recommended option):
+   - Delivery: two PRs. 14a keeps secrets on the device (sync); 14b is the Mac peek for a secret.
+   - Q12 (GC-09): sensitive clips never sync. They stop uploading, the ones already in iCloud are deleted there (the local rows stay), and a remote change never adds, edits or deletes a local secret.
+   - Q14 (GC-09): the Mac peek reveals a secret with a "Reveal for 10 s" button, which masks it again after 10 s, when the panel closes or when it loses focus. No hold-⌥ (⌥↩ is Plain paste).
+   - Q15 (GC-09): no "Keep 10 more min"; a secret's lifetime can still be shortened, never extended. The peek shows the countdown, the lifetime bar and Delete now.
+   - Q16 (GC-09): settled by earlier answers. Widgets keep the masked row (Q54), the keyboard keeps excluding secrets, and the mask stays the stored `●●●● 4Q2v` (Q13).
+   - Q3 (GC-09): Phase 14 ships without a flag; it extends shipped secret handling. The flag pattern stays for the Novel phases 15–24.
+19. Cross-app rules from the owner's threads:
    - Only propose what beats the current UI; code wins over v2 boards and site screenshots.
    - Each piece of data appears once per screen.
    - Canvas annotations are not UI.
@@ -114,7 +121,7 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
 Live sources match the expected numbers exactly. Maybe: GC-V4-22, with owner note "no entiendo la utilidad de esto, pero siento que no es necesario". Skip: GC-V4-20.
 
 By type: UI 29 · bug 6 · feature 31 · system 7.  
-By status: blocked 12 · done 59 · not implemented 1 · pending decision 1.
+By status: blocked 11 · done 59 · in progress 1 · not implemented 1 · pending decision 1.
 
 ## Plan table
 
@@ -143,7 +150,7 @@ Type: UI / feature / bug / system. Pick is the Design Picks state. Phase refers 
 | GC-05 | UI | pick | — | PanelStates | Empty panel: 'Import from Maccy or CSV…' button + three-key teaching card shown until the first paste | PanelResultsView.swift:193-292; PanelView.swift:1281; MigrationImportView.swift; GlobalShortcuts.swift:9 | Copy + importer exist; card + own 'first paste done' flag new | GC-V4-4, GC-V5-1 | Unit: show/hide rule; UI: card disappears after a paste; snapshot | 3 | done — bc4c9f6, 1f70b67 (Q26: 'Shown once…' is an annotation; footer wording stays with GC-V4-4); PanelFirstRunStageTests + PanelProvenanceUITests + snapshots panel-first-run |
 | GC-07 | feature | pick | — | PanelStates, Settings | Private Mode in indigo: since HH:MM, N copies skipped (content never read), auto-off + minutes-left footer, 'Turn off' button, Settings → Privacy auto-off picker | PanelStatusFooter.swift:66-140; PanelCapturePresentation.swift; CapturePreferences.swift:17; CaptureLifecycleController.swift; MacPasteboardMonitor.swift:167; PrivateActivityReceipt.swift; PrivacySettingsTab.swift | Toggle, masking, receipt exist; timestamps, scheduler, picker, indigo token, change counter (changeCount only) new | GC-V4-4, GC-17, SY-V4-8 | Unit: clock-injected auto-off; counter never reads content; UI + snapshot | 4 | done — 6385cf1 (Q18: no default ⌥⌘P, the recorded shortcut or none; Q25: 15 min / 30 min / 1 h / 2 h / until off, default 1 h, 'none read' is a fixed promise); CaptureLifecycleControllerTests + ProductionMonitorTests + CapturePreferencesTests + PanelBehaviourUITests + SettingsPrivacyUITests + snapshots panel-private-mode, settings-privacy |
 | GC-08 | feature | pick | — | PanelStates | No results runs the query in other modes/scopes, shows counts as buttons (best highlighted), previews it, ↓ applies | PanelResultsView.swift:262-291; PanelSearchModel.swift:297,:361-418; ClipSearch.swift:7-14; GRDBClipboardStore.swift:340 | Modes, Meaning, Clear filters exist; cancellable count probe + rows + ↓ new | GC-V4-1, GC-V4-3 | Unit: probe with fake source, cancellation; UI: ↓ applies; perf: probe within search budget | 4 | done — af7a8b5 (Q24: 'Older than 30 days' dropped; the most results wins, ties Fuzzy > Exact > Meaning > All boards > Regex); PanelSearchAlternativesTests + SearchTokensUITests + snapshots panel-no-results |
-| GC-09 | feature | pick | — | Novel, PanelStates, Panel | Secrets masked everywhere; Mac peek countdown + lifetime bar + reveal + keep longer + delete now; never in widgets/keyboard/Spotlight/MCP | ClipPeek.swift:89-101,:381-390; Components.swift:162-293; RetentionEngine.swift:55-70; WidgetClips.swift:11; KeyboardClips.swift:16; MCPToolRunner.swift:116; LibrarySpotlightService.swift:60; SyncLocalStore.swift:208-221 | Keyboard/MCP/Spotlight exclude; widgets mask; iOS reveal exists; Mac reveal, keep, delete, bar new | GC-25, GC-20, GC-V4-9 | Unit: lifetime cap, reveal timer; privacy: no secret in widget/keyboard/MCP; UI; snapshot | 14 | blocked: Q12-Q16 |
+| GC-09 | feature | pick | — | Novel, PanelStates, Panel | Secrets masked everywhere; Mac peek countdown + lifetime bar + reveal + keep longer + delete now; never in widgets/keyboard/Spotlight/MCP | ClipPeek.swift:89-101,:381-390; Components.swift:162-293; RetentionEngine.swift:55-70; WidgetClips.swift:11; KeyboardClips.swift:16; MCPToolRunner.swift:116; LibrarySpotlightService.swift:60; SyncLocalStore.swift:208-221 | Keyboard/MCP/Spotlight exclude; widgets mask; iOS reveal exists; Mac reveal, keep, delete, bar new | GC-25, GC-20, GC-V4-9 | Unit: lifetime cap, reveal timer; privacy: no secret in widget/keyboard/MCP; UI; snapshot | 14 | in progress: 14a done (Q12: secrets never sync; v28 deletes uploaded ones from iCloud; remote changes never touch a local secret); SyncLocalSecretsTests + DatabaseMigrationTests. 14b (Mac peek: Reveal for 10 s, countdown, lifetime bar, Delete now; Q14/Q15) pending |
 | GC-10 | feature | pick | — | Novel, PanelStates, Panel, MenuBarDark | Paste stack with a visible cursor (3/5), done items kept, floating strip, next/skip/back/reset, ends after idle | PasteStack.swift:15; AppModel.swift:1303-1335; GlobalShortcuts.swift:17; PasteStackStrip.swift; PanelSelectionContextBar.swift | FIFO consuming queue exists; cursor model, strip, bridge field, hotkeys new | GC-25, GC-24, GC-V6-8 | Unit: cursor model; UI select → ⌥⌘⏎ → queue; snapshot | 15 | blocked: Q18, Q61 |
 | GC-12 | feature | pick | — | Novel2, PanelStates | Describe the change: on-device prompt → Was/Will paste diff, chips (Fix grammar…), coaching; hidden without Apple Intelligence (#available macOS 26) | SmartPasteService.swift:15-46,:184; IntelligenceCapability.swift; ClipPeek+SmartPaste.swift | Fixed rewrites + gate exist; prompt path, diff, coaching new | GC-11, GC-V5-5 | Unit: word diff, fake engine; UI: hidden on simulated macOS 15 | 16 | blocked: Q27, Q31 |
 | GC-11 | feature | pick | — | Novel2, Peek, Panel | One Transform: ⌘T popover (groups + filter) and a reorderable step pipeline with before/after, save as recipe | ClipPeek.swift:569-584,:676-843; ClipPeek+SmartPaste.swift:38-83; PasteTransform.swift; DevActions.swift:56-90; TextRecipe.swift:41-66; TextRecipeExecutor.swift | Most transforms + recipes exist; popover, pipeline, new steps, shortcuts new | GC-12, GC-V4-2 | Unit: catalog group/filter, executor; UI: update PeekDock/TextRecipe/Translation tests | 16 | blocked: Q30 |
@@ -299,7 +306,7 @@ Run on 2026-10-21 against the text of all 17 Gancho v4 boards plus V4_System_Com
 - **Claims on the boards or in the catalog that the code contradicts.** Recorded so nobody builds on them:
   - B-GC-04 is a masked sensitive image, not an untitled one.
   - Image pixel dimensions are not stored, contrary to what GC-V5-3 assumes.
-  - Sensitive clips do sync to iCloud today: `SyncLocalStore.pendingUploads()` has no sensitive filter, yet several boards say "never synced".
+  - Sensitive clips synced to iCloud until Phase 14a (`SyncLocalStore.pendingUploads()` had no sensitive filter), while several boards said "never synced". Since 14a (Q12) they never sync.
   - Secrets are stored masked as `●●●● 4Q2v`, not `sk_live_••••4Q2v`.
   - Secret lifetime can only be shortened today, but the boards add "Keep 10 more min".
   - OCR holds back every line when any secret is found, not just the secret line.
@@ -372,7 +379,7 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
   - Original question: the repo has no snapshot library. `ComponentRenderTests` only checks that components render. Options:
   - Add `swift-snapshot-testing` for test targets only. This needs DEPENDENCIES.md and both lock files.
   - Write a small in-house `ImageRenderer` baseline comparer.
-- **Q3 Feature flags.** Is an off-by-default hidden `UserDefaults` key plus a DEBUG launch argument acceptable for Novel features?
+- **Q3 — RESOLVED 2026-10-31 for Phase 14: no flag.** Is an off-by-default hidden `UserDefaults` key plus a DEBUG launch argument acceptable for Novel features?
 
 ### Design system
 
@@ -405,11 +412,11 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 
 ### Privacy
 
-- **Q12 Sensitive clips and iCloud.** (The Library card no longer claims "never synced"; the sync decision stays open for Phase 14.) They sync today, but the boards promise "never synced". Should sync skip sensitive clips (a privacy and data change), or should the copy change?
+- **Q12 — RESOLVED 2026-10-31: sensitive clips never sync.** (The Library card no longer claims "never synced"; the sync decision stays open for Phase 14.) They sync today, but the boards promise "never synced". Should sync skip sensitive clips (a privacy and data change), or should the copy change?
 - **Q13 — RESOLVED for the Library 2026-10-24: stored mask, kind as title** (iPhone rows in Phase 11 follow the same rule). Secret display. Show the `sk_live_` prefix and a category title, which would need a new stored field? Or keep the stored `●●●● 4Q2v` with no title?
-- **Q14 Reveal gesture.** "Hold ⌥" (catalog, Novel) or "Reveal for 10 s" (PanelStates, Panel)? Note that ⌥↩ is Plain paste.
-- **Q15 Keep 10 more min.** It contradicts the shipped rule that a secret's lifetime can be shortened, never extended. Allow it?
-- **Q16 Secrets in widgets and the keyboard.** Widgets: omit secrets or keep masking them? Keyboard: GC-V6-8 draws a masked secret, but the keyboard excludes secrets by design.
+- **Q14 — RESOLVED 2026-10-31: "Reveal for 10 s".** "Hold ⌥" (catalog, Novel) or "Reveal for 10 s" (PanelStates, Panel)? Note that ⌥↩ is Plain paste.
+- **Q15 — RESOLVED 2026-10-31: dropped.** It contradicts the shipped rule that a secret's lifetime can be shortened, never extended. Allow it?
+- **Q16 — RESOLVED 2026-10-31: widgets keep the masked row, the keyboard excludes secrets.** Widgets: omit secrets or keep masking them? Keyboard: GC-V6-8 draws a masked secret, but the keyboard excludes secrets by design.
 - **Q17 — RESOLVED 2026-10-25: no chip; the rule is a card.** "Also concealed" chip. Showing it per app needs per-app protected-copy data, which is aggregate-only by design today.
 
 ### Shortcuts

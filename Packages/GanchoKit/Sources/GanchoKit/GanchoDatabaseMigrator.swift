@@ -32,6 +32,7 @@ enum GanchoDatabaseMigrator {
         case textRecipes = "v25-text-recipes"
         case embeddingCleanup = "v26-embedding-cleanup"
         case imageSize = "v27-image-size"
+        case localSecrets = "v28-local-secrets"
     }
 
     static var identifiers: [String] {
@@ -95,7 +96,24 @@ enum GanchoDatabaseMigrator {
                 table.add(column: "imageHeight", .integer)
             }
         }
+        registerLocalSecretsMigration(in: &migrator)
         return migrator
+    }
+
+    /// Registered after v27 in `make()`; GRDB applies migrations in registration order.
+    private static func registerLocalSecretsMigration(in migrator: inout DatabaseMigrator) {
+        migrator.registerMigration(Identifier.localSecrets.rawValue) { db in
+            // Sensitive clips no longer sync. Tombstone every one that may be in
+            // iCloud (uploaded, or sent without an ack); the local rows stay.
+            try db.execute(
+                sql: "INSERT OR REPLACE INTO sync_tombstone (recordID, deletedAt) "
+                    + "SELECT id, ? FROM clip WHERE isSensitive = 1 "
+                    + "AND (syncSystemFields IS NOT NULL OR needsUpload = 1)",
+                arguments: [Date()])
+            try db.execute(
+                sql: "UPDATE clip SET syncSystemFields = NULL, needsUpload = 0 "
+                    + "WHERE isSensitive = 1")
+        }
     }
 
     private static func registerInitialMigrations(in migrator: inout DatabaseMigrator) {
