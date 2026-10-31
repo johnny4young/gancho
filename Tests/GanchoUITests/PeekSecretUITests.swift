@@ -53,6 +53,7 @@ final class PeekSecretUITests: XCTestCase {
     }
 
     /// macOS puts a static text's string in its label or its value.
+    @MainActor
     private func text(of element: XCUIElement) -> String {
         element.label.isEmpty ? (element.value as? String ?? "") : element.label
     }
