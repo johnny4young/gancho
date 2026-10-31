@@ -29,16 +29,13 @@ struct ClipLiveActivity: Widget {
                     SyncBadge(state.sync)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Ready to paste")
-                                .font(.caption2.bold())
-                                .foregroundStyle(.secondary)
-                            Text(displayPreview(state))
-                                .font(.callout)
-                                .lineLimit(2)
-                        }
-                        ClipActivityActions(state: state)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Ready to paste")
+                            .font(.caption2.bold())
+                            .foregroundStyle(.secondary)
+                        Text(displayPreview(state))
+                            .font(.callout)
+                            .lineLimit(2)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -82,8 +79,10 @@ private struct ClipActivityLockScreen: View {
     }
 }
 
-/// Copy again puts the clip back on the pasteboard; a protected clip never
-/// offers it from here. Open goes to the clip in Gancho.
+/// On the lock screen, where "ready to paste" stays for its window (it ends at
+/// creation, so the Dynamic Island never holds it). Copy again puts the clip
+/// back on the pasteboard and a protected clip never offers it; Open goes to
+/// the clip in Gancho.
 private struct ClipActivityActions: View {
     let state: ClipActivityAttributes.ContentState
 
@@ -165,13 +164,6 @@ private func syncColor(_ emphasis: ClipSyncBadge.Emphasis) -> Color {
         sync: .synced, clipID: UUID())
     private let previewSecret = ClipActivityAttributes.ContentState(
         preview: "•••", kindSymbolName: "lock", isSensitive: true, sync: .synced, clipID: UUID())
-
-    #Preview("Expanded", as: .dynamicIsland(.expanded), using: ClipActivityAttributes()) {
-        ClipLiveActivity()
-    } contentStates: {
-        previewLink
-        previewSecret
-    }
 
     #Preview("Lock Screen", as: .content, using: ClipActivityAttributes()) {
         ClipLiveActivity()
