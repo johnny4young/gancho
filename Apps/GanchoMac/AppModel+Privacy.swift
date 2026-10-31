@@ -64,3 +64,19 @@ extension AppModel {
         delete(clips.filter { !pendingDeletionIDs.contains($0.id) })
     }
 }
+
+extension AppModel {
+    /// A secret can be revealed only while previews show and no screen is
+    /// shared, even after "Show anyway".
+    var secretRevealAllowed: Bool {
+        !previewsHidden && sharingAppName == nil
+    }
+
+    /// The peek's timed reveal reads one secret's text on demand.
+    func revealedSecretText(_ item: ClipItem) async -> String? {
+        guard let fullStore else { return nil }
+        return await SecretReveal.text(for: item, allowed: secretRevealAllowed) { id in
+            try await fullStore.content(for: id)
+        }
+    }
+}
