@@ -192,6 +192,7 @@ final class AppModel {
     /// tier StoreKit delivered while it was in flight.
     @ObservationIgnored private var tierGeneration = 0
     @ObservationIgnored private var stackIdleTask: Task<Void, Never>?
+    @ObservationIgnored private let stackStrip = PasteStackRunStripController()
 
     /// Optional anonymous diagnostics are off until the user explicitly
     /// consents. Withdrawing consent tears down the transport immediately.
@@ -586,6 +587,13 @@ final class AppModel {
         }
         KeyboardShortcuts.onKeyUp(for: .pasteStackBack) { [weak self] in
             self?.backInStack()
+        }
+        // The run strip shows only while the panel is closed.
+        for name in [Notification.Name.ganchoPanelDidShow, .ganchoPanelDidHide] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) {
+                [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshStackStrip() }
+            }
         }
 
         // Sync status/idle mapping stays here (the views observe `syncStatus`);
@@ -1378,10 +1386,12 @@ final class AppModel {
 
     func clearStack() {
         reuseController.clearStack()
+        refreshStackStrip()
     }
 
     func removeFromStack(entryID: Int) {
         reuseController.removeFromStack(entryID: entryID)
+        refreshStackStrip()
     }
 
     func moveInStack(fromOffsets source: IndexSet, toOffset destination: Int) {
@@ -1415,12 +1425,18 @@ final class AppModel {
     /// Ends the run: pasted entries leave, waiting ones stay.
     func endStackRun() {
         stackIdleTask?.cancel()
-        guard pasteStack.cursor > 0 else { return }
+        guard pasteStack.isRunActive else { return }
         reuseController.endStackRun()
+        refreshStackStrip()
+    }
+
+    private func refreshStackStrip() {
+        stackStrip.update(model: self)
     }
 
     /// A run ends after `PasteStack.idleLimit` without a stack action.
     private func restartStackIdleTimer() {
+        refreshStackStrip()
         stackIdleTask?.cancel()
         guard pasteStack.isRunActive else { return }
         stackIdleTask = Task { [weak self] in

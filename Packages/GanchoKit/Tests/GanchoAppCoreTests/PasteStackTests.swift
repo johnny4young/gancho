@@ -63,6 +63,23 @@ struct PasteStackTests {
         #expect(stack.isEmpty, "skipping the last entry ends the run")
     }
 
+    @Test("Back to the first entry and Reset keep the run going")
+    func backToStartKeepsTheRun() {
+        var stack = PasteStack()
+        stack.push(contentsOf: (1...3).map { clip("\($0)") })
+        #expect(!stack.isRunActive, "queued but not started")
+
+        stack.takeNext()
+        stack.back()
+        #expect(stack.cursor == 0)
+        #expect(stack.isRunActive)
+        stack.takeNext()
+        stack.reset()
+        #expect(stack.isRunActive)
+        stack.endRun()
+        #expect(!stack.isRunActive)
+    }
+
     @Test("ending a run drops pasted entries and keeps the waiting ones")
     func endRunKeepsWaiting() {
         var stack = PasteStack()

@@ -24,6 +24,8 @@ public struct PasteStack: Equatable, Sendable {
     public private(set) var entries: [Entry]
     /// How many entries at the front were already pasted in this run.
     public private(set) var cursor = 0
+    /// Set by the first paste or skip; Back and Reset keep the run going.
+    private var isRunning = false
     /// Monotonic per-session entry id source. Never reset (not even on `clear`)
     /// so an id is never reused within a session.
     private var nextID: Int
@@ -44,8 +46,8 @@ public struct PasteStack: Equatable, Sendable {
     public var next: Entry? { entries.indices.contains(cursor) ? entries[cursor] : nil }
     /// Entries still waiting to be pasted.
     public var remaining: Int { entries.count - cursor }
-    /// A run is active once something was pasted and something is left.
-    public var isRunActive: Bool { cursor > 0 && remaining > 0 }
+    /// A run is active from the first paste or skip while something is left.
+    public var isRunActive: Bool { isRunning && remaining > 0 }
 
     public mutating func push(_ clip: ClipItem) {
         entries.append(Entry(id: nextID, clip: clip))
@@ -64,6 +66,7 @@ public struct PasteStack: Equatable, Sendable {
     public mutating func takeNext() -> ClipItem? {
         guard let next else { return nil }
         cursor += 1
+        isRunning = true
         if remaining == 0 { clear() }
         return next.clip
     }
@@ -73,6 +76,7 @@ public struct PasteStack: Equatable, Sendable {
     public mutating func skip() {
         guard next != nil else { return }
         cursor += 1
+        isRunning = true
         if remaining == 0 { clear() }
     }
 
@@ -90,6 +94,7 @@ public struct PasteStack: Equatable, Sendable {
     public mutating func endRun() {
         entries.removeFirst(cursor)
         cursor = 0
+        isRunning = false
     }
 
     public mutating func remove(entryID: Int) {
@@ -118,5 +123,6 @@ public struct PasteStack: Equatable, Sendable {
     public mutating func clear() {
         entries.removeAll()
         cursor = 0
+        isRunning = false
     }
 }

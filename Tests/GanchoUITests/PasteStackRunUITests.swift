@@ -37,6 +37,44 @@ final class PasteStackRunUITests: XCTestCase {
     }
 
     @MainActor
+    func testStripFollowsTheRunWhileThePanelIsClosed() throws {
+        let app = launchPanel(nonce: UUID().uuidString)
+        defer { app.terminate() }
+        let strip = app.buttons["paste-stack-strip"].firstMatch
+        XCTAssertTrue(strip.waitForExistence(timeout: 15))
+        strip.click()
+        let next = app.buttons["paste-stack-next"].firstMatch
+        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        next.click()
+
+        let position = app.staticTexts["paste-stack-run-position"].firstMatch
+        XCTAssertTrue(
+            position.waitForExistence(timeout: 5), "pasting with the panel closed shows the strip")
+        XCTAssertEqual(text(of: position), "2 of 2")
+        XCTAssertEqual(text(of: app.staticTexts["paste-stack-run-next"].firstMatch), "Ocean")
+        try keepRender(of: "paste-stack-run-strip", in: app, named: "Paste-stack run strip")
+
+        app.buttons["paste-stack-run-back"].firstMatch.click()
+        XCTAssertTrue(waitForText("1 of 2", of: position), "Back to the first entry keeps the run")
+        app.buttons["paste-stack-run-end"].firstMatch.click()
+        XCTAssertTrue(position.waitForNonExistence(timeout: 5), "End run closes the strip")
+    }
+
+    /// macOS puts a static text's string in its label or its value.
+    @MainActor
+    private func text(of element: XCUIElement) -> String {
+        element.label.isEmpty ? (element.value as? String ?? "") : element.label
+    }
+
+    @MainActor
+    private func waitForText(_ value: String, of element: XCUIElement) -> Bool {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@ OR value == %@", value, value),
+            object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: 5) == .completed
+    }
+
+    @MainActor
     private func waitForValue(_ value: String, of element: XCUIElement) -> Bool {
         let expectation = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "value == %@", value), object: element)
