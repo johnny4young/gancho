@@ -2036,10 +2036,11 @@ final class AppModel {
         return counts
     }
 
-    /// The peek's sync chip: nil while sync is off or the store can't answer,
-    /// otherwise whether the clip still has to reach iCloud.
+    /// The peek's sync chip: nil while sync is off, for a secret (it stays on
+    /// this device) or when the store can't answer; otherwise whether the clip
+    /// still has to reach iCloud.
     func uploadState(for item: ClipItem) async -> PeekSyncState? {
-        guard syncController.isEnabled, let fullStore,
+        guard syncController.isEnabled, !item.isSensitive, let fullStore,
             let awaiting = try? await fullStore.isAwaitingUpload(id: item.id)
         else { return nil }
         return awaiting ? .waiting : .synced

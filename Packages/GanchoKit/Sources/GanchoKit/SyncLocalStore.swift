@@ -38,8 +38,8 @@ public struct RemoteBoardChange: Sendable {
 public struct RemoteApplySummary: Sendable, Equatable {
     /// Remote changes that won and were written.
     public var applied = 0
-    /// Remote changes a newer local row or a pending local deletion beat.
-    /// Normal, not a failure.
+    /// Remote changes a newer local row, a pending local deletion or the
+    /// local-only rule for secrets beat. Normal, not a failure.
     public var skippedAsStale = 0
     /// Changes whose write threw and was rolled back on its own.
     public var failed = 0
@@ -53,7 +53,7 @@ public struct RemoteApplySummary: Sendable, Equatable {
 
 public protocol SyncLocalStore: Sendable {
     /// Clips that still need uploading: never synced (no system fields) or
-    /// edited since last upload.
+    /// edited since last upload. Sensitive clips never sync.
     func pendingUploads() async throws -> [(item: ClipItem, content: ClipContent?)]
     /// How many clips still need uploading — a bare COUNT, so status
     /// refreshes never hydrate (and decrypt) content just to show a number.
@@ -211,7 +211,7 @@ extension GRDBClipboardStore: SyncLocalStore {
                 db,
                 sql: """
                     SELECT * FROM clip
-                    WHERE syncSystemFields IS NULL OR needsUpload = 1
+                    WHERE isSensitive = 0 AND (syncSystemFields IS NULL OR needsUpload = 1)
                     ORDER BY createdAt ASC
                     """)
         }
@@ -228,7 +228,7 @@ extension GRDBClipboardStore: SyncLocalStore {
                 db,
                 sql: """
                     SELECT COUNT(*) FROM clip
-                    WHERE syncSystemFields IS NULL OR needsUpload = 1
+                    WHERE isSensitive = 0 AND (syncSystemFields IS NULL OR needsUpload = 1)
                     """) ?? 0
         }
     }
@@ -239,7 +239,7 @@ extension GRDBClipboardStore: SyncLocalStore {
                 db,
                 sql: """
                     SELECT id FROM clip
-                    WHERE syncSystemFields IS NULL OR needsUpload = 1
+                    WHERE isSensitive = 0 AND (syncSystemFields IS NULL OR needsUpload = 1)
                     ORDER BY createdAt ASC
                     """)
         }
@@ -252,7 +252,7 @@ extension GRDBClipboardStore: SyncLocalStore {
                 db,
                 sql: """
                     SELECT * FROM clip
-                    WHERE id = ? AND (syncSystemFields IS NULL OR needsUpload = 1)
+                    WHERE id = ? AND isSensitive = 0 AND (syncSystemFields IS NULL OR needsUpload = 1)
                     """,
                 arguments: [id.uuidString])
         }
@@ -313,6 +313,10 @@ extension GRDBClipboardStore: SyncLocalStore {
     public func applyRemoteUpsert(
         _ item: ClipItem, content: ClipContent?, systemFields: Data
     ) async throws -> Bool {
+        if item.isSensitive {
+            try await writer.write { db in try Self.retractRemoteSecret(item.id, in: db) }
+            return false
+        }
         let ownership = try await acquireBlobOwnership(adopting: [content])
         defer { ownership?.release() }
         let finalRow = try preparedRow(for: item, content: content)
@@ -385,6 +389,13 @@ extension GRDBClipboardStore: SyncLocalStore {
         in db: Database
     ) throws -> Bool {
         // swiftlint:enable function_body_length
+        // Secrets stay on the device that captured them: a sensitive record
+        // from an older client never lands, and a local secret never changes.
+        if item.isSensitive {
+            try Self.retractRemoteSecret(item.id, in: db)
+            return false
+        }
+        if try Self.isLocalSecret(item.id.uuidString, in: db) { return false }
         if let localUpdatedAt = try Date.fetchOne(
             db, sql: "SELECT updatedAt FROM clip WHERE id = ?",
             arguments: [item.id.uuidString])
@@ -489,7 +500,8 @@ extension GRDBClipboardStore: SyncLocalStore {
         var prepared: [(change: RemoteClipChange, row: ClipRow)] = []
         prepared.reserveCapacity(clips.count)
         var summary = RemoteApplySummary()
-        for change in clips {
+        let secrets = clips.filter(\.item.isSensitive).map(\.item.id)
+        for change in clips where !change.item.isSensitive {
             do {
                 prepared.append(
                     (change, try preparedRow(for: change.item, content: change.content)))
@@ -499,6 +511,7 @@ extension GRDBClipboardStore: SyncLocalStore {
         }
 
         let staged = prepared
+        summary.skippedAsStale += secrets.count
         let counted = summary
         var candidates = Set(staged.compactMap(\.row.contentBlobHash))
         let (result, previous) = try await writer.write { db in
@@ -519,6 +532,7 @@ extension GRDBClipboardStore: SyncLocalStore {
             // no-op for them, and placeholders stay what they are for: boards
             // this page genuinely does not carry.
             applyRemoteBoards(boards, into: &summary, in: db)
+            for id in secrets { try Self.retractRemoteSecret(id, in: db) }
             applyStagedClips(staged, into: &summary, in: db)
             applyRemoteDeletions(
                 clips: clipDeletions, boards: boardDeletions, into: &summary, in: db)
@@ -593,7 +607,7 @@ extension GRDBClipboardStore: SyncLocalStore {
     ) {
         for recordID in clips {
             do {
-                try db.execute(sql: "DELETE FROM clip WHERE id = ?", arguments: [recordID])
+                try db.execute(sql: Self.remoteClipDeletion, arguments: [recordID])
                 summary.applied += 1
             } catch {
                 summary.failed += 1
@@ -620,10 +634,32 @@ extension GRDBClipboardStore: SyncLocalStore {
     public func applyRemoteDeletion(recordID: String) async throws {
         let previous = try await writer.write { db in
             let previous = try Self.blobHashes(ofClips: [recordID], in: db)
-            try db.execute(sql: "DELETE FROM clip WHERE id = ?", arguments: [recordID])
+            try db.execute(sql: Self.remoteClipDeletion, arguments: [recordID])
             return previous
         }
         await removeBlobsIfOrphanedAfterCommit(previous)
+    }
+
+    /// A remote deletion never removes a local secret; retention owns it.
+    static let remoteClipDeletion = "DELETE FROM clip WHERE id = ? AND isSensitive = 0"
+
+    /// A secret uploaded by an older client never lands here, and its record
+    /// is queued for deletion so it leaves iCloud. A local row that is not a
+    /// secret keeps its record.
+    static func retractRemoteSecret(_ id: UUID, in db: Database) throws {
+        try db.execute(
+            sql: """
+                INSERT OR IGNORE INTO sync_tombstone (recordID, deletedAt)
+                SELECT ?, ? WHERE NOT EXISTS (
+                    SELECT 1 FROM clip WHERE id = ? AND isSensitive = 0)
+                """,
+            arguments: [id.uuidString, Date(), id.uuidString])
+    }
+
+    static func isLocalSecret(_ id: String, in db: Database) throws -> Bool {
+        try Bool.fetchOne(
+            db, sql: "SELECT EXISTS (SELECT 1 FROM clip WHERE id = ? AND isSensitive = 1)",
+            arguments: [id]) ?? false
     }
 
     public func clearTombstone(recordID: String) async throws {

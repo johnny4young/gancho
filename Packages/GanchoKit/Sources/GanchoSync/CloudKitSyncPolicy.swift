@@ -40,6 +40,12 @@ enum CloudKitSyncPolicy {
         }
     }
 
+    /// A delete of a record iCloud no longer has is done: another device, or
+    /// an earlier attempt, already removed it.
+    static func deletionIsComplete(for code: CKError.Code) -> Bool {
+        code == .unknownItem
+    }
+
     static func failedSaveRecovery(for code: CKError.Code) -> FailedSaveRecovery {
         switch code {
         case .serverRecordChanged: return .resolveConflict

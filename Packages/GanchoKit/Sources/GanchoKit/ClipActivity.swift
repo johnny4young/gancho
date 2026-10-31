@@ -54,6 +54,11 @@
             }
         }
 
+        /// A secret never syncs, so it always reads as living on this device.
+        public init(_ status: SyncStatus, for item: ClipItem) {
+            self = item.isSensitive ? .local : ClipSyncBadge(status)
+        }
+
         public var symbolName: String {
             switch self {
             case .local: "iphone"
