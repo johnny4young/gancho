@@ -5401,6 +5401,26 @@
           }
         }
       }
+    },
+    "Copy Again": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar de nuevo"
+          }
+        }
+      }
+    },
+    "Show Board in Widget": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar board en el widget"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

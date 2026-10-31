@@ -57,6 +57,7 @@ struct CaptureShell: ViewModifier {
                 NotificationCenter.default.publisher(
                     for: UIApplication.didBecomeActiveNotification)
             ) { _ in
+                model.clipActivity.endIfPasteboardChanged()
                 Task { await model.refreshHints() }
             }
             .onReceive(
