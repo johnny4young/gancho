@@ -9,8 +9,16 @@ public enum ImageTextInput: Sendable, Equatable {
 }
 
 public protocol ImageTextReading: Sendable {
-    func imageTextInput(id: UUID, now: Date) async throws -> ImageTextInput?
+    /// `preferringImage` skips text that enrichment already stored, so the
+    /// caller gets regions from a fresh recognition pass.
+    func imageTextInput(id: UUID, now: Date, preferringImage: Bool) async throws -> ImageTextInput?
     func permitsImageText(id: UUID, now: Date) async throws -> Bool
+}
+
+extension ImageTextReading {
+    public func imageTextInput(id: UUID, now: Date) async throws -> ImageTextInput? {
+        try await imageTextInput(id: id, now: now, preferringImage: false)
+    }
 }
 
 /// Text already recognized for a permitted image. Narrower than
@@ -43,12 +51,15 @@ extension GRDBClipboardStore: ImageTextReading {
         }
     }
 
-    public func imageTextInput(id: UUID, now: Date) async throws -> ImageTextInput? {
+    public func imageTextInput(
+        id: UUID, now: Date, preferringImage: Bool
+    ) async throws -> ImageTextInput? {
         let row = try await writer.read { db in
             try ClipRow.filter(key: id.uuidString).fetchOne(db)
         }
         guard let row, Self.permitsImageText(row, now: now) else { return nil }
-        if let text = row.contentText, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if !preferringImage, let text = row.contentText,
+            !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         {
             return .cached(text)
         }

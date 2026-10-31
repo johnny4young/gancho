@@ -102,6 +102,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The "ready to paste" banner on the lock screen offers Copy again and Open
   in Gancho (never Copy again for a password or key), and ends once something
   else was copied.
+- Opening an image on iPhone and iPad reads its text on the device: each line
+  is numbered over the image and listed under it, with its own copy button.
+  A line holding a password or key stays masked and out of "Copy all" until
+  you reveal it. "Save text as clip" and Translate sit under the lines, and
+  nothing is copied or saved until you tap.
 - Sharing to Gancho on iPhone and iPad shows what will be saved: the item,
   its title (the page title the app hands over, editable), boards to add it
   to (or a new one) and a Pin switch. "Save instantly from the share sheet" in

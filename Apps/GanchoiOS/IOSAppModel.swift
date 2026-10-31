@@ -112,6 +112,8 @@ final class IOSAppModel {
     /// The "last clip ready to paste" Live Activity (Dynamic Island + lock
     /// screen); a no-op when the user hasn't enabled Live Activities.
     let clipActivity = ClipActivityController()
+    /// Text read from the open image clip; transient, never stored.
+    let manualOCR = ManualOCRSession()
 
     /// Sync boundary: pull-to-refresh forces a cycle. The controller owns the
     /// engine lifecycle (make/start/stop/reset + the enabled flag); this model
@@ -1371,13 +1373,20 @@ final class IOSAppModel {
         return saved
     }
 
-    /// Stores one seeded capture and confirms it.
-    private func ingest(_ capture: PasteboardCapture) async {
-        guard let outcome = await persist(capture) else { return }
+    /// Stores one capture and confirms it.
+    @discardableResult
+    private func ingest(_ capture: PasteboardCapture) async -> Bool {
+        guard let outcome = await persist(capture) else { return false }
         flashNote(
             outcome.isNew
                 ? String(localized: "Saved") : String(localized: "Already in your history"),
             kind: .success)
+        return true
+    }
+
+    /// Saves text read from an image as a new clip, only on an explicit tap.
+    func saveTextAsClip(_ text: String) async -> Bool {
+        await ingest(PasteboardCapture(text: text))
     }
 
     /// The durable write plus its side effects; nil when the store refused it.
