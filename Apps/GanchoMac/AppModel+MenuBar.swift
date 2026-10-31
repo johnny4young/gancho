@@ -33,7 +33,7 @@ extension AppModel {
             paused: pausedStates.contains(monitorStatus),
             privateMode: preferences.isPrivateModePaused,
             ignoresNextCopy: ignoresNextCopy,
-            stackCount: pasteStackEntries.count)
+            stackCount: pasteStack.remaining)
     }
 
     /// The status item's spoken label: the capture state, plus what the badge adds.
