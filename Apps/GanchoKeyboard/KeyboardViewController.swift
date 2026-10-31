@@ -7,6 +7,7 @@ import UIKit
 /// height when the user toggles compact ↔ expanded.
 final class KeyboardViewController: UIInputViewController {
     private var heightConstraint: NSLayoutConstraint?
+    private var model: KeyboardModel?
     private static let compactHeight: CGFloat = 76
     private static let expandedHeight: CGFloat = 300
 
@@ -19,7 +20,11 @@ final class KeyboardViewController: UIInputViewController {
 
         let model = KeyboardModel(
             hasFullAccess: hasFullAccess,
-            onInsert: { [weak self] text in self?.textDocumentProxy.insertText(text) },
+            onInsert: { [weak self] text in
+                guard let proxy = self?.textDocumentProxy else { return nil }
+                proxy.insertText(text)
+                return proxy.documentIdentifier
+            },
             onDelete: { [weak self] in self?.textDocumentProxy.deleteBackward() },
             onNextKeyboard: { [weak self] in self?.advanceToNextInputMode() })
         model.onModeChange = { [weak self] expanded in
@@ -31,6 +36,7 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
 
+        self.model = model
         let host = UIHostingController(rootView: KeyboardView(model: model))
         host.view.translatesAutoresizingMaskIntoConstraints = false
         host.view.backgroundColor = .clear
@@ -51,5 +57,16 @@ final class KeyboardViewController: UIInputViewController {
         height.priority = .defaultHigh
         height.isActive = true
         heightConstraint = height
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        model?.documentChanged(to: textDocumentProxy.documentIdentifier)
+    }
+
+    // Fires for edits in the field too; only a new document id clears the marks.
+    override func textDidChange(_ textInput: (any UITextInput)?) {
+        super.textDidChange(textInput)
+        model?.documentChanged(to: textDocumentProxy.documentIdentifier)
     }
 }
