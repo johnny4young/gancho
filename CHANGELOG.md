@@ -126,6 +126,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Passwords, keys and other secrets no longer sync through iCloud: each one
+  stays on the device that copied it until it expires. Secrets uploaded by
+  earlier versions are deleted from iCloud; the copies on this device stay.
 - The iPhone's clipboard row is a card: it names what is on the clipboard
   (a link, search text, a number) without reading it, points at the Paste
   button, and after a save offers to open the clip for a few seconds.
