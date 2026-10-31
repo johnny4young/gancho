@@ -23,6 +23,23 @@ struct ImageTextReadingTests {
                 == .binary(data: Data([1, 2]), typeIdentifier: "public.png"))
     }
 
+    @Test("Preferring the image skips stored text, and the vetoes still apply")
+    func preferringImage() async throws {
+        let store = try makeStore()
+        let item = ClipItem(kind: .image, contentHash: "ocr-fresh")
+        _ = try await store.insert(
+            item, content: .binary(data: Data([5, 6]), typeIdentifier: "public.png"))
+        try await store.attachExtractedText(id: item.id, text: "already indexed")
+        #expect(
+            try await store.imageTextInput(id: item.id, now: .now, preferringImage: true)
+                == .image(Data([5, 6])))
+        let secret = ClipItem(kind: .image, contentHash: "ocr-fresh-secret", isSensitive: true)
+        _ = try await store.insert(
+            secret, content: .binary(data: Data([7]), typeIdentifier: "public.png"))
+        #expect(
+            try await store.imageTextInput(id: secret.id, now: .now, preferringImage: true) == nil)
+    }
+
     @Test("Rejects sensitive, expired, nonimage, archived and missing rows")
     func vetoes() async throws {
         let store = try makeStore()
