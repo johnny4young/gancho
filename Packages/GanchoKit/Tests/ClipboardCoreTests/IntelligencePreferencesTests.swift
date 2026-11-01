@@ -41,6 +41,8 @@ struct IntelligencePreferencesTests {
         #expect(prefs.searchableScreenshots)
         #expect(prefs.detectSecrets)
         #expect(prefs.smartPaste)  // newest key, absent in the old blob → default on
+        #expect(!prefs.upNext)  // the opt-in exception stays off
+        #expect(!IntelligencePreferences().upNext)
     }
 
     @Test("Missing or corrupt blob loads as the all-on default")

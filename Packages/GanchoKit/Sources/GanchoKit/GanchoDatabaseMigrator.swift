@@ -33,6 +33,7 @@ enum GanchoDatabaseMigrator {
         case embeddingCleanup = "v26-embedding-cleanup"
         case imageSize = "v27-image-size"
         case localSecrets = "v28-local-secrets"
+        case pasteEvents = "v29-paste-events"
     }
 
     static var identifiers: [String] {
@@ -97,6 +98,7 @@ enum GanchoDatabaseMigrator {
             }
         }
         registerLocalSecretsMigration(in: &migrator)
+        PasteEventLog.registerMigration(in: &migrator)
         return migrator
     }
 

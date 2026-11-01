@@ -687,6 +687,12 @@ struct PanelView: View {
                     if search.hasCurrentResults { model.pushToStack(search.selectedItems) }
                     return .handled
                 }
+                if press.modifiers.contains(.command), !press.modifiers.contains(.option),
+                    !press.modifiers.contains(.shift), let upNext = visibleUpNext
+                {
+                    model.paste(upNext.item)
+                    return .handled
+                }
                 pasteSelected(
                     plain: press.modifiers.contains(.option), includingSnippet: true)
                 return .handled
@@ -795,6 +801,12 @@ struct PanelView: View {
                     !model.preferences.isPrivateModePaused
                 {
                     MeaningSearchControls(search: search)
+                }
+
+                if let upNext = visibleUpNext {
+                    PanelUpNextSlot(
+                        slot: upNext, appName: model.pasteTarget.appName ?? upNext.targetBundleID
+                    ) { model.paste(upNext.item) }
                 }
 
                 PanelResultsView(
@@ -1155,6 +1167,7 @@ struct PanelView: View {
                         continue
                     }
                     await search.refreshAfterStoreChange()
+                    model.refreshUpNext()
                 }
             }
             .onChange(of: railFocus) { _, focused in
@@ -1638,6 +1651,17 @@ struct PanelView: View {
     private func cancelPendingPaste() {
         search.cancelPendingPaste()
         pasteTask?.cancel()
+    }
+
+    private var visibleUpNext: UpNextSlot? {
+        guard let slot = model.upNextSlot, !model.pendingDeletionIDs.contains(slot.item.id)
+        else { return nil }
+        let firstRow =
+            search.isGroupedView ? search.groups.first?.rows.first : search.filtered.first
+        let visibility = UpNextVisibility(
+            isEnabled: model.intelligence.upNext, previewsHidden: model.previewsHidden,
+            isBrowsing: search.query.isEmpty && !search.hasActiveFilter, firstRowID: firstRow?.id)
+        return visibility.shows(slot.item.id) ? slot : nil
     }
 
     private func pasteSelected(

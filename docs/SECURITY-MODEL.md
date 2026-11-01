@@ -65,6 +65,11 @@ that device, are pruned beyond a rolling 13 months, never sync or export, and
 can be erased from the Privacy Center without deleting clips or changing
 settings.
 
+Up next's `paste_event` rows hold a clip id, a validated target bundle
+identifier and a time. They exist only while the user has turned Up next on,
+never for secrets or masked kinds, stay on that device for a rolling 30 days,
+never sync or export, and are erased when Up next is turned off.
+
 ## Sync record: encrypted vs plain, field by field
 
 `ClipRecordMapper` is the only code that knows the CloudKit record shape. The

@@ -362,6 +362,10 @@ Store shape:
 - a `clip_board` junction plus board metadata and board tombstones.
 - `clip_app_stats`: local-only UTC-day integer aggregates for the 13-month,
   explicitly clearable private activity receipt; no content-shaped columns.
+- `paste_event` (v29): clip id, validated target bundle id and time for Up
+  next. Written only while Up next is on and outside Private Mode, erased when
+  it is turned off, pruned past 30 days, deleted with its clip (and when a clip
+  turns sensitive), never synced or exported.
 - tombstones for sync-compatible deletion.
 - an open JSON/CSV export so users can leave without data lock-in.
 

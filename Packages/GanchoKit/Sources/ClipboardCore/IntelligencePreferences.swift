@@ -23,6 +23,9 @@ public struct IntelligencePreferences: Sendable, Equatable, Codable {
     /// Suggest the board a clip likely belongs to, from the semantic neighbors
     /// of how you've filed before. Only ever suggests — never files silently.
     public var autoBoard: Bool
+    /// Offer the clip you usually paste into the app in front. Off by default:
+    /// it keeps a local paste log only while on.
+    public var upNext: Bool
 
     public init(
         intelligentTitles: Bool = true,
@@ -30,7 +33,8 @@ public struct IntelligencePreferences: Sendable, Equatable, Codable {
         searchableScreenshots: Bool = true,
         detectSecrets: Bool = true,
         smartPaste: Bool = true,
-        autoBoard: Bool = true
+        autoBoard: Bool = true,
+        upNext: Bool = false
     ) {
         self.intelligentTitles = intelligentTitles
         self.semanticSearch = semanticSearch
@@ -38,10 +42,12 @@ public struct IntelligencePreferences: Sendable, Equatable, Codable {
         self.detectSecrets = detectSecrets
         self.smartPaste = smartPaste
         self.autoBoard = autoBoard
+        self.upNext = upNext
     }
 
     /// Missing keys default ON — adding a toggle later must not silently flip
-    /// the others off when an older blob is read back.
+    /// the others off when an older blob is read back. Up next is the opt-in
+    /// exception and stays off.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         intelligentTitles =
@@ -52,6 +58,7 @@ public struct IntelligencePreferences: Sendable, Equatable, Codable {
         detectSecrets = try container.decodeIfPresent(Bool.self, forKey: .detectSecrets) ?? true
         smartPaste = try container.decodeIfPresent(Bool.self, forKey: .smartPaste) ?? true
         autoBoard = try container.decodeIfPresent(Bool.self, forKey: .autoBoard) ?? true
+        upNext = try container.decodeIfPresent(Bool.self, forKey: .upNext) ?? false
     }
 
     private static let defaultsKey = "intelligence-preferences"
