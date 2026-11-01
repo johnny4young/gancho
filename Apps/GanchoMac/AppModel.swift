@@ -1888,7 +1888,7 @@ final class AppModel {
     /// Content-free note when a delete did not fully land. `refreshRecents`
     /// (via the deletion coordinator's `didFinish`) puts the surviving row
     /// back on screen, so the user sees the clip return; this says why.
-    private func reportDeletionFailure(_ outcome: ClipDeletionWorkflow.Outcome) {
+    func reportDeletionFailure(_ outcome: ClipDeletionWorkflow.Outcome) {
         switch outcome {
         case .deleted:
             return

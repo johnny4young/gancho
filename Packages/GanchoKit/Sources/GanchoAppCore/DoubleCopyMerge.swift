@@ -72,14 +72,14 @@ public struct DoubleCopyMerger: Sendable {
     }
 
     /// A capture was stored as `clipID`. Only a fresh, plain clip can pair
-    /// with the next copy.
+    /// with the next copy, and never with itself.
     public mutating func didIngest(
         _ observation: CopyObservation?, clipID: UUID, isNew: Bool, canPair: Bool
     ) {
         let prior = newestClipID
         newestClipID = clipID
         pending = observation.flatMap {
-            canPair
+            canPair && prior != clipID
                 ? Pending(observation: $0, priorClipID: prior, createdClipID: isNew ? clipID : nil)
                 : nil
         }
@@ -125,7 +125,7 @@ public struct ClipMergeWorkflow: Sendable {
             detector.detect(merged) == nil
         else { return .refused }
         let kind = classifier.classify(merged)
-        guard !kind.prefersMaskedPreview,
+        guard kind.allowsTextEditing,
             (try? await store.mergeClipText(
                 id: target, expecting: current, text: merged, parts: parts, kind: kind)) == true,
             let updated = try? await store.item(id: target)

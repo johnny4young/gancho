@@ -37,7 +37,7 @@ extension AppModel {
     func noteIngestedForMerge(
         _ capture: PasteboardCapture, outcome: ClipIngestionCoordinator.Outcome
     ) {
-        guard preferences.mergeDoubleCopies else { return }
+        // Tracked with merging off too, so turning it on targets the real clip before.
         let item = outcome.item
         copyMerger.didIngest(
             CopyObservation(capture), clipID: item.id, isNew: outcome.isNew,
@@ -45,9 +45,10 @@ extension AppModel {
     }
 
     private func discardMergedCopy(_ ids: [UUID]) async {
-        _ = await ClipDeletionWorkflow().delete(
+        let outcome = await ClipDeletionWorkflow().delete(
             ids: ids, store: store, syncStore: fullStore, engine: syncController.engine,
             syncEnabled: syncController.isEnabled)
+        reportDeletionFailure(outcome)
     }
 
     /// `-seed-double-copy`: three captures through the real ingest path, the

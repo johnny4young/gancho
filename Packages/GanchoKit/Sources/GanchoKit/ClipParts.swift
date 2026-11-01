@@ -58,9 +58,12 @@ public struct ClipParts: Codable, Sendable, Equatable {
         split(text).flatMap { Self.join($0, separator: separator) }
     }
 
-    /// The stored and synced form, small JSON.
+    /// The stored and synced form, small JSON with sorted keys so equal parts
+    /// always encode to the same string.
     public var encoded: String? {
-        (try? JSONEncoder().encode(self)).flatMap { String(data: $0, encoding: .utf8) }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return (try? encoder.encode(self)).flatMap { String(data: $0, encoding: .utf8) }
     }
 
     public init?(encoded: String?) {

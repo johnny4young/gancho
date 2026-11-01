@@ -17,6 +17,9 @@ struct ClipPartsTests {
         #expect(comma == parts.joined(separator: ", "))
         #expect(rejoined.split(comma) == parts)
         #expect(ClipParts(encoded: boundaries.encoded) == boundaries)
+        #expect(
+            ClipParts(separator: .comma, lengths: [3, 4]).encoded
+                == #"{"lengths":[3,4],"separator":"comma"}"#)
     }
 
     @Test("Edited text, one part, too many parts and junk don't split")
@@ -63,6 +66,10 @@ struct ClipPartsTests {
         #expect(try await store.pendingUploadIDs().contains(item.id))
         #expect(
             try await store.items(offset: 0, limit: 1).first?.parts == parts, "lists carry parts")
+        #expect(merged.contentHash == ClipItem.hash(of: text, kind: .address))
+        let recopy = try await store.insert(
+            ClipItem(kind: .text, contentHash: "a"), content: .text("Ana"))
+        #expect(recopy.id != item.id, "a recopy of the first part is a new clip")
 
         try await store.updateClipText(id: item.id, text: "edited")
         #expect(try await store.item(id: item.id)?.parts == nil, "an edit drops the parts")
@@ -87,6 +94,9 @@ struct ClipPartsTests {
         #expect(
             !(try await store.mergeClipText(
                 id: plain.id, expecting: "one", text: text, parts: parts, kind: .jwt)))
+        #expect(
+            !(try await store.mergeClipText(
+                id: plain.id, expecting: "one", text: text, parts: parts, kind: .color)))
         #expect(
             !(try await store.mergeClipText(
                 id: plain.id, expecting: "one", text: "mismatch", parts: parts, kind: .text)))

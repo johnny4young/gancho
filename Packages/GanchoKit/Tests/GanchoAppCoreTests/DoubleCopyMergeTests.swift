@@ -77,6 +77,16 @@ struct DoubleCopyMergeTests {
         #expect(fresh.decide(nil) == .ingest)
     }
 
+    @Test("A copy that dedupes into the clip before it never pairs with that clip")
+    func mergerNeverTargetsItself() {
+        var merger = DoubleCopyMerger()
+        let clip = UUID()
+        merger.didIngest(copy("C", count: 1), clipID: clip, isNew: true, canPair: true)
+        #expect(merger.decide(copy("C", count: 2, after: 0.1)) == .ingest)
+        merger.didIngest(copy("C", count: 2, after: 0.1), clipID: clip, isNew: false, canPair: true)
+        #expect(merger.decide(copy("C", count: 3, after: 0.2)) == .ingest, "a third press")
+    }
+
     private func makeStore() throws -> GRDBClipboardStore {
         try GRDBClipboardStore(
             directory: FileManager.default.temporaryDirectory.appendingPathComponent(
