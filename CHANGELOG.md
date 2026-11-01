@@ -9,6 +9,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Up next, off by default in Intelligence: the panel shows the clip you
+  usually paste into the app in front above the list, with why ("Pasted into
+  Xcode 3× today"), and ⌘↩ pastes it. It learns from a paste log kept only on
+  this Mac and only while Up next is on; turning it off erases the log, and
+  secrets are never logged or offered.
 - "Describe the change…" in the ⌘T list rewrites a text clip as you ask, on
   your Mac with Apple Intelligence, and shows what was there and what will
   paste as a word diff before anything is pasted (⇧⏎ pastes the result). Save
