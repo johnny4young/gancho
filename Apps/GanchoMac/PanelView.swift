@@ -125,12 +125,13 @@ struct PanelView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage private var ambientTintEnabled: Bool
     @AppStorage private var translucentBackground: Bool
-    @AppStorage private var peekShowsMoreActions: Bool
     @AppStorage private var panelLayoutRaw: String
     /// When the first paste-back landed; nil until then.
     @AppStorage private var firstPasteBackAt: Double?
     /// What the gallery currently fits; 1 while the list is showing.
     @State private var galleryColumns = 2
+    /// Bumped by ⌘T; the peek opens its Transform list on each change.
+    @State private var transformRequest = 0
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.colorScheme) private var colorScheme
@@ -146,8 +147,6 @@ struct PanelView: View {
             wrappedValue: false, PanelAmbientTint.storageKey, store: displayDefaults)
         _translucentBackground = AppStorage(
             wrappedValue: false, PanelTranslucency.storageKey, store: displayDefaults)
-        _peekShowsMoreActions = AppStorage(
-            wrappedValue: false, "peek-shows-more-actions", store: displayDefaults)
         _panelLayoutRaw = AppStorage(
             wrappedValue: PanelLayout.list.rawValue, PanelLayout.storageKey, store: displayDefaults)
         _firstPasteBackAt = AppStorage(PanelFirstRunStage.pasteBackKey, store: displayDefaults)
@@ -183,6 +182,9 @@ struct PanelView: View {
                 if let item = search.selectedItem { model.copyImageText(item, surface: .peek) }
             }
             .keyboardShortcut("c", modifiers: [.command, .shift])
+            // ⌘T opens the selected clip's Transform list.
+            Button("") { transformRequest += 1 }
+                .keyboardShortcut("t", modifiers: .command)
             ToastUndoShortcut()
         }
         // A field being edited owns ⌘V and friends; these would act on the list behind it.
@@ -293,7 +295,7 @@ struct PanelView: View {
                             isTextEditable: presentation.isTextEditable,
                             focus: $focus,
                             isEditingInline: $peekIsEditingInline,
-                            showsMoreActions: $peekShowsMoreActions,
+                            transformRequest: transformRequest,
                             addToBoard: presentBoardPicker,
                             addToLastBoard: { model.assignToLastBoard(search.selectedItems) }
                         )

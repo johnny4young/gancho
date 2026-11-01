@@ -53,19 +53,13 @@ final class TranslationCapabilityUITests: XCTestCase {
         let panel = app.dialogs["history-panel"].firstMatch
         XCTAssertTrue(panel.exists)
         let originalFrame = panel.frame
-        let menu = app.descendants(matching: .any).matching(identifier: "smart-paste-menu")
-            .firstMatch
-        XCTAssertTrue(menu.waitForExistence(timeout: 5))
-        menu.click()
-        let translate = app.descendants(matching: .any).matching(
-            identifier: "translation-destinations-menu"
-        ).firstMatch
-        XCTAssertTrue(translate.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.menuItems["smart-paste-redactpii-action"].firstMatch.exists)
-        XCTAssertFalse(app.menuItems["smart-paste-summarize-action"].firstMatch.exists)
-        app.descendants(matching: .any).matching(identifier: "translation-destinations-menu")
-            .firstMatch.hover()
-        let spanish = app.menuItems["translation-target-es"].firstMatch
+        let transform = app.buttons["transform-button"].firstMatch
+        XCTAssertTrue(transform.waitForExistence(timeout: 5))
+        transform.click()
+        XCTAssertTrue(
+            app.buttons["transform-row-smart-redactPII"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["transform-row-smart-summarize"].firstMatch.exists)
+        let spanish = app.buttons["transform-row-translate-es"].firstMatch
         XCTAssertTrue(spanish.waitForExistence(timeout: 5))
         XCTAssertTrue(spanish.isEnabled)
         try SynthesizedInput.requireForeground(app)

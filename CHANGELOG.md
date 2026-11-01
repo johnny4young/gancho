@@ -9,6 +9,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- One Transform list behind ⌘T in the peek replaces the Transform and Smart
+  paste menus and More actions: type to filter the clip's own actions, text
+  transforms, recipes and on-device Smart paste. Picking a transform opens a
+  step pipeline with the text before and what will paste after; add steps,
+  drag to reorder, then Paste result (⇧⏎) or Copy result.
 - A paste-stack run keeps what already went in: the queue checks pasted
   clips, marks the next one and the footer reads "3 of 5". Skip, Back and
   Reset move through the run, with optional shortcuts in Settings. A run

@@ -12782,6 +12782,106 @@
           }
         }
       }
+    },
+    "Filter actions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtrar acciones"
+          }
+        }
+      }
+    },
+    "No matching actions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ninguna acción coincide"
+          }
+        }
+      }
+    },
+    "Recipes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recetas"
+          }
+        }
+      }
+    },
+    "Smart paste · on-device": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegado inteligente · en el dispositivo"
+          }
+        }
+      }
+    },
+    "After · will paste": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Después · se pegará"
+          }
+        }
+      }
+    },
+    "Step %lld can’t transform this text.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El paso %lld no puede transformar este texto."
+          }
+        }
+      }
+    },
+    "Paste result": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar resultado"
+          }
+        }
+      }
+    },
+    "Remove step": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar paso"
+          }
+        }
+      }
+    },
+    "Step": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paso"
+          }
+        }
+      }
+    },
+    "Translate to %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traducir a %@"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
