@@ -9,6 +9,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Text recipes can paste their result, not only copy it, and can use the
+  developer actions (Base64, JSON escaping and more) as steps. A transform
+  pipeline from ⌘T saves as a recipe. A recipe can have its own shortcut, and
+  "Paste through last transform" pastes the clipboard through the last
+  pipeline or recipe you used; neither has a default. A protected copy, a
+  secret, a token or text over 1 MiB on the clipboard is never transformed.
 - One Transform list behind ⌘T in the peek replaces the Transform and Smart
   paste menus and More actions: type to filter the clip's own actions, text
   transforms, recipes and on-device Smart paste. Picking a transform opens a

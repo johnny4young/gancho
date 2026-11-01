@@ -4,7 +4,8 @@ The core contract and macOS editor described here are published in v0.10.0.
 Existing Transform and Smart Paste entry points remain unchanged.
 
 `TextActionCatalog` assigns stable version-1 descriptors to existing transforms,
-PII redaction, literal selected-context formatting and three whitespace operations.
+the offline developer actions (`dev.*`, such as Base64 or JSON escaping), PII
+redaction, literal selected-context formatting and three whitespace operations.
 Recipes have a name, UUID, format version and an ordered list of up to eight uniquely
 identified steps. There are no scripts, provider calls, models or new paywalls.
 
@@ -22,15 +23,16 @@ preserves indentation, paragraphs and original newline delimiters. Trim each lin
 also removes leading whitespace. None repairs hyphens or joins OCR words.
 
 The executor has no UI, store or clipboard dependency. Results remain in memory;
-this contract never edits clips, grants permissions, copies or pastes automatically.
+this contract never edits clips, grants permissions, copies or pastes on its own.
 Unit tests cover every existing transform, Unicode, CRLF, ordering, preservation,
 invalid versions and parameters, admission cancellation and byte-limit boundaries.
 
 ## Local editor and reviewed delivery
 
-In the macOS text peek, choose **Transform > Text recipes…**. Create, rename, edit,
-reorder or delete a definition, then review **Before** and **After** and explicitly
-choose **Copy result**. Unsaved changes require an explicit discard before choosing
+In the macOS text peek, press **⌘T** and choose **Text recipes…**. Create, rename,
+edit, reorder or delete a definition, then review **Before** and **After** and
+explicitly choose **Copy result** or **Paste result**. A transform pipeline built
+from the ⌘T list can also be saved as a recipe. Unsaved changes require an explicit discard before choosing
 another recipe. The first release supplies Clean OCR, Clean list and Prepare
 redacted context. Sorting is never an implicit part of list cleaning.
 
@@ -44,7 +46,7 @@ Serialized definitions are capped at 64 KiB before decoding or saving.
 Preview display is capped at 8,000 characters and labeled accordingly; copying
 always delivers the entire bounded result. Inputs/intermediates retain the 1 MiB
 limit, with the stricter context-format limit when applicable. No result is saved
-automatically. Cancellation clears temporary content. Copy revalidates the original
+automatically. Cancellation clears temporary content. Copy and Paste revalidate the original
 clip and privacy/deletion state immediately before writing an own-marked clipboard
 item. A clipboard changed since processing is preserved; explicitly copying again
 after reviewing acknowledges the newly observed clipboard revision.
@@ -63,3 +65,14 @@ result leave the sheet. The appearance matrix checks both the initial preset
 and the eight-step limit at large text size, in English and Spanish. Repeated
 hosted execution has a 90-minute job allocation; individual UI deadlines and
 all latency budgets remain unchanged.
+
+## Shortcuts
+
+A saved recipe can have its own global shortcut, and **Paste through last
+transform** repeats the last pipeline or recipe that delivered a result. Neither
+has a default; record them in the recipe sheet and in Settings › General. Both
+read the clipboard's plain text and paste the result. A protected copy
+(concealed, transient or auto-generated), a detected secret, empty text or text
+over 1 MiB is refused with a notice and never transformed. The last transform is
+kept as recipe action ids in preferences, never as content.
+
