@@ -14,6 +14,7 @@ struct PeekTransformPipeline: View {
     let copy: (String) -> Void
     let saveRecipe: (String) -> Void
     let close: () -> Void
+    @Binding var isEditing: Bool
 
     @State private var isNamingRecipe = false
     @State private var recipeName = ""
@@ -72,6 +73,8 @@ struct PeekTransformPipeline: View {
                 }
             }
         }
+        .onChange(of: nameFocused, initial: true) { _, focused in isEditing = focused }
+        .onDisappear { isEditing = false }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("transform-pipeline")
     }

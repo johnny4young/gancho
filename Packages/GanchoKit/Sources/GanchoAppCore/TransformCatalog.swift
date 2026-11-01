@@ -115,6 +115,10 @@ public enum TransformRow: Hashable, Sendable, Identifiable {
     case smartPaste(SmartPasteAction)
     /// A translation into an installed language, by code.
     case translate(String)
+    /// Opens the field to describe a change in words.
+    case describeChange
+    /// Runs a change request the user saved.
+    case savedPrompt(String)
 
     public var id: String {
         switch self {
@@ -122,6 +126,8 @@ public enum TransformRow: Hashable, Sendable, Identifiable {
         case .step(let step): step.id
         case .smartPaste(let action): "smart-\(action.rawValue)"
         case .translate(let code): "translate-\(code)"
+        case .describeChange: "describe-change"
+        case .savedPrompt(let prompt): "prompt-\(prompt)"
         }
     }
 }
@@ -144,7 +150,7 @@ public enum TransformCatalog {
     /// `plainText` stays out: Paste plain already covers it.
     public static func groups(
         kind: ClipContentKind, includesRecipes: Bool, smartPaste: Bool, modelAvailable: Bool,
-        translationCodes: [String]
+        translationCodes: [String], describeChange: Bool = false, savedPrompts: [String] = []
     ) -> [TransformGroup] {
         var groups: [TransformGroup] = []
         let dev = DevActions.actions(for: kind).map { TransformRow.step(.dev($0.id)) }
@@ -157,8 +163,12 @@ public enum TransformCatalog {
         if smartPaste {
             // Redact PII is deterministic, so it stays without the model.
             let actions = SmartPasteAction.allCases.filter { $0 == .redactPII || modelAvailable }
+            // The caller decides availability: the model, and a text that fits.
+            let described: [TransformRow] =
+                describeChange ? [.describeChange] + savedPrompts.map(TransformRow.savedPrompt) : []
             let rows =
-                actions.map(TransformRow.smartPaste) + translationCodes.map(TransformRow.translate)
+                described + actions.map(TransformRow.smartPaste)
+                + translationCodes.map(TransformRow.translate)
             if !rows.isEmpty { groups.append(TransformGroup(kind: .smartPaste, rows: rows)) }
         }
         return groups

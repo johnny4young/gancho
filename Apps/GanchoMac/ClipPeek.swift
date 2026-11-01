@@ -35,6 +35,11 @@ struct ClipPeek: View {
     @State var actionResult: String?
     @State var showsTransformPopover = false
     @State var transformPipeline = TransformPipeline()
+    @State var describeMode = false
+    @State var describedChange: DescribedChange?
+    @State var describeRequest = UUID()
+    /// A transform's own text field (a change request, a recipe name) has the keyboard.
+    @State var isEditingTransformField = false
     @State private var boardIDs: Set<UUID> = []
     @State private var syncState: PeekSyncState?
     /// Smart Paste can run the on-device model — show a spinner while it thinks.
@@ -143,6 +148,7 @@ struct ClipPeek: View {
                         }
                         if canTransform || canSmartPaste { transformButton }
                         if !transformPipeline.isEmpty { pipelineSection }
+                        if describeMode { describeSection }
                         if translationFailed { translationUnavailableMessage }
                         if isThinking {
                             Label("Thinking…", systemImage: "sparkles")
@@ -228,7 +234,7 @@ struct ClipPeek: View {
             // esc puts the eyedropper down, then closes a transform, before it hides the panel.
             if isPickingColor {
                 isPickingColor = false
-            } else if !transformPipeline.isEmpty || actionResult != nil {
+            } else if !transformPipeline.isEmpty || actionResult != nil || describeMode {
                 closeTransform()
             } else {
                 model.panel.hide()
@@ -269,6 +275,7 @@ struct ClipPeek: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidHide)) { _ in
             endSecretReveal()
+            if describeMode { closeTransform() }
         }
         // Sharing or private mode: a revealed secret masks at once.
         .onChange(of: model.secretRevealAllowed) { _, allowed in
@@ -276,7 +283,7 @@ struct ClipPeek: View {
         }
         .onChange(of: hidesPreview) { _, hidden in
             if hidden {
-                transformPipeline = TransformPipeline()
+                closeTransform()
                 isEditingTitle = false
                 isEditingText = false
                 isEditingOCR = false
@@ -297,6 +304,8 @@ struct ClipPeek: View {
         }
         .onDisappear { translationTask?.cancel() }
         .onChange(of: presentedText) { _, _ in
+            // A rewrite of the previous text must never paste over the edit.
+            if describeMode { closeTransform() }
             translationTargets = []
             translationTask?.cancel()
             translationRequestID = UUID()
@@ -555,7 +564,7 @@ extension ClipPeek {
     }
 
     private var isInlineEditing: Bool {
-        isEditingTitle || isEditingText || isEditingOCR
+        isEditingTitle || isEditingText || isEditingOCR || isEditingTransformField
     }
 
     var peekContentAnimation: Animation? {

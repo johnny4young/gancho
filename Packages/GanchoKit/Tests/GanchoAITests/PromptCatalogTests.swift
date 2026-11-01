@@ -44,6 +44,25 @@ struct PromptCatalogTests {
         #expect(!rendered.contains("{language}"), "the template placeholder must be filled")
     }
 
+    @Test("A change request is labelled, sanitized and clamped")
+    func describeChangeMessage() {
+        let message = SmartPasteService.describeChangeMessage(
+            change: "  make it formal  " + String(repeating: "x", count: 500),
+            text: "key AKIAIOSFODNN7EXAMPLE here")
+        #expect(message.hasPrefix("Change: make it formal"))
+        #expect(message.contains("\n\nText:\n"))
+        #expect(!message.contains("AKIAIOSFODNN7EXAMPLE"), "secrets never reach the model")
+        let request = message.components(separatedBy: "\n\nText:")[0]
+        #expect(request.count <= "Change: ".count + SmartPasteService.maxChangeCharacters)
+    }
+
+    @Test("A text longer than one request is not offered")
+    func describeChangeFits() {
+        let service = SmartPasteService(maxPromptCharacters: 10)
+        #expect(service.fitsDescribeChange("short"))
+        #expect(!service.fitsDescribeChange(String(repeating: "a", count: 11)))
+    }
+
     /// The freeze: wording is pinned to `id@version`. On a wording change this
     /// fails and prints the new hash — bump the version, update the entry here,
     /// and re-run the evaluation suite before shipping the new wording.
@@ -71,7 +90,9 @@ struct PromptCatalogTests {
             "smart-paste.key-points@v2":
                 "ed6e6536c10792554b5f896654660877691032615e6db601ca14494838770963",
             "smart-paste.redact-pii@v2":
-                "7bfdf34729f1887299bef6d65e3e2fb9c0b66c3845a3898a88b0b88b3f9e2f4d"
+                "7bfdf34729f1887299bef6d65e3e2fb9c0b66c3845a3898a88b0b88b3f9e2f4d",
+            "smart-paste.describe-change@v1":
+                "733f163c7559c8f314f043b50aebd8738d941abe4312780c9fb43b63ccbe530e"
         ]
         for spec in PromptCatalog.all {
             let digest = SHA256.hash(data: Data(spec.instructions.utf8))

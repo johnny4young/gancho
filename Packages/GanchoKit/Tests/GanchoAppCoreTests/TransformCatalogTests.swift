@@ -32,6 +32,22 @@ struct TransformCatalogTests {
         #expect(!off.contains { $0.kind == .smartPaste })
     }
 
+    @Test("Describe the change and saved prompts lead Smart paste, only when offered")
+    func describeRows() {
+        let groups = TransformCatalog.groups(
+            kind: .text, includesRecipes: false, smartPaste: true, modelAvailable: true,
+            translationCodes: [], describeChange: true, savedPrompts: ["Make it formal"])
+        #expect(
+            Array(groups.last?.rows.prefix(2) ?? []) == [
+                .describeChange, .savedPrompt("Make it formal")
+            ])
+
+        let noModel = TransformCatalog.groups(
+            kind: .text, includesRecipes: false, smartPaste: true, modelAvailable: false,
+            translationCodes: [], describeChange: false, savedPrompts: ["Make it formal"])
+        #expect(noModel.last?.rows == [.smartPaste(.redactPII)])
+    }
+
     @Test("Filtering matches every word across groups and drops empty groups")
     func filtering() {
         let groups = TransformCatalog.groups(
