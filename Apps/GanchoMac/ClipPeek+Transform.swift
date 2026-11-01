@@ -46,16 +46,22 @@ extension ClipPeek {
             pipeline: $transformPipeline, source: presentedText,
             availableSteps: TransformCatalog.steps(for: item.kind),
             title: { String(localized: String.LocalizationValue($0.title)) },
-            paste: { model.pasteText($0) },
+            paste: { result in
+                rememberPipeline()
+                model.pasteText(result)
+            },
             copy: { result in
+                rememberPipeline()
                 SystemPasteboardWriter().write(.text(result), asPlainText: true)
                 model.toasts.show(GanchoToast(message: "Copied"))
             },
+            saveRecipe: { saveRecipe(named: $0) },
             close: closeTransform)
     }
 
     /// What ⇧⏎ pastes: the pipeline's result, or the result box's.
     var pendingResult: String? {
+        guard !hidesPreview else { return nil }
         if !transformPipeline.isEmpty,
             case .text(let result) = transformPipeline.run(on: presentedText)
         {
@@ -63,6 +69,26 @@ extension ClipPeek {
         }
         guard let actionResult, !actionResult.isEmpty else { return nil }
         return actionResult
+    }
+
+    /// The pipeline that just delivered is what ⌃⌘V repeats.
+    func rememberPipeline() {
+        model.rememberLastTransform(transformPipeline.steps.map(\.recipeActionID))
+    }
+
+    private func saveRecipe(named name: String) {
+        let recipe = transformPipeline.recipe(named: name)
+        Task {
+            guard let store = model.textRecipeStore else { return }
+            do {
+                try await store.saveTextRecipe(recipe)
+                await model.registerRecipeShortcuts()
+                model.toasts.show(GanchoToast(message: "Saved as a recipe"))
+            } catch {
+                model.toasts.show(
+                    GanchoToast(message: "Couldn’t save the recipe.", style: .warning))
+            }
+        }
     }
 
     func closeTransform() {

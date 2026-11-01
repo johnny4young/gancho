@@ -60,6 +60,8 @@ struct GeneralSettingsTab: View {
             ShortcutRecorder("Paste from stack shortcut:", name: .pasteFromStack)
             ShortcutRecorder("Skip in stack shortcut:", name: .pasteStackSkip)
             ShortcutRecorder("Back in stack shortcut:", name: .pasteStackBack)
+            ShortcutRecorder(
+                "Paste through last transform shortcut:", name: .pasteWithLastTransform)
             ShortcutRecorder("Copy screen text shortcut:", name: .copyScreenText)
 
             Picker("Panel position", selection: positionBinding) {

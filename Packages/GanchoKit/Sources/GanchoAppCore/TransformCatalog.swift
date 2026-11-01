@@ -23,6 +23,29 @@ public enum TransformStep: Hashable, Sendable {
         }
     }
 
+    /// The recipe step that runs this transform.
+    public var recipeActionID: String {
+        switch self {
+        case .text(let transform): "transform.\(transform.rawValue)"
+        case .dev(let id): TextActionCatalog.devPrefix + id.rawValue
+        }
+    }
+
+    public init?(recipeActionID: String) {
+        if recipeActionID.hasPrefix("transform."),
+            let transform = PasteTransform(rawValue: String(recipeActionID.dropFirst(10)))
+        {
+            self = .text(transform)
+        } else if recipeActionID.hasPrefix(TextActionCatalog.devPrefix),
+            let id = DevActions.ActionID(
+                rawValue: String(recipeActionID.dropFirst(TextActionCatalog.devPrefix.count)))
+        {
+            self = .dev(id)
+        } else {
+            return nil
+        }
+    }
+
     public func apply(to text: String) throws -> String {
         switch self {
         case .text(let transform): transform.apply(to: text)
@@ -59,6 +82,11 @@ public struct TransformPipeline: Equatable, Sendable {
         guard steps.indices.contains(source), source != destination else { return }
         let step = steps.remove(at: source)
         steps.insert(step, at: min(max(destination, 0), steps.count))
+    }
+
+    /// The steps as a deterministic text recipe, ready to save.
+    public func recipe(named name: String) -> TextRecipe {
+        TextRecipe(name: name, steps: steps.map { TextActionStep(actionID: $0.recipeActionID) })
     }
 
     public enum Outcome: Equatable, Sendable {
