@@ -56,7 +56,8 @@ extension AppModel {
             seedManualOCRIfRequested(),
             seedRecognizedTextImageIfRequested(),
             seedMultiFileDragIfRequested(),
-            seedPrivateActivityReceiptIfRequested()
+            seedPrivateActivityReceiptIfRequested(),
+            seedUpNextIfRequested()
         ].compactMap { $0 }
     }
 

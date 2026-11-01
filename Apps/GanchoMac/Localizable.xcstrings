@@ -13262,6 +13262,66 @@
           }
         }
       }
+    },
+    "Up next · on-device": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siguiente · en el dispositivo"
+          }
+        }
+      }
+    },
+    "Up next: %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siguiente: %@"
+          }
+        }
+      }
+    },
+    "Up next": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siguiente"
+          }
+        }
+      }
+    },
+    "Shows the clip you usually paste into the app in front above the list (⌘↩). Keeps a local paste log only while on; turning it off erases it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muestra sobre la lista el clip que sueles pegar en la app que está al frente (⌘↩). Guarda un registro local de pegados solo mientras está activo; al apagarlo se borra."
+          }
+        }
+      }
+    },
+    "Pasted into %@ %lld× today": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegado en %@ %lld× hoy"
+          }
+        }
+      }
+    },
+    "Pasted into %@ %lld× in the last 30 days": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegado en %@ %lld× en los últimos 30 días"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

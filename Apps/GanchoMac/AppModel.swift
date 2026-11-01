@@ -278,8 +278,17 @@ final class AppModel {
     /// On-device intelligence toggles (the Intelligence screen). Each gates a
     /// real enrichment stage in `enrich`/`ClipItemFactory.make`.
     var intelligence: IntelligencePreferences {
-        didSet { intelligence.save(to: defaults) }
+        didSet {
+            intelligence.save(to: defaults)
+            if intelligence.upNext != oldValue.upNext { upNextPreferenceChanged() }
+        }
     }
+
+    /// The panel's Up next slot; nil hides it.
+    var upNextSlot: UpNextSlot?
+    @ObservationIgnored var upNextRefresh: Task<Void, Never>?
+    /// Paste-log writes and erases run in the order they were asked for.
+    @ObservationIgnored let upNextWrites = OrderedWrites()
 
     /// Curated-Library Spotlight donation (snippets + pins only — never raw
     /// history). Turning it off wipes Gancho's Spotlight domain immediately.
@@ -731,6 +740,9 @@ final class AppModel {
                 },
                 MaintenanceStep("reviewed-image-sweep") { [weak self] in
                     await self?.removeUnservedReviewedImages()
+                },
+                MaintenanceStep("up-next-log-tidy") { [weak self] in
+                    await self?.tidyUpNextLog()
                 }
             ]
             Task(priority: .utility) { await MaintenanceRunner().run(steps) }
@@ -1068,6 +1080,7 @@ final class AppModel {
         }
         try? await fullStore?.recordPrivateReuse(
             targetAppBundleID: targetBundleID, itemCount: count, at: .now)
+        if method.isPasteBack { recordUpNextPastes(items, targetBundleID: targetBundleID) }
         recordActivationMilestone(.firstSuccessfulReuse)
         let ageBucket: TelemetryEvent.AgeBucket =
             items.count == 1
@@ -1096,13 +1109,14 @@ final class AppModel {
         #endif
         let next = PanelPasteTarget(appName: name, canPostPaste: pasteBack.canPostPaste)
         if pasteTarget != next { pasteTarget = next }
+        refreshUpNext()
     }
 
     /// The production panel is nonactivating, so the OS frontmost application
     /// remains the intended destination while Gancho floats above it. UI tests
     /// activate Gancho itself; treat that as unknown rather than recording a
     /// false self-target.
-    private func currentReuseTargetBundleID() -> String? {
+    func currentReuseTargetBundleID() -> String? {
         let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         guard bundleID != Bundle.main.bundleIdentifier else { return nil }
         return bundleID

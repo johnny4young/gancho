@@ -96,6 +96,11 @@ struct IntelligenceView: View {
                         // swiftlint:disable:next line_length
                         "When a clip looks like ones you've filed before, gancho suggests the board it probably belongs to — one tap to file it. On-device, never automatic.",
                         isOn: $model.intelligence.autoBoard)
+                    toggleRow(
+                        "arrow.up.to.line", GanchoTokens.Palette.brandGreen, "Up next",
+                        // swiftlint:disable:next line_length
+                        "Shows the clip you usually paste into the app in front above the list (⌘↩). Keeps a local paste log only while on; turning it off erases it.",
+                        isOn: $model.intelligence.upNext, identifier: "intelligence-toggle-up-next")
                 } header: {
                     Text("Intelligence features")
                 }
@@ -217,7 +222,7 @@ struct IntelligenceView: View {
 
     private func toggleRow(
         _ symbol: String, _ tint: Color, _ title: LocalizedStringKey,
-        _ description: LocalizedStringKey, isOn: Binding<Bool>
+        _ description: LocalizedStringKey, isOn: Binding<Bool>, identifier: String? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Toggle(isOn: isOn) {
@@ -226,6 +231,7 @@ struct IntelligenceView: View {
                     Text(title).font(.callout.weight(.medium))
                 }
             }
+            .accessibilityIdentifier(identifier ?? "")
             Text(description).font(.caption).foregroundStyle(.secondary)
         }
     }
