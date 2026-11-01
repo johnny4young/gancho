@@ -9,6 +9,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- "Describe the change…" in the ⌘T list rewrites a text clip as you ask, on
+  your Mac with Apple Intelligence, and shows what was there and what will
+  paste as a word diff before anything is pasted (⇧⏎ pastes the result). Save
+  a request to run it again from the list; saved requests stay on this Mac.
 - Text recipes can paste their result, not only copy it, and can use the
   developer actions (Base64, JSON escaping and more) as steps. A transform
   pipeline from ⌘T saves as a recipe. A recipe can have its own shortcut, and

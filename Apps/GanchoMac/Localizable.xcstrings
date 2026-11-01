@@ -13192,6 +13192,76 @@
           }
         }
       }
+    },
+    "Describe the change": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Describe el cambio"
+          }
+        }
+      }
+    },
+    "Describe the change…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Describir el cambio…"
+          }
+        }
+      }
+    },
+    "Was": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antes"
+          }
+        }
+      }
+    },
+    "Will paste": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se pegará"
+          }
+        }
+      }
+    },
+    "Save prompt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar prompt"
+          }
+        }
+      }
+    },
+    "Prompt saved": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prompt guardado"
+          }
+        }
+      }
+    },
+    "This prompt can’t be saved: it holds a secret or is too long.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este prompt no se puede guardar: contiene un secreto o es demasiado largo."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

@@ -46,6 +46,16 @@ public struct ClipIntelligenceFacade: Sendable {
         try? await smartPasteService.transform(text, action: action)
     }
 
+    /// Rewrites a clip's text as the user describes; nil if unavailable,
+    /// too long or declined.
+    public func describeChange(_ text: String, change: String) async -> String? {
+        try? await smartPasteService.describeChange(text, change: change)
+    }
+
+    public func fitsDescribeChange(_ text: String) -> Bool {
+        smartPasteService.fitsDescribeChange(text)
+    }
+
     /// On-device translation to `target` — Apple's native Translation session
     /// when the pair is installed, the on-device model otherwise; nil on failure.
     public func translate(

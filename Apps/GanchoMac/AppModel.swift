@@ -1276,7 +1276,7 @@ final class AppModel {
 
     // MARK: - Smart paste (deterministic + on-device Apple Intelligence)
 
-    private let intelligenceFacade = ClipIntelligenceFacade()
+    let intelligenceFacade = ClipIntelligenceFacade()
 
     /// Smart Paste affordances appear when the user kept the feature on.
     /// Deterministic actions such as PII redaction do not need Apple

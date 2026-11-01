@@ -101,3 +101,42 @@ extension AppModel {
         }
     }
 }
+
+extension AppModel {
+    /// "Describe the change" needs the model and a text that fits one request.
+    func canDescribeChange(_ text: String) -> Bool {
+        #if DEBUG
+            if Self.usesDescribeChangeFixture { return true }
+        #endif
+        return smartPasteModelAvailable && intelligenceFacade.fitsDescribeChange(text)
+    }
+
+    /// The rewrite of `text` the user asked for in words, on device; nil on failure.
+    func describeChange(_ text: String, change: String) async -> String? {
+        #if DEBUG
+            // UI tests have no model: a fixed, visible rewrite stands in for it.
+            if Self.usesDescribeChangeFixture {
+                return text.replacingOccurrences(of: "improve", with: "ship")
+            }
+        #endif
+        return await intelligenceFacade.describeChange(text, change: change)
+    }
+
+    var savedChangePrompts: [String] { SavedPrompts.load(from: defaults).prompts }
+
+    /// False when the request can't be kept (too long, or it holds a secret).
+    @discardableResult
+    func saveChangePrompt(_ prompt: String) -> Bool {
+        var saved = SavedPrompts.load(from: defaults)
+        guard saved.add(prompt) else { return false }
+        saved.save(to: defaults)
+        return true
+    }
+
+    #if DEBUG
+        private static var usesDescribeChangeFixture: Bool {
+            CommandLine.arguments.contains("-ui-test-describe-change")
+                && CommandLine.arguments.contains("-use-temp-durable-store")
+        }
+    #endif
+}

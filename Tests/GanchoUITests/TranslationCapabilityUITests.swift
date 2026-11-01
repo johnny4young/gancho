@@ -59,6 +59,9 @@ final class TranslationCapabilityUITests: XCTestCase {
         XCTAssertTrue(
             app.buttons["transform-row-smart-redactPII"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["transform-row-smart-summarize"].firstMatch.exists)
+        XCTAssertFalse(
+            app.buttons["transform-row-describe-change"].firstMatch.exists,
+            "Describe the change needs the model")
         let spanish = app.buttons["transform-row-translate-es"].firstMatch
         XCTAssertTrue(spanish.waitForExistence(timeout: 5))
         XCTAssertTrue(spanish.isEnabled)
