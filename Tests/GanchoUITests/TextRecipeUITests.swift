@@ -82,6 +82,39 @@ final class TextRecipeUITests: XCTestCase {
         return app
     }
     @MainActor
+    func testPipelineSavesAsARecipe() throws {
+        continueAfterFailure = false
+        let app = launch("en", "light")
+        defer { app.terminate() }
+        try SynthesizedInput.requireForeground(app)
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        XCTAssertTrue(row.waitForHittable(timeout: 10))
+        row.click()
+        app.buttons["transform-button"].firstMatch.click()
+        let upper = app.buttons["transform-row-text-uppercase"].firstMatch
+        XCTAssertTrue(upper.waitForExistence(timeout: 5))
+        upper.click()
+        let save = app.buttons["transform-save-recipe"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        // The compact peek clips the pipeline's last row above the dock.
+        app.scrollViews.containing(.any, identifier: "transform-pipeline").firstMatch
+            .scroll(byDeltaX: 0, deltaY: -400)
+        save.click()
+        let name = app.textFields["transform-recipe-name"].firstMatch
+        try typeTextReliably("Synthetic shout", into: name, in: app)
+        app.buttons["transform-recipe-save"].firstMatch.click()
+
+        try openReview(app)
+        let picker = app.popUpButtons["text-recipe-picker"].firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        picker.click()
+        XCTAssertTrue(
+            app.menuItems["Synthetic shout"].firstMatch.waitForExistence(timeout: 5),
+            "the saved pipeline is listed with the recipes")
+        app.typeKey(.escape, modifierFlags: [])
+    }
+
+    @MainActor
     private func openReview(_ app: GanchoUITestApplication) throws {
         try SynthesizedInput.requireForeground(app)
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch

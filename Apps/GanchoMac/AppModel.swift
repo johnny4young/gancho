@@ -193,6 +193,7 @@ final class AppModel {
     @ObservationIgnored private var tierGeneration = 0
     @ObservationIgnored private var stackIdleTask: Task<Void, Never>?
     @ObservationIgnored private let stackStrip = PasteStackRunStripController()
+    @ObservationIgnored var registeredRecipeShortcuts: Set<UUID> = []
 
     /// Optional anonymous diagnostics are off until the user explicitly
     /// consents. Withdrawing consent tears down the transport immediately.
@@ -223,7 +224,7 @@ final class AppModel {
     private let editingController = ClipEditingController()
     private let ingestionCoordinator = ClipIngestionCoordinator()
     private let enrichmentScheduler = EnrichmentScheduler()
-    private let defaults: UserDefaults
+    let defaults: UserDefaults
     private let activationTracker: ActivationTracker
     private var retentionTimer: Timer?
     /// Light periodic sync pull for the menu-bar agent (see `scheduleSyncPoll`).
@@ -588,6 +589,10 @@ final class AppModel {
         KeyboardShortcuts.onKeyUp(for: .pasteStackBack) { [weak self] in
             self?.backInStack()
         }
+        KeyboardShortcuts.onKeyUp(for: .pasteWithLastTransform) { [weak self] in
+            self?.pasteClipboardThroughLastTransform()
+        }
+        Task { [weak self] in await self?.registerRecipeShortcuts() }
         // The run strip shows only while the panel is closed.
         for name in [Notification.Name.ganchoPanelDidShow, .ganchoPanelDidHide] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) {

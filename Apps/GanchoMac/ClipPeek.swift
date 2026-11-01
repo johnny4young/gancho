@@ -192,6 +192,7 @@ struct ClipPeek: View {
             if press.modifiers.contains(.option), !press.modifiers.contains(.command) {
                 model.paste(item, asPlainText: true)
             } else if press.modifiers.contains(.shift), let result = pendingResult {
+                if !transformPipeline.isEmpty { rememberPipeline() }
                 model.pasteText(result)
             } else if press.modifiers.contains(.shift), let convert = convertAction {
                 convert.run()
@@ -275,6 +276,7 @@ struct ClipPeek: View {
         }
         .onChange(of: hidesPreview) { _, hidden in
             if hidden {
+                transformPipeline = TransformPipeline()
                 isEditingTitle = false
                 isEditingText = false
                 isEditingOCR = false

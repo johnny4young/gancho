@@ -12882,6 +12882,316 @@
           }
         }
       }
+    },
+    "Save as recipe": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar como receta"
+          }
+        }
+      }
+    },
+    "Saved as a recipe": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardado como receta"
+          }
+        }
+      }
+    },
+    "Couldn’t save the recipe.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar la receta."
+          }
+        }
+      }
+    },
+    "Shortcut:": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajo:"
+          }
+        }
+      }
+    },
+    "Paste through last transform shortcut:": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajo para pegar con la última transformación:"
+          }
+        }
+      }
+    },
+    "This clipboard item is protected, so it wasn’t transformed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este elemento del portapapeles está protegido, así que no se transformó."
+          }
+        }
+      }
+    },
+    "The clipboard has no text to transform.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El portapapeles no tiene texto para transformar."
+          }
+        }
+      }
+    },
+    "The clipboard holds a secret, so it wasn’t transformed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El portapapeles contiene un secreto, así que no se transformó."
+          }
+        }
+      }
+    },
+    "The clipboard text is too large to transform.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El texto del portapapeles es demasiado grande para transformarlo."
+          }
+        }
+      }
+    },
+    "Paste or copy a transform result first.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primero pega o copia el resultado de una transformación."
+          }
+        }
+      }
+    },
+    "That transform can’t change this text.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esa transformación no puede cambiar este texto."
+          }
+        }
+      }
+    },
+    "SHA-256 hash": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hash SHA-256"
+          }
+        }
+      }
+    },
+    "SHA-1 hash": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hash SHA-1"
+          }
+        }
+      }
+    },
+    "MD5 hash": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hash MD5"
+          }
+        }
+      }
+    },
+    "URL encode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codificar URL"
+          }
+        }
+      }
+    },
+    "URL decode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decodificar URL"
+          }
+        }
+      }
+    },
+    "Convert case": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Convertir mayúsculas y minúsculas"
+          }
+        }
+      }
+    },
+    "Epoch to date": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Epoch a fecha"
+          }
+        }
+      }
+    },
+    "Date to epoch": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fecha a epoch"
+          }
+        }
+      }
+    },
+    "Reverse lines": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invertir líneas"
+          }
+        }
+      }
+    },
+    "Count stats": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contar estadísticas"
+          }
+        }
+      }
+    },
+    "HTML-entity encode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codificar entidades HTML"
+          }
+        }
+      }
+    },
+    "HTML-entity decode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decodificar entidades HTML"
+          }
+        }
+      }
+    },
+    "Slugify": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Convertir en slug"
+          }
+        }
+      }
+    },
+    "Convert number base": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Convertir base numérica"
+          }
+        }
+      }
+    },
+    "JSON-escape string": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escapar cadena JSON"
+          }
+        }
+      }
+    },
+    "JSON-unescape string": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar escape de cadena JSON"
+          }
+        }
+      }
+    },
+    "Private Mode is on, so nothing was transformed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El modo privado está activo, así que no se transformó nada."
+          }
+        }
+      }
+    },
+    "The clipboard changed while it was read. Try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El portapapeles cambió mientras se leía. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Local recipes. Originals stay unchanged; copying and pasting are explicit.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recetas locales. Los originales no cambian; copiar y pegar son acciones explícitas."
+          }
+        }
+      }
+    },
+    "Previews show up to 8,000 characters. Copy and Paste deliver the complete result.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las vistas previas muestran hasta 8.000 caracteres. Copiar y Pegar entregan el resultado completo."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

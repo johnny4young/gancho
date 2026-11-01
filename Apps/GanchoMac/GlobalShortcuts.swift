@@ -18,6 +18,8 @@ extension KeyboardShortcuts.Name {
     /// Skip and Back in a paste-stack run. No initial value, like the stack's own.
     static let pasteStackSkip = Self("paste-stack-skip")
     static let pasteStackBack = Self("paste-stack-back")
+    /// Pastes the clipboard through the last transform that delivered. No default.
+    static let pasteWithLastTransform = Self("paste-with-last-transform")
     static let copyScreenText = Self(
         "copy-screen-text", initial: .init(.t, modifiers: [.control, .option]))
 }

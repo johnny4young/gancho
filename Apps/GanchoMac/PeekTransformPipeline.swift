@@ -12,7 +12,12 @@ struct PeekTransformPipeline: View {
     let title: (TransformStep) -> String
     let paste: (String) -> Void
     let copy: (String) -> Void
+    let saveRecipe: (String) -> Void
     let close: () -> Void
+
+    @State private var isNamingRecipe = false
+    @State private var recipeName = ""
+    @FocusState private var nameFocused: Bool
 
     var body: some View {
         let outcome = pipeline.run(on: source)
@@ -58,22 +63,63 @@ struct PeekTransformPipeline: View {
                     .accessibilityIdentifier("transform-after")
                 }
             }
-            if case .text(let result) = outcome {
-                HStack(spacing: GanchoTokens.Spacing.xxs) {
-                    ActionButton(
-                        "Paste result", systemImage: "doc.on.clipboard",
-                        identifier: "transform-paste-result"
-                    ) { paste(result) }
-                    .help(Text(verbatim: "⇧⏎"))
-                    ActionButton(
-                        "Copy result", systemImage: "doc.on.doc",
-                        identifier: "transform-copy-result"
-                    ) { copy(result) }
+            if isNamingRecipe {
+                recipeNameRow
+            } else if case .text(let result) = outcome {
+                ViewThatFits(in: .horizontal) {
+                    resultActions(result, compact: false)
+                    resultActions(result, compact: true)
                 }
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("transform-pipeline")
+    }
+
+    /// Paste, Copy and Save; short labels when the peek is too narrow for the long ones.
+    private func resultActions(_ result: String, compact: Bool) -> some View {
+        HStack(spacing: GanchoTokens.Spacing.xxs) {
+            ActionButton(
+                compact ? "Paste" : "Paste result", systemImage: "doc.on.clipboard",
+                identifier: "transform-paste-result"
+            ) { paste(result) }
+            .help(Text(verbatim: "⇧⏎"))
+            ActionButton(
+                compact ? "Copy" : "Copy result", systemImage: "doc.on.doc",
+                identifier: "transform-copy-result"
+            ) { copy(result) }
+            Spacer(minLength: 0)
+            ActionButton(
+                compact ? "Save" : "Save as recipe", systemImage: "square.and.arrow.down",
+                identifier: "transform-save-recipe"
+            ) {
+                recipeName = ""
+                isNamingRecipe = true
+                nameFocused = true
+            }
+        }
+    }
+
+    private var recipeNameRow: some View {
+        HStack(spacing: GanchoTokens.Spacing.xxs) {
+            TextField("Recipe name", text: $recipeName)
+                .textFieldStyle(.roundedBorder)
+                .focused($nameFocused)
+                .onSubmit(saveNamedRecipe)
+                .accessibilityIdentifier("transform-recipe-name")
+            Button("Save", action: saveNamedRecipe)
+                .disabled(recipeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityIdentifier("transform-recipe-save")
+            Button("Cancel") { isNamingRecipe = false }
+                .accessibilityIdentifier("transform-recipe-cancel")
+        }
+    }
+
+    private func saveNamedRecipe() {
+        let name = recipeName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        saveRecipe(String(name.prefix(TextRecipe.maximumNameLength)))
+        isNamingRecipe = false
     }
 
     private func stepChip(_ step: TransformStep, at index: Int) -> some View {
