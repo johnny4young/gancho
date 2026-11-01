@@ -43,7 +43,8 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord, Sendable {
         Column("sourceAppBundleID"), Column("sourceDeviceName"), Column("isPinned"),
         Column("isSensitive"), Column("expiresAt"), Column("tags"), Column("isArchived"),
         Column("isSnippet"), Column("keyword"), Column("uses"),
-        Column("contentTypeIdentifier"), Column("imageWidth"), Column("imageHeight")
+        Column("contentTypeIdentifier"), Column("imageWidth"), Column("imageHeight"),
+        Column("parts")
     ]
 
     /// The same projection for raw SQL, qualified so it can sit beside a join.
@@ -73,6 +74,7 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord, Sendable {
     var uses: Int = 0
     var imageWidth: Int?
     var imageHeight: Int?
+    var parts: String?
 
     init(item: ClipItem) {
         id = item.id.uuidString
@@ -98,6 +100,7 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord, Sendable {
         uses = item.uses
         imageWidth = item.imageInfo?.width
         imageHeight = item.imageInfo?.height
+        parts = item.parts?.encoded
     }
 
     var item: ClipItem {
@@ -118,7 +121,8 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord, Sendable {
             tags: (try? Self.tagsDecoder.decode([String].self, from: Data(tags.utf8))) ?? [],
             keyword: keyword,
             uses: uses,
-            imageInfo: imageInfo
+            imageInfo: imageInfo,
+            parts: ClipParts(encoded: parts)
         )
     }
 

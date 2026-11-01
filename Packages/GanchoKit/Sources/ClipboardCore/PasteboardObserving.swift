@@ -24,17 +24,32 @@ public struct PasteboardCapture: Sendable, Equatable, Codable {
     /// a badge; sync uses it to avoid duplicating already-synced items.
     public var isFromUniversalClipboard: Bool
     public var capturedAt: Date
+    /// The change the monitor saw, for double-copy detection; nil from other sources.
+    public var change: ChangeStamp?
+
+    /// A pasteboard change count and when the poll that saw it ran.
+    public struct ChangeStamp: Sendable, Equatable, Codable {
+        public let count: Int
+        public let observedAt: Date
+
+        public init(count: Int, observedAt: Date) {
+            self.count = count
+            self.observedAt = observedAt
+        }
+    }
 
     public init(
         payload: Payload,
         sourceAppBundleID: String? = nil,
         isFromUniversalClipboard: Bool = false,
-        capturedAt: Date = .now
+        capturedAt: Date = .now,
+        change: ChangeStamp? = nil
     ) {
         self.payload = payload
         self.sourceAppBundleID = sourceAppBundleID
         self.isFromUniversalClipboard = isFromUniversalClipboard
         self.capturedAt = capturedAt
+        self.change = change
     }
 
     /// Convenience for plain-text captures (the iOS intent-based adapters).

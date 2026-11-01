@@ -60,6 +60,8 @@ public enum ClipRecordMapper {
         // Content + anything derived from it → encrypted.
         record.encryptedValues["title"] = item.title
         record.encryptedValues["preview"] = item.preview
+        // Lengths of a merged clip's parts reveal its shape, so they ride encrypted.
+        record.encryptedValues["parts"] = item.parts?.encoded
 
         switch content {
         case .text(let text):
@@ -98,7 +100,8 @@ public enum ClipRecordMapper {
             isPinned: (record["isPinned"] as? Int ?? 0) == 1,
             isSensitive: (record["isSensitive"] as? Int ?? 0) == 1,
             expiresAt: record["expiresAt"] as? Date,
-            tags: decodeTags(record["tags"] as? String))
+            tags: decodeTags(record["tags"] as? String),
+            parts: ClipParts(encoded: record.encryptedValues["parts"] as? String))
 
         let content: ClipContent?
         if let asset = record["contentAsset"] as? CKAsset, let url = asset.fileURL,

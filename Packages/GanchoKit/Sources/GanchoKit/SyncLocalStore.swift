@@ -423,6 +423,8 @@ extension GRDBClipboardStore: SyncLocalStore {
                         title = ?, preview = ?, contentHash = ?,
                         sourceAppBundleID = ?, sourceDeviceName = ?,
                         isPinned = ?, isSensitive = ?, expiresAt = ?, tags = ?,
+                        parts = CASE WHEN ? IS NOT NULL THEN ? WHEN contentText IS ? THEN parts
+                            ELSE NULL END,
                         syncSystemFields = ?, needsUpload = 0
                     WHERE id = ?
                     """,
@@ -432,7 +434,8 @@ extension GRDBClipboardStore: SyncLocalStore {
                     finalRow.contentHash, finalRow.sourceAppBundleID,
                     finalRow.sourceDeviceName, finalRow.isPinned,
                     finalRow.isSensitive, finalRow.expiresAt, finalRow.tags,
-                    systemFields, item.id.uuidString
+                    finalRow.parts, finalRow.parts, finalRow.contentText, systemFields,
+                    item.id.uuidString
                 ])
             // Content columns move only when the remote carries content —
             // nil (an asset over the size cap, or an undecodable payload)

@@ -94,6 +94,8 @@
         private var wasPaused = false
         /// Armed by `ignoreNextCopy()`; consumed by the next change.
         private var ignoreNextChange = false
+        /// When the last change was seen; drives the post-change poll burst.
+        private var lastChangeSeenAt: ContinuousClock.Instant?
 
         public init(
             reader: any PasteboardReading = NSPasteboardReader(),
@@ -195,7 +197,12 @@
             }
             status = .running
             pollOnce()
-            return policy.interval(for: mode)
+            // Only double-copy merging needs a second copy seen on its own.
+            guard preferences.mergeDoubleCopies, let lastChangeSeenAt else {
+                return policy.interval(for: mode)
+            }
+            return policy.interval(
+                for: mode, sinceLastChange: ContinuousClock.now - lastChangeSeenAt)
         }
 
         /// Detect → vetoes (all metadata-only, all BEFORE any read) →
@@ -203,7 +210,9 @@
         func pollOnce() {
             let count = reader.currentChangeCount()
             guard count != lastChangeCount else { return }
+            let stamp = PasteboardCapture.ChangeStamp(count: count, observedAt: Date())
             lastChangeCount = count
+            lastChangeSeenAt = .now
 
             // One-shot user skip ("ignore next copy").
             if ignoreNextChange {
@@ -242,7 +251,7 @@
             }
 
             scheduleRead(
-                changeCount: count,
+                change: stamp,
                 isFromUniversalClipboard: types.contains(
                     SensitivePasteboardTypes.remoteClipboard),
                 sourceAppBundleID: sourceAppBundleID)
@@ -274,14 +283,15 @@
         /// the NEW bytes under the OLD change's metadata. Coalescing also caps
         /// memory under copy bursts (no read-task chain can build up).
         private func scheduleRead(
-            changeCount: Int, isFromUniversalClipboard: Bool, sourceAppBundleID: String?
+            change: PasteboardCapture.ChangeStamp, isFromUniversalClipboard: Bool,
+            sourceAppBundleID: String?
         ) {
             pendingRead?.cancel()
             let reader = self.reader
             let preferences = self.preferences
             lastContentReadAt = Date()
             pendingRead = Task { [weak self] in
-                let payload = await Self.readDetached(reader, changeCount: changeCount)
+                let payload = await Self.readDetached(reader, changeCount: change.count)
                 guard !Task.isCancelled, let payload,
                     let filtered = Self.apply(preferences, to: payload)
                 else { return }
@@ -289,7 +299,8 @@
                     PasteboardCapture(
                         payload: filtered,
                         sourceAppBundleID: sourceAppBundleID,
-                        isFromUniversalClipboard: isFromUniversalClipboard))
+                        isFromUniversalClipboard: isFromUniversalClipboard,
+                        change: change))
             }
         }
 

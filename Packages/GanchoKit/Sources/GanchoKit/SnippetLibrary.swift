@@ -118,7 +118,7 @@ extension GRDBClipboardStore {
             try db.execute(
                 sql: """
                     UPDATE clip
-                    SET contentText = ?, preview = ?, updatedAt = ?, needsUpload = 1
+                    SET contentText = ?, preview = ?, updatedAt = ?, needsUpload = 1, parts = NULL
                     WHERE id = ?
                       AND isSensitive = 0
                       AND kind NOT IN (\(kindPlaceholders))

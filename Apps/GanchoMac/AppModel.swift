@@ -284,6 +284,9 @@ final class AppModel {
         }
     }
 
+    @ObservationIgnored var copyMerger = DoubleCopyMerger()
+    @ObservationIgnored var lastIngest: Task<Void, Never>?
+
     /// The panel's Up next slot; nil hides it.
     var upNextSlot: UpNextSlot?
     @ObservationIgnored var upNextRefresh: Task<Void, Never>?
@@ -794,7 +797,11 @@ final class AppModel {
         // this also keeps cross-device capture consistent with iOS's consensual
         // model (the origin device decides, the rest receive via sync).
         guard !capture.isFromUniversalClipboard else { return nil }
-        return Task {
+        // Merging decides from the previous capture's clip, so captures land in order.
+        let previous = preferences.mergeDoubleCopies ? lastIngest : nil
+        let task = Task {
+            await previous?.value
+            if await mergeDoubleCopyIfNeeded(capture) { return }
             let configuration = ClipIngestionCoordinator.Configuration(
                 sensitiveLifetime: retentionPolicy.sensitiveLifetime,
                 detectSecrets: intelligence.detectSecrets,
@@ -822,6 +829,7 @@ final class AppModel {
                     String(localized: "Capture"), String(localized: "Couldn’t save a copied clip."))
                 return
             }
+            noteIngestedForMerge(capture, outcome: outcome)
             // Bucketized analytics: kind + a length BUCKET, never the content.
             telemetry.record(
                 .itemCaptured(
@@ -836,6 +844,8 @@ final class AppModel {
             notifyStoreChanged(for: .captured)
             enrich(outcome)
         }
+        lastIngest = task
+        return task
     }
 
     #if DEBUG
@@ -882,7 +892,8 @@ final class AppModel {
     private func enrich(_ outcome: ClipIngestionCoordinator.Outcome) {
         guard !outcome.enrichment.isEmpty, let fullStore else { return }
         let syncEngine: (any SyncEngine)? =
-            syncController.isEnabled ? syncController.engine : nil
+            syncController.isEnabled
+            ? ExistingClipsSyncEngine(syncController.engine, store: fullStore) : nil
         Task(priority: .utility) { [enrichmentScheduler] in
             // Bounded: a burst of copies used to leave one enrichment in
             // flight per clip, each holding its own model session and

@@ -22,6 +22,9 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
     /// Copies made during the current Private Mode, counted from the change
     /// count and the type list only: their content is never read.
     public var privateModeSkippedCopies: Int
+    /// The same text copied twice in quick succession appends to the clip
+    /// before it. Off by default.
+    public var mergeDoubleCopies: Bool
 
     public init(
         captureImages: Bool = true,
@@ -30,7 +33,8 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
         isPrivateModePaused: Bool = false,
         privateModeStartedAt: Date? = nil,
         privateModeEndsAt: Date? = nil,
-        privateModeSkippedCopies: Int = 0
+        privateModeSkippedCopies: Int = 0,
+        mergeDoubleCopies: Bool = false
     ) {
         self.captureImages = captureImages
         self.captureFileReferences = captureFileReferences
@@ -39,9 +43,11 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
         self.privateModeStartedAt = privateModeStartedAt
         self.privateModeEndsAt = privateModeEndsAt
         self.privateModeSkippedCopies = privateModeSkippedCopies
+        self.mergeDoubleCopies = mergeDoubleCopies
     }
 
-    /// Blobs saved before the Private Mode timer decode with it unset.
+    /// Blobs saved before the Private Mode timer or the merge switch decode
+    /// with them unset.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         captureImages = try container.decode(Bool.self, forKey: .captureImages)
@@ -53,6 +59,8 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
         privateModeEndsAt = try container.decodeIfPresent(Date.self, forKey: .privateModeEndsAt)
         privateModeSkippedCopies =
             try container.decodeIfPresent(Int.self, forKey: .privateModeSkippedCopies) ?? 0
+        mergeDoubleCopies =
+            try container.decodeIfPresent(Bool.self, forKey: .mergeDoubleCopies) ?? false
     }
 
     private static let defaultsKey = "capture-preferences"
