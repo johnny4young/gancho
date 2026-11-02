@@ -13732,6 +13732,66 @@
           }
         }
       }
+    },
+    "Show context": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver contexto"
+          }
+        }
+      }
+    },
+    "Context": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contexto"
+          }
+        }
+      }
+    },
+    "Context · 2 min before and after": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contexto · 2 min antes y después"
+          }
+        }
+      }
+    },
+    "esc back to results": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc vuelve a los resultados"
+          }
+        }
+      }
+    },
+    "Match": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coincide"
+          }
+        }
+      }
+    },
+    "Show the clips copied around it": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver lo copiado alrededor"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

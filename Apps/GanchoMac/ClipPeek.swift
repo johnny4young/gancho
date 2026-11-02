@@ -21,6 +21,8 @@ struct ClipPeek: View {
     let addToBoard: () -> Void
     /// ⇧⌘B: file the selection into the last board, as from the list.
     let addToLastBoard: () -> Void
+    /// Lists the clips copied around this one; nil while that list shows.
+    let showContext: (() -> Void)?
     /// Tells the panel an inline editor owns the keyboard, so a window regaining
     /// key status does not pull focus back to the search field.
     @Binding var isEditingInline: Bool
@@ -86,7 +88,8 @@ struct ClipPeek: View {
         item: ClipItem, text: String, isTextEditable: Bool,
         focus: FocusState<PanelFocus?>.Binding, isEditingInline: Binding<Bool>,
         transformRequest: Int = 0,
-        addToBoard: @escaping () -> Void, addToLastBoard: @escaping () -> Void
+        addToBoard: @escaping () -> Void, addToLastBoard: @escaping () -> Void,
+        showContext: (() -> Void)? = nil
     ) {
         self.item = item
         self.text = text
@@ -96,6 +99,7 @@ struct ClipPeek: View {
         self.transformRequest = transformRequest
         self.addToBoard = addToBoard
         self.addToLastBoard = addToLastBoard
+        self.showContext = showContext
         _presentedTitle = State(initialValue: item.title)
         _titleDraft = State(initialValue: item.title)
         _presentedText = State(initialValue: text)
@@ -749,6 +753,13 @@ extension ClipPeek {
                 id: "preview-board", title: "Add to board", symbol: "tray", shortTitle: "Board",
                 shortcut: "⌘B"
             ) { addToBoard() })
+        if let showContext {
+            actions.append(
+                PeekAction(
+                    id: "preview-context", title: "Show context", symbol: "clock",
+                    shortTitle: "Context", shortcut: "⌘J"
+                ) { showContext() })
+        }
         return actions
     }
 
