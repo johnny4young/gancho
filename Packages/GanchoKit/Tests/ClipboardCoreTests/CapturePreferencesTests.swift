@@ -40,12 +40,15 @@ struct CapturePreferencesTests {
         #expect(CapturePreferences.load(from: defaults) == saved)
     }
 
-    @Test("Double-copy merging is off by default and in older blobs")
-    func mergeDefaultsOff() throws {
+    @Test("Double-copy merging is off and its sound on, by default and in older blobs")
+    func mergeDefaults() throws {
         #expect(!CapturePreferences().mergeDoubleCopies)
+        #expect(CapturePreferences().playsMergeSound)
         let old = Data(
             #"{"captureImages":true,"captureFileReferences":true,"captureRichText":true,"isPrivateModePaused":false}"#
                 .utf8)
-        #expect(!(try JSONDecoder().decode(CapturePreferences.self, from: old)).mergeDoubleCopies)
+        let decoded = try JSONDecoder().decode(CapturePreferences.self, from: old)
+        #expect(!decoded.mergeDoubleCopies)
+        #expect(decoded.playsMergeSound)
     }
 }

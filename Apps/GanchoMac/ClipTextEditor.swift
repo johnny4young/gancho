@@ -11,6 +11,8 @@ struct ClipTextEditor: View {
     /// The host already shows the content (a link hero): keep only the Edit
     /// affordance until editing starts.
     let readViewHidden: Bool
+    /// A merged clip's parts, shown one per block while reading.
+    let parts: [String]?
     let onEditingChanged: @MainActor (Bool) -> Void
     let onSave: @MainActor (String) async -> Bool
 
@@ -23,12 +25,14 @@ struct ClipTextEditor: View {
 
     init(
         text: Binding<String>, kind: ClipContentKind, readViewHidden: Bool = false,
+        parts: [String]? = nil,
         onEditingChanged: @escaping @MainActor (Bool) -> Void,
         onSave: @escaping @MainActor (String) async -> Bool
     ) {
         _text = text
         self.kind = kind
         self.readViewHidden = readViewHidden
+        self.parts = parts
         self.onEditingChanged = onEditingChanged
         self.onSave = onSave
         _draft = State(initialValue: text.wrappedValue)
@@ -48,6 +52,9 @@ struct ClipTextEditor: View {
 
             if isEditing {
                 editor
+            } else if let parts, !readViewHidden {
+                ScrollView { PeekMergedParts(parts: parts, kind: kind) }
+                    .frame(maxHeight: 200)
             } else if !readViewHidden {
                 ScrollView {
                     Text(highlighted)

@@ -3,20 +3,30 @@ import GRDB
 
 /// The write behind a double-copy merge.
 public protocol ClipMerging: Sendable {
-    /// Replaces a clip's text with a merge of it, sets its parts, kind and hash, moves
-    /// it to the top and marks it for upload. False when the text is no longer
-    /// `current`, the clip is sensitive, masked, a snippet or not plain text, or
-    /// `kind` is not editable text.
+    /// Replaces a clip's text with a merge of it, sets its parts, kind and hash,
+    /// optionally moves it to the top and marks it for upload. False when the
+    /// text is no longer `current`, the clip is sensitive, masked, a snippet or
+    /// not plain text, or `kind` is not editable text.
     func mergeClipText(
         id: UUID, expecting current: String, text: String, parts: ClipParts,
-        kind: ClipContentKind
+        kind: ClipContentKind, movesToTop: Bool
     ) async throws -> Bool
+}
+
+extension ClipMerging {
+    public func mergeClipText(
+        id: UUID, expecting current: String, text: String, parts: ClipParts,
+        kind: ClipContentKind
+    ) async throws -> Bool {
+        try await mergeClipText(
+            id: id, expecting: current, text: text, parts: parts, kind: kind, movesToTop: true)
+    }
 }
 
 extension GRDBClipboardStore: ClipMerging {
     public func mergeClipText(
         id: UUID, expecting current: String, text: String, parts: ClipParts,
-        kind: ClipContentKind
+        kind: ClipContentKind, movesToTop: Bool
     ) async throws -> Bool {
         guard parts.split(text) != nil, kind.allowsTextEditing else { return false }
         let rejectedKinds = ClipContentKind.textEditingRejectedKinds.map(\.rawValue)
@@ -26,15 +36,16 @@ extension GRDBClipboardStore: ClipMerging {
         let hash = ClipItem.hash(of: ContentNormalizer.canonicalText(text, kind: kind), kind: kind)
         return try await writer.write { db in
             var arguments: [any DatabaseValueConvertible] = [
-                text, String(text.prefix(120)), kind.rawValue, hash, parts.encoded, now, now,
-                id.uuidString, current
+                text, String(text.prefix(120)), kind.rawValue, hash, parts.encoded, now,
+                movesToTop, now, id.uuidString, current
             ]
             arguments.append(contentsOf: rejectedKinds)
             try db.execute(
                 sql: """
                     UPDATE clip
                     SET contentText = ?, preview = ?, kind = ?, contentHash = ?, parts = ?,
-                        updatedAt = ?, lastUsedAt = ?, needsUpload = 1
+                        updatedAt = ?, lastUsedAt = CASE WHEN ? THEN ? ELSE lastUsedAt END,
+                        needsUpload = 1
                     WHERE id = ? AND contentText = ?
                       AND isSensitive = 0 AND isSnippet = 0
                       AND kind NOT IN (\(kindPlaceholders))

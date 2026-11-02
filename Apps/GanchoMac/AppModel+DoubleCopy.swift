@@ -14,7 +14,7 @@ extension AppModel {
                 CopyObservation(capture))
         else { return false }
         let deletion: @Sendable ([UUID]) async -> Void = { [weak self] ids in
-            await self?.discardMergedCopy(ids)
+            _ = await self?.discardMergedCopy(ids)
         }
         let outcome = await ClipMergeWorkflow().merge(
             text, into: target, discarding: discard, store: fullStore, deletion: deletion,
@@ -28,7 +28,7 @@ extension AppModel {
         {
             writeManualText(merged)
         }
-        toasts.show(GanchoToast(message: "Merged · \(partCount) parts"))
+        confirmMerge(partCount: partCount)
         await refreshRecents()
         notifyStoreChanged(for: .clips)
         return true
@@ -44,11 +44,79 @@ extension AppModel {
             canPair: !ClipSafePresentation.requiresMasking(item) && item.kind.allowsTextEditing)
     }
 
-    private func discardMergedCopy(_ ids: [UUID]) async {
+    /// Re-joins a merged clip with another separator; false when it was refused.
+    func rejoinParts(_ item: ClipItem, with separator: ClipParts.Separator) async -> Bool {
+        guard let fullStore else { return false }
+        let outcome = await ClipMergeWorkflow().rejoin(
+            item.id, with: separator, store: fullStore, engine: syncController.engine)
+        await refreshRecents()
+        notifyStoreChanged(for: .clips)
+        guard case .merged = outcome else {
+            diagnostics.record(
+                String(localized: "Editing"), String(localized: "Couldn’t change the separator."))
+            return false
+        }
+        return true
+    }
+
+    /// Saves each part of a merged clip as its own clip, then drops the merged one.
+    func splitParts(_ item: ClipItem) async {
+        guard let fullStore else { return }
+        let outcome = await ClipMergeWorkflow().split(
+            item.id, store: fullStore,
+            save: { [weak self] text in await self?.saveSplitPart(text, from: item) },
+            remove: { [weak self] id in await self?.discardMergedCopy([id]) ?? false })
+        await refreshRecents()
+        notifyStoreChanged(for: .clips)
+        switch outcome {
+        case .split(let ids):
+            // A part equal to a clip already in history lands in that clip.
+            toasts.show(GanchoToast(message: "Split · \(Set(ids).count) clips"))
+        case .failed, .refused:
+            diagnostics.record(
+                String(localized: "Editing"), String(localized: "Couldn’t split the clip."))
+        }
+    }
+
+    /// A part goes through the capture pipeline, so it is classified, checked
+    /// for secrets, deduped and synced like a copy, without counting as one
+    /// or spending a free AI title.
+    private func saveSplitPart(_ text: String, from item: ClipItem) async -> UUID? {
+        let capture = PasteboardCapture(
+            payload: .text(text), sourceAppBundleID: item.sourceAppBundleID)
+        var configuration = ingestionConfiguration()
+        configuration.allowsFreeTitle = false
+        guard
+            let outcome = try? await ingestionCoordinator.ingest(
+                capture, configuration: configuration, store: store,
+                syncEngine: syncController.engine)
+        else { return nil }
+        enrich(outcome)
+        return outcome.item.id
+    }
+
+    private func confirmMerge(partCount: Int) {
+        copyHUD.show(
+            CopyHUD(symbol: "doc.on.doc", title: "Merged · \(partCount) parts"),
+            below: toasts.visibleFrame)
+        // Respects the system "Play user interface sound effects" switch too.
+        guard preferences.playsMergeSound,
+            UserDefaults.standard.object(forKey: "com.apple.sound.uiaudio.enabled") as? Bool
+                != false
+        else { return }
+        let sound = NSSound(named: "Pop")
+        sound?.volume = 0.4
+        sound?.play()
+    }
+
+    @discardableResult
+    private func discardMergedCopy(_ ids: [UUID]) async -> Bool {
         let outcome = await ClipDeletionWorkflow().delete(
             ids: ids, store: store, syncStore: fullStore, engine: syncController.engine,
             syncEnabled: syncController.isEnabled)
         reportDeletionFailure(outcome)
+        if case .deleted = outcome { return true }
+        return false
     }
 
     /// `-seed-double-copy`: three captures through the real ingest path, the

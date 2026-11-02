@@ -181,6 +181,12 @@ final class ToastPresenter {
         }
     }
 
+    /// Where the toast sits while it shows, so a copy HUD can stack below it.
+    var visibleFrame: NSRect? {
+        guard let panel, panel.isVisible else { return nil }
+        return panel.frame
+    }
+
     func dismiss() {
         dismissTask?.cancel()
         visibleUndo = nil

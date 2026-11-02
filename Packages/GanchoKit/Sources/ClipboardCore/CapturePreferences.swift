@@ -25,6 +25,8 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
     /// The same text copied twice in quick succession appends to the clip
     /// before it. Off by default.
     public var mergeDoubleCopies: Bool
+    /// A soft sound confirms a merge. On by default.
+    public var playsMergeSound: Bool
 
     public init(
         captureImages: Bool = true,
@@ -34,7 +36,8 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
         privateModeStartedAt: Date? = nil,
         privateModeEndsAt: Date? = nil,
         privateModeSkippedCopies: Int = 0,
-        mergeDoubleCopies: Bool = false
+        mergeDoubleCopies: Bool = false,
+        playsMergeSound: Bool = true
     ) {
         self.captureImages = captureImages
         self.captureFileReferences = captureFileReferences
@@ -44,10 +47,11 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
         self.privateModeEndsAt = privateModeEndsAt
         self.privateModeSkippedCopies = privateModeSkippedCopies
         self.mergeDoubleCopies = mergeDoubleCopies
+        self.playsMergeSound = playsMergeSound
     }
 
-    /// Blobs saved before the Private Mode timer or the merge switch decode
-    /// with them unset.
+    /// Blobs saved before the Private Mode timer or the merge switches decode
+    /// with their defaults.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         captureImages = try container.decode(Bool.self, forKey: .captureImages)
@@ -61,6 +65,8 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
             try container.decodeIfPresent(Int.self, forKey: .privateModeSkippedCopies) ?? 0
         mergeDoubleCopies =
             try container.decodeIfPresent(Bool.self, forKey: .mergeDoubleCopies) ?? false
+        playsMergeSound =
+            try container.decodeIfPresent(Bool.self, forKey: .playsMergeSound) ?? true
     }
 
     private static let defaultsKey = "capture-preferences"

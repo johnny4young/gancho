@@ -30,6 +30,10 @@ struct CaptureSettingsTab: View {
                     Text("Press ⌘C twice on a selection to add it to the clip before it.")
                 }
                 .accessibilityIdentifier("settings-merge-double-copies")
+                if model.preferences.mergeDoubleCopies {
+                    Toggle("Play a sound", isOn: $model.preferences.playsMergeSound)
+                        .accessibilityIdentifier("settings-merge-sound")
+                }
             }
 
             Section {
