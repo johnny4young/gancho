@@ -35,7 +35,8 @@ struct CapturePreferencesTests {
         let start = Date(timeIntervalSince1970: 1_000)
         let saved = CapturePreferences(
             isPrivateModePaused: true, privateModeStartedAt: start,
-            privateModeEndsAt: start.addingTimeInterval(3_600), privateModeSkippedCopies: 3)
+            privateModeEndsAt: start.addingTimeInterval(3_600), privateModeSkippedCopies: 3,
+            notchShelf: true)
         saved.save(to: defaults)
         #expect(CapturePreferences.load(from: defaults) == saved)
     }
@@ -51,6 +52,8 @@ struct CapturePreferencesTests {
         #expect(!decoded.mergeDoubleCopies)
         #expect(decoded.playsMergeSound)
         #expect(decoded.copyActions == CopyActionSwitches())
+        #expect(!decoded.notchShelf)
+        #expect(!CapturePreferences().notchShelf)
     }
 
     @Test("Copy actions start off with every kind on, and keep a saved choice")

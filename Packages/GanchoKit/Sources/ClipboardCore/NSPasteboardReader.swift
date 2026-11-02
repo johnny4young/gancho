@@ -27,12 +27,16 @@
         /// pasteboard offered none — so downstream classification and search
         /// read that (falling back to empty text), never the RTF/HTML source.
         public func readPayload() -> PasteboardCapture.Payload? {
-            let pasteboard = NSPasteboard.general
+            Self.payload(from: .general)
+        }
+
+        /// The same read over any pasteboard, such as a drop's.
+        public static func payload(from pasteboard: NSPasteboard) -> PasteboardCapture.Payload? {
             let fileURLs = (pasteboard.pasteboardItems ?? []).compactMap { item -> URL? in
                 guard let raw = item.string(forType: .fileURL) else { return nil }
                 return URL(string: raw)
             }
-            return Self.selectPayload(
+            return selectPayload(
                 fileURLs: fileURLs,
                 png: pasteboard.data(forType: .png),
                 tiff: pasteboard.data(forType: .tiff),

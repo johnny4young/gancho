@@ -50,6 +50,15 @@ struct CaptureSettingsTab: View {
             }
 
             Section {
+                Toggle(isOn: $model.preferences.notchShelf) {
+                    Text("Notch shelf")
+                    Text(
+                        "Drag anything to the notch, or to the top center of a screen without one.")
+                }
+                .accessibilityIdentifier("settings-notch-shelf")
+            }
+
+            Section {
                 LabeledContent {
                     Button("Open Intelligence…") { model.intelligenceWindow.show(model: model) }
                         .accessibilityIdentifier("open-intelligence")

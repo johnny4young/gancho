@@ -29,6 +29,8 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
     public var playsMergeSound: Bool
     /// The copy-time action HUD. Off by default.
     public var copyActions: CopyActionSwitches
+    /// A drop shelf at the notch (top center without one). Off by default.
+    public var notchShelf: Bool
 
     public init(
         captureImages: Bool = true,
@@ -40,7 +42,8 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
         privateModeSkippedCopies: Int = 0,
         mergeDoubleCopies: Bool = false,
         playsMergeSound: Bool = true,
-        copyActions: CopyActionSwitches = CopyActionSwitches()
+        copyActions: CopyActionSwitches = CopyActionSwitches(),
+        notchShelf: Bool = false
     ) {
         self.captureImages = captureImages
         self.captureFileReferences = captureFileReferences
@@ -52,10 +55,11 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
         self.mergeDoubleCopies = mergeDoubleCopies
         self.playsMergeSound = playsMergeSound
         self.copyActions = copyActions
+        self.notchShelf = notchShelf
     }
 
-    /// Blobs saved before the Private Mode timer, the merge switches or the
-    /// copy actions decode with their defaults.
+    /// Blobs saved before the Private Mode timer, the merge switches, the
+    /// copy actions or the notch shelf decode with their defaults.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         captureImages = try container.decode(Bool.self, forKey: .captureImages)
@@ -74,6 +78,7 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
         copyActions =
             try container.decodeIfPresent(CopyActionSwitches.self, forKey: .copyActions)
             ?? CopyActionSwitches()
+        notchShelf = try container.decodeIfPresent(Bool.self, forKey: .notchShelf) ?? false
     }
 
     private static let defaultsKey = "capture-preferences"
