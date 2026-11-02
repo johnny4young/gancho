@@ -13542,6 +13542,196 @@
           }
         }
       }
+    },
+    "Drop on a board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suelta en un tablero"
+          }
+        }
+      }
+    },
+    "Or an action": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O en una acción"
+          }
+        }
+      }
+    },
+    "Drop on an action": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suelta en una acción"
+          }
+        }
+      }
+    },
+    "Extract text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extraer texto"
+          }
+        }
+      }
+    },
+    "Resize": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reducir"
+          }
+        }
+      }
+    },
+    "Strip location": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar ubicación"
+          }
+        }
+      }
+    },
+    "Images only": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo imágenes"
+          }
+        }
+      }
+    },
+    "Notch shelf": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estante del notch"
+          }
+        }
+      }
+    },
+    "Drag anything to the notch, or to the top center of a screen without one.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrastra lo que sea al notch, o al centro superior de una pantalla sin notch."
+          }
+        }
+      }
+    },
+    "Secrets can’t be added to a board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los secretos no se pueden añadir a un tablero"
+          }
+        }
+      }
+    },
+    "Not an image": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No es una imagen"
+          }
+        }
+      }
+    },
+    "Resized · Copied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reducida · Copiada"
+          }
+        }
+      }
+    },
+    "Already 1280 px or smaller · Copied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya mide 1280 px o menos · Copiada"
+          }
+        }
+      }
+    },
+    "Location removed · Copied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ubicación quitada · Copiada"
+          }
+        }
+      }
+    },
+    "No location found · Copied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin ubicación · Copiada"
+          }
+        }
+      }
+    },
+    "No text found": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontró texto"
+          }
+        }
+      }
+    },
+    "Secret found · Not copied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay un secreto · No se copió"
+          }
+        }
+      }
+    },
+    "Text extracted · Copied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto extraído · Copiado"
+          }
+        }
+      }
+    },
+    "Couldn’t read that image": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer esa imagen"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

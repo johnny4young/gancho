@@ -127,6 +127,7 @@ final class AppModel {
     /// Transient HUD for action feedback (copy-only paste, pin/unpin).
     let toasts: ToastPresenter
     let copyHUD: CopyHUDPresenter
+    let notchShelf = NotchShelfController()
     let manualOCR: ManualOCRSession
     let manualOCRWindow = ManualOCRWindowController()
     let screenTextWorkflow: ScreenTextWorkflow
@@ -273,7 +274,11 @@ final class AppModel {
 
     var preferences: CapturePreferences {
         get { captureLifecycle.preferences }
-        set { captureLifecycle.preferences = newValue }
+        set {
+            let shelfChanged = newValue.notchShelf != captureLifecycle.preferences.notchShelf
+            captureLifecycle.preferences = newValue
+            if shelfChanged { notchShelf.setEnabled(newValue.notchShelf) }
+        }
     }
 
     /// On-device intelligence toggles (the Intelligence screen). Each gates a
@@ -683,6 +688,7 @@ final class AppModel {
                 String(localized: "Storage"),
                 String(localized: "Couldn’t open secure storage — running in memory."))
         }
+        configureNotchShelf()
         Task { await refreshRecents() }
         // Whatever waits on the seeds must also wait on the launch pass: the pass
         // is what turns the expired-secret seed into a receipt entry. Built in one
@@ -808,45 +814,52 @@ final class AppModel {
         let task = Task {
             await previous?.value
             if await mergeDoubleCopyIfNeeded(capture) { return }
-            let configuration = ingestionConfiguration()
-            // Closed by the coordinator the moment the insert phase ends, on
-            // success and on failure both — NOT when `ingest` returns. `ingest`
-            // also awaits the sync enqueue, which builds `CKSyncEngine` on
-            // first use, and folding CloudKit setup into a capture metric would
-            // make the first capture after launch an outlier about something
-            // else entirely.
-            let ingestInterval = Signpost.captureToInsert.begin()
-            let outcome: ClipIngestionCoordinator.Outcome
-            do {
-                outcome = try await ingestionCoordinator.ingest(
-                    capture,
-                    configuration: configuration,
-                    store: store,
-                    syncEngine: syncController.engine,
-                    didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
-            } catch {
-                diagnostics.record(
-                    String(localized: "Capture"), String(localized: "Couldn’t save a copied clip."))
-                return
-            }
+            guard let outcome = await saveCapture(capture) else { return }
             noteIngestedForMerge(capture, outcome: outcome)
-            // Bucketized analytics: kind + a length BUCKET, never the content.
-            telemetry.record(
-                .itemCaptured(
-                    type: outcome.item.kind,
-                    lengthBucket: .init(characterCount: outcome.contentLength)))
-            if outcome.isNew { recordActivationMilestone(.firstCapture) }
-            try? await fullStore?.recordPrivateCapture(
-                sourceAppBundleID: capture.sourceAppBundleID,
-                count: 1,
-                at: capture.capturedAt)
-            await refreshRecents()
-            notifyStoreChanged(for: .captured)
             offerCopyActions(for: outcome, capture: capture)
             enrich(outcome)
         }
         lastIngest = task
         return task
+    }
+
+    /// Stores one capture through the coordinator and refreshes the history;
+    /// nil when the write failed.
+    func saveCapture(_ capture: PasteboardCapture) async -> ClipIngestionCoordinator.Outcome? {
+        let configuration = ingestionConfiguration()
+        // Closed by the coordinator the moment the insert phase ends, on
+        // success and on failure both — NOT when `ingest` returns. `ingest`
+        // also awaits the sync enqueue, which builds `CKSyncEngine` on
+        // first use, and folding CloudKit setup into a capture metric would
+        // make the first capture after launch an outlier about something
+        // else entirely.
+        let ingestInterval = Signpost.captureToInsert.begin()
+        let outcome: ClipIngestionCoordinator.Outcome
+        do {
+            outcome = try await ingestionCoordinator.ingest(
+                capture,
+                configuration: configuration,
+                store: store,
+                syncEngine: syncController.engine,
+                didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
+        } catch {
+            diagnostics.record(
+                String(localized: "Capture"), String(localized: "Couldn’t save a copied clip."))
+            return nil
+        }
+        // Bucketized analytics: kind + a length BUCKET, never the content.
+        telemetry.record(
+            .itemCaptured(
+                type: outcome.item.kind,
+                lengthBucket: .init(characterCount: outcome.contentLength)))
+        if outcome.isNew { recordActivationMilestone(.firstCapture) }
+        try? await fullStore?.recordPrivateCapture(
+            sourceAppBundleID: capture.sourceAppBundleID,
+            count: 1,
+            at: capture.capturedAt)
+        await refreshRecents()
+        notifyStoreChanged(for: .captured)
+        return outcome
     }
 
     func ingestionConfiguration() -> ClipIngestionCoordinator.Configuration {
@@ -1975,6 +1988,7 @@ final class AppModel {
     func refreshBoards() async {
         guard let fullStore else { return }
         boards = (try? await fullStore.pinboards()) ?? []
+        notchShelf.boardsChanged()
     }
 
     func assign(_ item: ClipItem, toBoard board: Pinboard) {
