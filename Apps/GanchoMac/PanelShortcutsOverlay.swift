@@ -70,6 +70,7 @@ struct PanelShortcutsOverlay: View {
             shortcutLine(["⌘", "B"], "Add to board")
             shortcutLine(["⇧", "⌘", "B"], "Add to last board")
             shortcutLine(["⌥", "⌘", "⏎"], "Add to paste stack")
+            shortcutLine(["⌘", "J"], "Show the clips copied around it")
             shortcutLine(["⌘", "Y"], "Preview")
             shortcutLine(["⌘", "G"], "List or gallery")
             shortcutLine(["⇧", "⌘", "C"], "Copy text from image")

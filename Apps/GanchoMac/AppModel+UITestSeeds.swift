@@ -59,8 +59,40 @@ extension AppModel {
             seedPrivateActivityReceiptIfRequested(),
             seedUpNextIfRequested(),
             seedDoubleCopyIfRequested(),
-            seedCopyActionsIfRequested()
+            seedCopyActionsIfRequested(),
+            seedContextSessionIfRequested()
         ].compactMap { $0 }
+    }
+
+    /// UI-test hook: a work session, copied within four minutes an hour ago,
+    /// and one clip from an hour before it, for Jump to context.
+    private func seedContextSessionIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-context-session"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            let start = Date.now.addingTimeInterval(-3_600)
+            // Seconds from the session start.
+            let session: [(TimeInterval, ClipContentKind, String)] = [
+                (-3_600, .text, "Lunch order for the team"),
+                (0, .url, "https://developer.apple.com/documentation/appkit"),
+                (60, .text, "NSPanel · floating, non-activating"),
+                (90, .code, "panel.becomesKeyOnlyIfNeeded = true"),
+                (150, .text, "Fix: panel steals focus in full screen"),
+                (210, .url, "https://gancho.app/docs/panel")
+            ]
+            return Task {
+                for (offset, kind, text) in session {
+                    let item = ClipItem(
+                        createdAt: start.addingTimeInterval(offset), kind: kind, preview: text,
+                        contentHash: "context-\(text)")
+                    _ = try? await fullStore.insert(item, content: .text(text))
+                }
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
     }
 
     /// UI-test hook: seed a few KNOWN synthetic clips through the normal capture

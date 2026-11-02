@@ -30,6 +30,8 @@ struct PanelResultsView<RowContent: View>: View {
     var applyAlternative: (PanelSearchAlternative) -> Void = { _ in }
     /// Private Mode lists everything under one "Before private mode" header.
     var isPrivateMode = false
+    /// The session around one result (Jump to context).
+    var isContext = false
     let selectedID: UUID?
     /// List rows, or a grid of cards `columns` wide; the grid reports the
     /// column count it fits so keyboard moves match what is on screen.
@@ -119,7 +121,9 @@ struct PanelResultsView<RowContent: View>: View {
 
     private var recentHeader: some View {
         HStack {
-            if !query.isEmpty {
+            if isContext {
+                Text("Context")
+            } else if !query.isEmpty {
                 // The status the field's mode control sets: "Results · Exact".
                 HStack(spacing: 0) {
                     Text("Results")
