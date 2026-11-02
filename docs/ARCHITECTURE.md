@@ -364,7 +364,10 @@ Store shape:
   explicitly clearable private activity receipt; no content-shaped columns.
 - `clip.parts` (v30): a double-copy merge's separator and part lengths, JSON,
   synced encrypted; validated against the text on read and cleared by a text
-  edit, so stale boundaries are ignored rather than applied.
+  edit, so stale boundaries are ignored rather than applied. A separator
+  change rewrites the clip in place; Split saves each part through
+  `ClipIngestionCoordinator` (classifier, secret detector, dedupe, sync) and
+  deletes the merged clip only once every part landed.
 - `paste_event` (v29): clip id, validated target bundle id and time for Up
   next. Written only while Up next is on and outside Private Mode, erased when
   it is turned off, pruned past 30 days, deleted with its clip (and when a clip
