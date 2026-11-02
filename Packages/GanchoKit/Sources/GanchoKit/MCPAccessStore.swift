@@ -136,6 +136,19 @@ extension GRDBClipboardStore: MCPClipStore {
         }
     }
 
+    /// The grant's context at call time: identifiers, a count and a window.
+    static func registerMCPAccessContextMigration(in migrator: inout DatabaseMigrator) {
+        migrator.registerMigration(
+            GanchoDatabaseMigrator.Identifier.mcpAccessContext.rawValue
+        ) { db in
+            try db.alter(table: "mcp_access_log") { table in
+                table.add(column: "contextBoardID", .text)
+                table.add(column: "contextClipCount", .integer)
+                table.add(column: "contextTimeScope", .text)
+            }
+        }
+    }
+
     /// Single-clip metadata fetch (membership/sensitive checks, get_clip
     /// without paging the blob). `content(for:)` remains the only blob load.
     public func item(id: UUID) async throws -> ClipItem? {
@@ -154,47 +167,95 @@ extension GRDBClipboardStore: MCPClipStore {
                 sql: """
                     INSERT INTO mcp_access_log (
                         occurredAt, tool, scope, accessMode, grantID, clientName,
-                        resultCount, wasDenied, denialReason
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        resultCount, wasDenied, denialReason,
+                        contextBoardID, contextClipCount, contextTimeScope
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                 arguments: [
                     event.occurredAt, event.tool.rawValue, event.scope.rawValue,
                     event.accessMode?.rawValue, event.grantID?.uuidString, event.clientName,
-                    event.resultCount, event.wasDenied, event.denialReason?.rawValue
+                    event.resultCount, event.wasDenied, event.denialReason?.rawValue,
+                    event.context?.boardID?.uuidString, event.context?.clipCount,
+                    event.context?.timeScope.rawValue
                 ])
         }
     }
 
     /// Most recent MCP/CLI accesses, newest first — the Privacy Center feed.
     public func recentMCPAccesses(limit: Int = 50) async throws -> [MCPAccessEvent] {
-        try await writer.read { db in
+        guard limit > 0 else { return [] }
+        return try await writer.read { db in
             try Row.fetchAll(
                 db,
-                sql: """
-                    SELECT occurredAt, tool, scope, accessMode, grantID, clientName,
-                           resultCount, wasDenied, denialReason
-                    FROM mcp_access_log ORDER BY occurredAt DESC, id DESC LIMIT ?
-                    """,
+                sql: "SELECT \(Self.ledgerColumns) FROM mcp_access_log "
+                    + "ORDER BY occurredAt DESC, id DESC LIMIT ?",
                 arguments: [limit]
-            ).compactMap { row in
-                guard let tool = MCPToolName(rawValue: row["tool"]),
-                    let scope = MCPAccessScope(rawValue: row["scope"])
-                else { return nil }
-                let accessModeRaw: String? = row["accessMode"]
-                let grantIDRaw: String? = row["grantID"]
-                let clientName: String? = row["clientName"]
-                let denialReasonRaw: String? = row["denialReason"]
-                return MCPAccessEvent(
-                    tool: tool,
-                    scope: scope,
-                    accessMode: accessModeRaw.flatMap(MCPAccessMode.init(rawValue:)),
-                    grantID: grantIDRaw.flatMap(UUID.init(uuidString:)),
-                    clientName: clientName,
-                    resultCount: row["resultCount"],
-                    wasDenied: row["wasDenied"],
-                    denialReason: denialReasonRaw.flatMap(MCPAccessDenialReason.init(rawValue:)),
-                    occurredAt: row["occurredAt"])
-            }
+            ).compactMap { Self.accessRecord(from: $0)?.event }
         }
+    }
+
+    /// Accesses logged after `id`, oldest first, for a live feed.
+    public func mcpAccesses(after id: Int64, limit: Int = 200) async throws -> [MCPAccessRecord] {
+        guard limit > 0 else { return [] }
+        return try await writer.read { db in
+            try Row.fetchAll(
+                db,
+                sql: "SELECT \(Self.ledgerColumns) FROM mcp_access_log "
+                    + "WHERE id > ? ORDER BY id ASC LIMIT ?",
+                arguments: [id, limit]
+            ).compactMap(Self.accessRecord(from:))
+        }
+    }
+
+    /// The newest ledger row id, or 0 for an empty ledger.
+    public func latestMCPAccessID() async throws -> Int64 {
+        try await writer.read { db in
+            try Int64.fetchOne(db, sql: "SELECT MAX(id) FROM mcp_access_log") ?? 0
+        }
+    }
+
+    private static let ledgerColumns = """
+        id, occurredAt, tool, scope, accessMode, grantID, clientName, resultCount, \
+        wasDenied, denialReason, contextBoardID, contextClipCount, contextTimeScope
+        """
+
+    private static func accessRecord(from row: Row) -> MCPAccessRecord? {
+        guard let tool = MCPToolName(rawValue: row["tool"]),
+            let scope = MCPAccessScope(rawValue: row["scope"])
+        else { return nil }
+        let accessModeRaw: String? = row["accessMode"]
+        let grantIDRaw: String? = row["grantID"]
+        let denialReasonRaw: String? = row["denialReason"]
+        let boardIDRaw: String? = row["contextBoardID"]
+        let timeScopeRaw: String? = row["contextTimeScope"]
+        let context = timeScopeRaw.flatMap(MCPTimeScope.init(rawValue:)).map {
+            MCPAccessContext(
+                boardID: boardIDRaw.flatMap(UUID.init(uuidString:)),
+                clipCount: row["contextClipCount"], timeScope: $0)
+        }
+        return MCPAccessRecord(
+            id: row["id"],
+            event: MCPAccessEvent(
+                tool: tool,
+                scope: scope,
+                accessMode: accessModeRaw.flatMap(MCPAccessMode.init(rawValue:)),
+                grantID: grantIDRaw.flatMap(UUID.init(uuidString:)),
+                clientName: row["clientName"],
+                resultCount: row["resultCount"],
+                wasDenied: row["wasDenied"],
+                denialReason: denialReasonRaw.flatMap(MCPAccessDenialReason.init(rawValue:)),
+                context: context,
+                occurredAt: row["occurredAt"]))
+    }
+}
+
+/// A ledger row with its id, so a live reader can resume after it.
+public struct MCPAccessRecord: Sendable, Equatable {
+    public var id: Int64
+    public var event: MCPAccessEvent
+
+    public init(id: Int64, event: MCPAccessEvent) {
+        self.id = id
+        self.event = event
     }
 }

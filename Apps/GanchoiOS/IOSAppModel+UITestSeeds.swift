@@ -14,6 +14,7 @@ extension IOSAppModel {
         seedHomeIfRequested()
         seedReuseSuggestionIfRequested()
         seedClipEditingIfRequested()
+        seedImageTextIfRequested()
         seedOutboundPrivacyIfRequested()
         seedIntentionalCaptureIfRequested()
         return seedPrivateActivityReceiptIfRequested()
@@ -273,6 +274,34 @@ extension IOSAppModel {
                 item,
                 content: .text(
                     "Yesterday: fixed search\nToday: improve editing\nBlockers: none"))
+            await search()
+        }
+    }
+
+    /// One image with four rendered lines: prose, a link and an access key,
+    /// so the text-in-image section has a line to hold back.
+    private func seedImageTextIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-seed-image-text"),
+            ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),
+            let full
+        else { return }
+        let size = CGSize(width: 640, height: 260)
+        let data = UIGraphicsImageRenderer(size: size).pngData { context in
+            UIColor.white.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+            ("Hola Gancho\nTexto de una imagen\nhttps://gancho.app/docs\nAKIAIOSFODNN7EXAMPLE"
+                as NSString).draw(
+                    in: CGRect(x: 20, y: 20, width: 600, height: 220),
+                    withAttributes: [
+                        .font: UIFont.systemFont(ofSize: 32), .foregroundColor: UIColor.black
+                    ])
+        }
+        Task {
+            let item = ClipItem(
+                kind: .image, title: "OCR sample", preview: "Sample image",
+                contentHash: "ios-ui-image-text")
+            _ = try? await full.insert(
+                item, content: .binary(data: data, typeIdentifier: "public.png"))
             await search()
         }
     }

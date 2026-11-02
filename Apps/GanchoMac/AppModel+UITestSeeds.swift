@@ -51,12 +51,77 @@ extension AppModel {
             seedClipEditingIfRequested(),
             seedVisualLibraryIfRequested(),
             seedPeekLinkIfRequested(),
+            seedPeekSecretIfRequested(),
             seedSnippetsIfRequested(),
             seedManualOCRIfRequested(),
             seedRecognizedTextImageIfRequested(),
             seedMultiFileDragIfRequested(),
-            seedPrivateActivityReceiptIfRequested()
+            seedPrivateActivityReceiptIfRequested(),
+            seedUpNextIfRequested(),
+            seedDoubleCopyIfRequested(),
+            seedCopyActionsIfRequested(),
+            seedContextSessionIfRequested(),
+            seedSnippetSuggestionsIfRequested()
         ].compactMap { $0 }
+    }
+
+    /// UI-test hook: two clips that earned a suggestion, one that hasn't, and a
+    /// secret used more than any of them.
+    private func seedSnippetSuggestionsIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-snippet-suggestions"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            let clips: [(String, Int, Bool)] = [
+                ("Cra. 43A #1-50, Envigado", 5, false),
+                ("Thanks for reaching out", 3, false),
+                ("One use short", 2, false),
+                ("Seeded secret", 9, true)
+            ]
+            return Task {
+                for (text, uses, isSensitive) in clips {
+                    let item = ClipItem(
+                        preview: text, contentHash: "ui-suggestion-\(text)",
+                        isSensitive: isSensitive, uses: uses)
+                    _ = try? await fullStore.insert(item, content: .text(text))
+                }
+                await refreshRecents()
+                notifyStoreChanged()
+            }
+        #else
+            return nil
+        #endif
+    }
+
+    /// UI-test hook: a work session, copied within four minutes an hour ago,
+    /// and one clip from an hour before it, for Jump to context.
+    private func seedContextSessionIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-context-session"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            let start = Date.now.addingTimeInterval(-3_600)
+            // Seconds from the session start.
+            let session: [(TimeInterval, ClipContentKind, String)] = [
+                (-3_600, .text, "Lunch order for the team"),
+                (0, .url, "https://developer.apple.com/documentation/appkit"),
+                (60, .text, "NSPanel · floating, non-activating"),
+                (90, .code, "panel.becomesKeyOnlyIfNeeded = true"),
+                (150, .text, "Fix: panel steals focus in full screen"),
+                (210, .url, "https://gancho.app/docs/panel")
+            ]
+            return Task {
+                for (offset, kind, text) in session {
+                    let item = ClipItem(
+                        createdAt: start.addingTimeInterval(offset), kind: kind, preview: text,
+                        contentHash: "context-\(text)")
+                    _ = try? await fullStore.insert(item, content: .text(text))
+                }
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
     }
 
     /// UI-test hook: seed a few KNOWN synthetic clips through the normal capture
@@ -323,6 +388,27 @@ extension AppModel {
                     createdAt: Date().addingTimeInterval(-2), kind: .url, title: "Synthetic link",
                     preview: url, contentHash: "peek-link")
                 _ = try? await fullStore.insert(item, content: .text(url))
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
+    }
+
+    /// `-seed-peek-secret`: one fresh synthetic secret with nine and a half
+    /// minutes left, for the peek's countdown, reveal and Delete now.
+    private func seedPeekSecretIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-peek-secret"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            return Task {
+                let now = Date()
+                let item = ClipItem(
+                    createdAt: now.addingTimeInterval(-30), kind: .secret, preview: "●●●● 4Q2v",
+                    contentHash: "peek-secret", sourceAppBundleID: "com.apple.Terminal",
+                    isSensitive: true, expiresAt: now.addingTimeInterval(570))
+                _ = try? await fullStore.insert(item, content: .text("synthetic-peek-secret-4Q2v"))
                 await refreshRecents()
             }
         #else

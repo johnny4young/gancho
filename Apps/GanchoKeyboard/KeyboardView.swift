@@ -173,6 +173,7 @@ struct KeyboardView: View {
                     emptyLabel
                 } else {
                     ForEach(model.entries) { entry in
+                        let isInserted = model.inserted.contains(entry.id)
                         Button {
                             model.insert(entry)
                         } label: {
@@ -183,13 +184,15 @@ struct KeyboardView: View {
                                 Text(entry.displayText)
                                     .lineLimit(1)
                                     .font(.callout)
+                                if isInserted { insertedPill }
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 9)
-                            .background(.fill.tertiary, in: .capsule)
+                            .background(rowFill(isInserted, idle: .fill.tertiary), in: .capsule)
                             .contentShape(.capsule)
                         }
                         .buttonStyle(PressableScale())
+                        .accessibilityValue(isInserted ? Text("Inserted") : Text(verbatim: ""))
                     }
                     // Trailing affordance so the one-row strip advertises the
                     // fuller, searchable list (the chevron in the control bar
@@ -264,7 +267,8 @@ struct KeyboardView: View {
     }
 
     private func clipRow(_ entry: WidgetClipEntry) -> some View {
-        Button {
+        let isInserted = model.inserted.contains(entry.id)
+        return Button {
             model.insert(entry)
         } label: {
             HStack(spacing: 10) {
@@ -277,14 +281,35 @@ struct KeyboardView: View {
                     metadataLine(for: entry)
                 }
                 Spacer(minLength: 0)
+                if isInserted { insertedPill }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(.fill.quaternary, in: .rect(cornerRadius: 12))
+            .background(rowFill(isInserted, idle: .fill.quaternary), in: .rect(cornerRadius: 12))
             .contentShape(.rect)
         }
         .buttonStyle(PressableScale())
+        .accessibilityValue(isInserted ? Text("Inserted") : Text(verbatim: ""))
         .task(id: entry.id) { await model.ensureThumbnail(entry) }
+    }
+
+    /// Marks a row already typed into the current field.
+    private var insertedPill: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "checkmark").imageScale(.small)
+            Text("Inserted").textCase(.lowercase)
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(GanchoTokens.Palette.brandInk)
+        .padding(.horizontal, 7)
+        .frame(minHeight: 18)
+        .background(GanchoTokens.Palette.brandGreen, in: .capsule)
+        .accessibilityHidden(true)
+    }
+
+    private func rowFill(_ isInserted: Bool, idle: some ShapeStyle) -> AnyShapeStyle {
+        isInserted
+            ? AnyShapeStyle(GanchoTokens.Palette.brandGreen.opacity(0.14)) : AnyShapeStyle(idle)
     }
 
     private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {

@@ -107,7 +107,11 @@ extension ClipDetailView {
                     dismiss()
                 } label: {
                     HStack(spacing: GanchoTokens.Spacing.xs) {
-                        Label("Copy", systemImage: "doc.on.clipboard")
+                        if item.kind == .image {
+                            Label("Copy image", systemImage: "doc.on.clipboard")
+                        } else {
+                            Label("Copy", systemImage: "doc.on.clipboard")
+                        }
                         if showsCopyShortcut {
                             KeyChip(keys: "⌘⏎", onFill: true).accessibilityHidden(true)
                         }

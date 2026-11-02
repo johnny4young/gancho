@@ -26,7 +26,9 @@ public final class ManualOCRSession {
     /// Recognition found something the secret detector flags. Such text is
     /// NEVER copied automatically: every copy is an explicit action after a
     /// reveal, the same contract sensitive clips already have.
-    public private(set) var isSensitive = false
+    public var isSensitive: Bool { !heldLines.isEmpty }
+    /// The lines held back until revealed, by index into `lines`.
+    public private(set) var heldLines: Set<Int> = []
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var permitsResult: @Sendable () async -> Bool = { false }
@@ -42,7 +44,7 @@ public final class ManualOCRSession {
         text = ""
         lines = []
         itemID = nil
-        isSensitive = false
+        heldLines = []
         state = .idle
         permitsResult = { false }
     }
@@ -52,6 +54,7 @@ public final class ManualOCRSession {
         recognize: @escaping @Sendable () async throws -> ManualOCRResult?,
         isAllowed: @escaping @Sendable () async -> Bool,
         isSensitive detectSecret: @escaping @Sendable (String) -> Bool = { _ in false },
+        autoCopy: Bool = true,
         clipboardRevision: @escaping @MainActor () -> Int,
         copy: @escaping @MainActor (String) -> Void,
         didFinish: @escaping @MainActor (State) -> Void
@@ -82,9 +85,8 @@ public final class ManualOCRSession {
                 }
                 self.lines = result.lines
                 self.text = result.text
-                let sensitive = detectSecret(result.text)
-                self.isSensitive = sensitive
-                if !sensitive, revision == clipboardRevision() {
+                self.heldLines = Self.heldLines(result.lines, isSecret: detectSecret)
+                if autoCopy, heldLines.isEmpty, revision == clipboardRevision() {
                     copy(result.text)
                     self.finish(.copied, request: request, notify: didFinish)
                 } else {
@@ -102,6 +104,26 @@ public final class ManualOCRSession {
                 self?.finish(.failed, request: request, notify: didFinish)
             }
         }
+    }
+
+    /// Each flagged line on its own; when the remaining lines still read as a
+    /// secret once joined (a key split across lines), every line is held.
+    nonisolated public static func heldLines(
+        _ lines: [RecognizedTextLine], isSecret: (String) -> Bool
+    ) -> Set<Int> {
+        let flagged = Set(lines.indices.filter { isSecret(lines[$0].text) })
+        let rest = lines.indices.filter { !flagged.contains($0) }.map { lines[$0].text }
+        return isSecret(rest.joined(separator: "\n")) ? Set(lines.indices) : flagged
+    }
+
+    /// The lines a Copy all or a Save carries: every line not held back, plus
+    /// the held ones the user revealed.
+    public func releasedLines(revealed: Set<Int>) -> [Int] {
+        lines.indices.filter { !heldLines.contains($0) || revealed.contains($0) }
+    }
+
+    public func releasedText(revealed: Set<Int>) -> String {
+        releasedLines(revealed: revealed).map { lines[$0].text }.joined(separator: "\n")
     }
 
     /// Review edits stay transient. Revalidate immediately before the explicit

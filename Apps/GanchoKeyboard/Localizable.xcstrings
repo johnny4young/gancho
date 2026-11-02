@@ -211,6 +211,16 @@
         }
       }
     },
+    "Inserted": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insertado"
+          }
+        }
+      }
+    },
     "Image copied — long-press the field to paste": {
       "localizations": {
         "es": {

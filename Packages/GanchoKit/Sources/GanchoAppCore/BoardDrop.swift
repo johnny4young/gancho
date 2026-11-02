@@ -4,6 +4,9 @@ import GanchoKit
 /// A clip dragged inside the app onto a board. The drag carries only the
 /// clip's id; everything else is read back from the store at drop time.
 public enum BoardDrop {
+    /// The drag type that carries the id; other apps never see it.
+    public static let clipReferenceType = "com.johnny4young.gancho.clip-reference"
+
     public enum Decision: Equatable, Sendable {
         case add
         /// Already filed there: say so, write nothing.

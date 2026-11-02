@@ -14,6 +14,12 @@ import Observation
     /// Whether a clip's delete is in its undo window — such rows hide at once.
     /// macOS only: iOS deletes immediately, with no undo window to hide behind.
     func isDeletionPending(_ id: UUID) -> Bool
+    /// Clips first copied inside `range`, oldest first (durable stores only).
+    func clipsCreated(in range: ClosedRange<Date>) async -> [ClipItem]
+}
+
+extension PanelSearchSource {
+    public func clipsCreated(in range: ClosedRange<Date>) async -> [ClipItem] { [] }
 }
 
 /// A contiguous run of clips in one section, tagged with the shared
@@ -105,6 +111,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
 
     private func invalidateRequests() {
+        dropContext()
         let relatedIDs = meaning.relatedIDs
         meaning.invalidate()
         if !relatedIDs.isEmpty { results.removeAll { relatedIDs.contains($0.id) } }
@@ -207,7 +214,9 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// inside the undo window, so the row disappears the moment the user asks
     /// rather than lingering and reading as "not deleted".
     private func rebuildVisible() {
-        let base = kindFilter == .all ? results : results.filter { kindFilter.matches($0.kind) }
+        let base =
+            kindFilter == .all || isShowingContext
+            ? results : results.filter { kindFilter.matches($0.kind) }
         var seen = Set<UUID>()
         seen.reserveCapacity(base.count)
         filtered = base.filter {
@@ -337,7 +346,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// The recent list is showing — the only date-grouped view. Boards
     /// paginate too but render flat; a query is a bounded ranked set.
     public var isGroupedView: Bool {
-        kindFilter == .all && !pinnedOnly && !hasTokenOnlyFilter
+        !isShowingContext && kindFilter == .all && !pinnedOnly && !hasTokenOnlyFilter
             && ClipListShape.isGrouped(
                 query: query, boardID: selectedBoardID,
                 sourceAppBundleID: selectedSourceAppBundleID)
@@ -346,7 +355,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// The list appends pages on scroll: the recent browse or a board view.
     /// A query or source-app filter is a bounded top-N set and never appends.
     private var isPaginatedView: Bool {
-        kindFilter == .all && !pinnedOnly && !hasTokenOnlyFilter
+        !isShowingContext && kindFilter == .all && !pinnedOnly && !hasTokenOnlyFilter
             && ClipListShape.isPaginated(query: query, sourceAppBundleID: selectedSourceAppBundleID)
     }
 
@@ -394,6 +403,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// Type-to-search: first keystroke already narrows; empty query shows
     /// recents (pins first, store order). The recent list paginates on demand.
     public func refresh() async {
+        if isShowingContext { return await refreshContext() }
         let intent = meaningIntent
         let priorSelection = displayedContext == context ? selectedItem?.id : nil
         let relatedSelection = priorSelection.flatMap { meaning.relatedIDs.contains($0) ? $0 : nil }
@@ -521,6 +531,9 @@ public struct PanelDateGroup: Identifiable, Sendable {
         return page
     }
 
+    /// Jump to context; see the extension below.
+    private var contextMode = PanelContextModeState()
+
     public func savedRule(named name: String) -> SmartCollectionRule {
         SmartCollectionRule(
             name: name,
@@ -597,5 +610,95 @@ public struct PanelDateGroup: Identifiable, Sendable {
         }
         if let section { built.append(PanelDateGroup(section: section, rows: rows)) }
         groups = built
+    }
+}
+
+// MARK: - Jump to context
+
+private struct PanelContextModeState {
+    var anchorID: UUID?
+    var anchorDate = Date.distantPast
+    var request: UUID?
+    var saved: (results: [ClipItem], reachedEnd: Bool, snippet: ClipItem?)?
+}
+
+extension PanelSearchModel {
+    /// ±2 min around the anchor's first copy.
+    public static let contextWindow: TimeInterval = 120
+    /// The result the context list centers on; nil outside context mode.
+    public var contextAnchorID: UUID? { contextMode.anchorID }
+    public var isShowingContext: Bool { contextMode.anchorID != nil }
+
+    /// Lists the clips first copied within ±2 min of the selected result.
+    public func enterContext() async {
+        guard !isShowingContext, hasCurrentResults, let anchor = selectedItem else { return }
+        let request = UUID()
+        contextMode.request = request
+        let rows = await contextRows(around: anchor.createdAt, including: anchor)
+        guard contextMode.request == request, !isShowingContext, hasCurrentResults,
+            selectedItem?.id == anchor.id
+        else { return }
+        cancelPendingPaste()
+        contextMode.saved = (results, reachedEnd, snippetMatch)
+        contextMode.anchorID = anchor.id
+        contextMode.anchorDate = anchor.createdAt
+        snippetMatch = nil
+        show(contextRows: rows, selecting: anchor.id)
+    }
+
+    /// Back to the results, on the row ⌘J was pressed on. The caller
+    /// refreshes next, since the store may have changed meanwhile.
+    public func exitContext() {
+        guard let anchorID = contextAnchorID else { return }
+        let saved = contextMode.saved
+        dropContext()
+        cancelPendingPaste()
+        if let saved {
+            results = saved.results
+            reachedEnd = saved.reachedEnd
+            snippetMatch = saved.snippet
+        }
+        displayedSnapshotIsValid = false
+        rebuildGroups()
+        if let index = filtered.firstIndex(where: { $0.id == anchorID }) {
+            selectionModel.select(index, toggling: false, in: filtered)
+        }
+    }
+
+    /// Any query or filter change leaves context mode for the new results.
+    private func dropContext() {
+        contextMode.anchorID = nil
+        contextMode.request = nil
+        contextMode.saved = nil
+    }
+
+    private func refreshContext() async {
+        let request = UUID()
+        contextMode.request = request
+        let rows = await contextRows(around: contextMode.anchorDate, including: nil)
+        guard contextMode.request == request, isShowingContext, !Task.isCancelled else { return }
+        let selectedID = selectedItem?.id
+        show(contextRows: rows, selecting: selectedID)
+        displayedSnapshotIsValid = true
+    }
+
+    private func contextRows(around date: Date, including anchor: ClipItem?) async -> [ClipItem] {
+        let window = Self.contextWindow
+        var rows = await source.clipsCreated(
+            in: date.addingTimeInterval(-window)...date.addingTimeInterval(window))
+        // Without a durable store the anchor still shows, alone.
+        if let anchor, !rows.contains(where: { $0.id == anchor.id }) {
+            rows.append(anchor)
+            rows.sort { $0.createdAt < $1.createdAt }
+        }
+        return rows
+    }
+
+    private func show(contextRows rows: [ClipItem], selecting id: UUID?) {
+        results = rows
+        reachedEnd = true
+        rebuildGroups()
+        let index = id.flatMap { id in filtered.firstIndex { $0.id == id } } ?? 0
+        selectionModel.select(index, toggling: false, in: filtered)
     }
 }

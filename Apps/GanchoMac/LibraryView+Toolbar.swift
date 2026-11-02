@@ -90,7 +90,14 @@ extension LibraryView {
     /// Scope title and total, the kind chips, the sort and the sync state.
     var scopeHeader: some View {
         HStack(spacing: 10) {
-            scopeTitle.panelFont(.title3, .heavy).lineLimit(1)
+            scopeTitle.panelFont(.title3, .heavy).lineLimit(1).layoutPriority(1)
+            if case .board(let id) = selection, model.agentExposedBoardIDs.contains(id) {
+                ViewThatFits(in: .horizontal) {
+                    AgentExposedBadge()
+                    AgentExposedBadge(compact: true)
+                }
+                .accessibilityIdentifier("library-exposed-badge")
+            }
             if let total = visibleTotal {
                 Text("\(total) clips").foregroundStyle(.secondary)
                     .accessibilityIdentifier("library-scope-count")

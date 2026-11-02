@@ -339,6 +339,36 @@ public enum MCPToolName: String, Sendable, Codable, CaseIterable {
     case listBoards = "list_boards"
 
     public var mutatesStore: Bool { self == .createPin }
+
+    /// Tools whose result count is clips handed to the client.
+    public var exposesClips: Bool {
+        switch self {
+        case .searchClips, .getClip, .pasteStack: true
+        case .createPin, .listBoards: false
+        }
+    }
+}
+
+/// The grant's context when the call ran, so an edited grant never rewrites
+/// older ledger rows. Identifiers and a count only: board names are looked up
+/// when shown.
+public struct MCPAccessContext: Sendable, Equatable, Codable {
+    public var boardID: UUID?
+    /// The size of a curated selection; nil for a board context.
+    public var clipCount: Int?
+    public var timeScope: MCPTimeScope
+
+    public init(boardID: UUID? = nil, clipCount: Int? = nil, timeScope: MCPTimeScope) {
+        self.boardID = boardID
+        self.clipCount = clipCount
+        self.timeScope = timeScope
+    }
+
+    public init(_ pack: MCPContextPack) {
+        self.init(
+            boardID: pack.boardID, clipCount: pack.clipIDs.isEmpty ? nil : pack.clipIDs.count,
+            timeScope: pack.timeScope)
+    }
 }
 
 /// One MCP/CLI access, recorded for the Privacy Center. Metadata only by
@@ -354,6 +384,9 @@ public struct MCPAccessEvent: Sendable, Equatable, Codable {
     public var resultCount: Int
     public var wasDenied: Bool
     public var denialReason: MCPAccessDenialReason?
+    /// Nil for rows written before the context was recorded, and for calls
+    /// without a grant.
+    public var context: MCPAccessContext?
     public var occurredAt: Date
 
     public init(
@@ -365,6 +398,7 @@ public struct MCPAccessEvent: Sendable, Equatable, Codable {
         resultCount: Int = 0,
         wasDenied: Bool = false,
         denialReason: MCPAccessDenialReason? = nil,
+        context: MCPAccessContext? = nil,
         occurredAt: Date = .now
     ) {
         self.tool = tool
@@ -375,6 +409,7 @@ public struct MCPAccessEvent: Sendable, Equatable, Codable {
         self.resultCount = resultCount
         self.wasDenied = wasDenied
         self.denialReason = denialReason
+        self.context = context
         self.occurredAt = occurredAt
     }
 }

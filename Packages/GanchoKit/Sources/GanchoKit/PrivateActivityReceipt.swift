@@ -63,7 +63,6 @@ private enum PrivateActivityReceiptSchema {
     static let retentionMonths = 13
     static let maximumEventIncrement = 1_000_000
     static let maximumCounter = 9_000_000_000_000_000
-    static let maximumBundleIDLength = 255
     static let aggregateBucket = "__gancho.aggregate__"
     static let unknownAppBucket = "__gancho.unknown__"
 
@@ -84,13 +83,8 @@ private enum PrivateActivityReceiptSchema {
 
     static func appBucket(for rawBundleID: String?) -> String {
         guard let rawBundleID,
-            !rawBundleID.isEmpty,
-            rawBundleID.utf8.count <= maximumBundleIDLength,
             !rawBundleID.hasPrefix("__gancho."),
-            rawBundleID.first != ".",
-            rawBundleID.last != ".",
-            !rawBundleID.contains(".."),
-            rawBundleID.unicodeScalars.allSatisfy(isBundleIdentifierScalar)
+            BundleIdentifierShape.isValid(rawBundleID)
         else {
             return unknownAppBucket
         }
@@ -99,16 +93,6 @@ private enum PrivateActivityReceiptSchema {
 
     static func bounded(_ count: Int) -> Int {
         min(max(count, 0), maximumEventIncrement)
-    }
-
-    /// CFBundleIdentifier permits ASCII alphanumerics, hyphen, and period.
-    /// Rejecting rather than cleaning invalid input prevents arbitrary text
-    /// from becoming a content-shaped local history field.
-    private static func isBundleIdentifierScalar(_ scalar: Unicode.Scalar) -> Bool {
-        switch scalar.value {
-        case 45, 46, 48...57, 65...90, 97...122: true
-        default: false
-        }
     }
 
     static var calendar: Calendar {

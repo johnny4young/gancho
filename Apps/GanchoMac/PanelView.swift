@@ -125,12 +125,13 @@ struct PanelView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage private var ambientTintEnabled: Bool
     @AppStorage private var translucentBackground: Bool
-    @AppStorage private var peekShowsMoreActions: Bool
     @AppStorage private var panelLayoutRaw: String
     /// When the first paste-back landed; nil until then.
     @AppStorage private var firstPasteBackAt: Double?
     /// What the gallery currently fits; 1 while the list is showing.
     @State private var galleryColumns = 2
+    /// Bumped by ⌘T; the peek opens its Transform list on each change.
+    @State private var transformRequest = 0
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.colorScheme) private var colorScheme
@@ -146,8 +147,6 @@ struct PanelView: View {
             wrappedValue: false, PanelAmbientTint.storageKey, store: displayDefaults)
         _translucentBackground = AppStorage(
             wrappedValue: false, PanelTranslucency.storageKey, store: displayDefaults)
-        _peekShowsMoreActions = AppStorage(
-            wrappedValue: false, "peek-shows-more-actions", store: displayDefaults)
         _panelLayoutRaw = AppStorage(
             wrappedValue: PanelLayout.list.rawValue, PanelLayout.storageKey, store: displayDefaults)
         _firstPasteBackAt = AppStorage(PanelFirstRunStage.pasteBackKey, store: displayDefaults)
@@ -183,6 +182,9 @@ struct PanelView: View {
                 if let item = search.selectedItem { model.copyImageText(item, surface: .peek) }
             }
             .keyboardShortcut("c", modifiers: [.command, .shift])
+            // ⌘T opens the selected clip's Transform list.
+            Button("") { transformRequest += 1 }
+                .keyboardShortcut("t", modifiers: .command)
             ToastUndoShortcut()
         }
         // A field being edited owns ⌘V and friends; these would act on the list behind it.
@@ -281,35 +283,8 @@ struct PanelView: View {
                 listColumn
                     .frame(minWidth: 360, idealWidth: 440, maxWidth: .infinity)
                 if let selected = search.selectedItem {
-                    let presentation = preview.presentation(for: selected)
                     Divider()
-                    // The ZStack keeps the outgoing and incoming peek on top of
-                    // each other while they swap; laid out side by side they
-                    // would widen the pane for a frame.
-                    ZStack {
-                        ClipPeek(
-                            item: selected,
-                            text: presentation.text,
-                            isTextEditable: presentation.isTextEditable,
-                            focus: $focus,
-                            isEditingInline: $peekIsEditingInline,
-                            showsMoreActions: $peekShowsMoreActions,
-                            addToBoard: presentBoardPicker,
-                            addToLastBoard: { model.assignToLastBoard(search.selectedItems) }
-                        )
-                        // Drafts, async save callbacks, and action state belong to
-                        // one clip only. A new selection gets a fresh preview identity.
-                        // Swapped instantly: keyboard navigation must not wait
-                        // on a cross-fade between two peeks.
-                        .id(selected.id)
-                    }
-                    .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
-                    // Only behind the peek: the list stays on the neutral surface.
-                    .background {
-                        ambientWash
-                            .animation(
-                                GanchoMotion.smooth(reduceMotion: reduceMotion), value: ambientTint)
-                    }
+                    peekColumn(for: selected)
                 } else if showsFirstRunStage {
                     Divider()
                     PanelFirstRunStageView()
@@ -685,15 +660,25 @@ struct PanelView: View {
                     if search.hasCurrentResults { model.pushToStack(search.selectedItems) }
                     return .handled
                 }
+                if press.modifiers.contains(.command), !press.modifiers.contains(.option),
+                    !press.modifiers.contains(.shift), let upNext = visibleUpNext
+                {
+                    model.paste(upNext.item)
+                    return .handled
+                }
                 pasteSelected(
                     plain: press.modifiers.contains(.option), includingSnippet: true)
                 return .handled
             }
             .onKeyPress(.escape) {
-                // The cheat-sheet intercepts esc first; otherwise esc hides
-                // the panel.
+                // The cheat-sheet intercepts esc first, then context mode;
+                // otherwise esc hides the panel.
                 if showShortcuts {
                     showShortcuts = false
+                    return .handled
+                }
+                if search.isShowingContext {
+                    exitContext()
                     return .handled
                 }
                 model.panel.hide()
@@ -718,6 +703,12 @@ struct PanelView: View {
                     search.hasCurrentResults, search.filtered.indices.contains(digit - 1)
                 else { return .ignored }
                 model.paste(search.filtered[digit - 1])
+                return .handled
+            }
+            .onKeyPress(characters: CharacterSet(charactersIn: "j"), phases: .down) { press in
+                guard !showShortcuts, press.modifiers.contains(.command), search.selectedItem != nil
+                else { return .ignored }
+                showContext()
                 return .handled
             }
             .onKeyPress(characters: CharacterSet(charactersIn: "p"), phases: .down) { press in
@@ -767,7 +758,11 @@ struct PanelView: View {
             .zIndex(1)
 
             Divider()
-            panelToolbar
+            if search.isShowingContext {
+                PanelContextHeader()
+            } else {
+                panelToolbar
+            }
             Divider()
 
             VStack(spacing: GanchoTokens.Spacing.xs) {
@@ -785,14 +780,20 @@ struct PanelView: View {
                     snippetBanner(snippetMatch)
                 }
 
-                if model.askAvailable, !search.query.isEmpty {
+                if model.askAvailable, !search.query.isEmpty, !search.isShowingContext {
                     askRow
                 }
 
                 if search.searchMode == .meaning, model.intelligence.semanticSearch,
-                    !model.preferences.isPrivateModePaused
+                    !model.preferences.isPrivateModePaused, !search.isShowingContext
                 {
                     MeaningSearchControls(search: search)
+                }
+
+                if let upNext = visibleUpNext {
+                    PanelUpNextSlot(
+                        slot: upNext, appName: model.pasteTarget.appName ?? upNext.targetBundleID
+                    ) { model.paste(upNext.item) }
                 }
 
                 PanelResultsView(
@@ -810,6 +811,7 @@ struct PanelView: View {
                     scopeName: selectedBoardName,
                     applyAlternative: { search.apply($0) },
                     isPrivateMode: model.preferences.isPrivateModePaused,
+                    isContext: search.isShowingContext,
                     selectedID: search.selectedItem?.id,
                     layout: layout,
                     columns: galleryColumns,
@@ -1153,6 +1155,7 @@ struct PanelView: View {
                         continue
                     }
                     await search.refreshAfterStoreChange()
+                    model.refreshUpNext()
                 }
             }
             .onChange(of: railFocus) { _, focused in
@@ -1553,19 +1556,12 @@ struct PanelView: View {
         let index = search.visibleIndex(of: item.id)
         let shortcutNumber = index.flatMap { $0 < 9 ? $0 + 1 : nil }
         switch layout {
+        case .list where search.isShowingContext:
+            PanelContextRow(item: item, isAnchor: search.contextAnchorID == item.id) {
+                listCard(for: item, shortcutNumber: shortcutNumber)
+            }
         case .list:
-            // ClipCard is the design's ClipRow: kind glyph (or colour swatch),
-            // title/preview, pin / Universal-Clipboard markers, and the ⌘N
-            // quick-paste badge for the first nine rows.
-            ClipCard(
-                item: item, isSelected: search.isSelected(item.id),
-                previewsHidden: model.previewsHidden,
-                shortcutNumber: shortcutNumber,
-                thumbnail: model.thumbnails.cached(for: item),
-                // Only the anchor claims the gliding highlight: two rows sharing one
-                // matched id (a ⇧ range) would log and draw nothing.
-                selectionNamespace: selectionNamespace,
-                isSelectionAnchor: search.selectedItem?.id == item.id)
+            listCard(for: item, shortcutNumber: shortcutNumber)
         case .gallery:
             PanelGalleryCard(
                 item: item, isSelected: search.isSelected(item.id),
@@ -1574,10 +1570,33 @@ struct PanelView: View {
         }
     }
 
+    /// ClipCard is the design's ClipRow: kind glyph (or colour swatch),
+    /// title/preview, pin / Universal-Clipboard markers, and the ⌘N
+    /// quick-paste badge for the first nine rows.
+    private func listCard(for item: ClipItem, shortcutNumber: Int?) -> some View {
+        ClipCard(
+            item: item, isSelected: search.isSelected(item.id),
+            previewsHidden: model.previewsHidden,
+            shortcutNumber: shortcutNumber,
+            thumbnail: model.thumbnails.cached(for: item),
+            // Only the anchor claims the gliding highlight: two rows sharing one
+            // matched id (a ⇧ range) would log and draw nothing.
+            selectionNamespace: selectionNamespace,
+            isSelectionAnchor: search.selectedItem?.id == item.id)
+    }
+
     /// Pin/board assignment — the context-menu path; drag & drop arrives
     /// with the panel's Quick Look evolution.
     @ViewBuilder
     private func contextMenu(for item: ClipItem) -> some View {
+        if !search.isShowingContext {
+            Button("Show context") {
+                if let index = search.visibleIndex(of: item.id) { select(index) }
+                showContext()
+            }
+            .keyboardShortcut("j", modifiers: .command)
+            .accessibilityIdentifier("row-show-context")
+        }
         if model.canCopyImageText(item) {
             Button("Copy text from image") {
                 // Land the result in the peek when this row can be selected;
@@ -1627,6 +1646,55 @@ struct PanelView: View {
         }
     }
 
+    /// The peek beside the list, for the row under the cursor.
+    private func peekColumn(for selected: ClipItem) -> some View {
+        let presentation = preview.presentation(for: selected)
+        // The ZStack keeps the outgoing and incoming peek on top of
+        // each other while they swap; laid out side by side they
+        // would widen the pane for a frame.
+        return ZStack {
+            ClipPeek(
+                item: selected,
+                text: presentation.text,
+                isTextEditable: presentation.isTextEditable,
+                focus: $focus,
+                isEditingInline: $peekIsEditingInline,
+                transformRequest: transformRequest,
+                addToBoard: presentBoardPicker,
+                addToLastBoard: { model.assignToLastBoard(search.selectedItems) },
+                showContext: peekShowContext
+            )
+            // Drafts, async save callbacks, and action state belong to
+            // one clip only. A new selection gets a fresh preview identity.
+            // Swapped instantly: keyboard navigation must not wait
+            // on a cross-fade between two peeks.
+            .id(selected.id)
+        }
+        .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
+        // Only behind the peek: the list stays on the neutral surface.
+        .background {
+            ambientWash
+                .animation(
+                    GanchoMotion.smooth(reduceMotion: reduceMotion), value: ambientTint)
+        }
+    }
+
+    /// The peek offers Show context outside context mode only.
+    private var peekShowContext: (() -> Void)? {
+        search.isShowingContext ? nil : { showContext() }
+    }
+
+    private func showContext() {
+        cancelPendingPaste()
+        Task { await search.enterContext() }
+    }
+
+    private func exitContext() {
+        cancelPendingPaste()
+        search.exitContext()
+        Task { await search.refresh() }
+    }
+
     private func toggleKeyboardShortcuts() {
         if !showShortcuts { cancelPendingPaste() }
         showShortcuts.toggle()
@@ -1636,6 +1704,18 @@ struct PanelView: View {
     private func cancelPendingPaste() {
         search.cancelPendingPaste()
         pasteTask?.cancel()
+    }
+
+    private var visibleUpNext: UpNextSlot? {
+        guard let slot = model.upNextSlot, !model.pendingDeletionIDs.contains(slot.item.id)
+        else { return nil }
+        let firstRow =
+            search.isGroupedView ? search.groups.first?.rows.first : search.filtered.first
+        guard !search.isShowingContext else { return nil }
+        let visibility = UpNextVisibility(
+            isEnabled: model.intelligence.upNext, previewsHidden: model.previewsHidden,
+            isBrowsing: search.query.isEmpty && !search.hasActiveFilter, firstRowID: firstRow?.id)
+        return visibility.shows(slot.item.id) ? slot : nil
     }
 
     private func pasteSelected(

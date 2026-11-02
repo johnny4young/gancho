@@ -22,6 +22,15 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
     /// Copies made during the current Private Mode, counted from the change
     /// count and the type list only: their content is never read.
     public var privateModeSkippedCopies: Int
+    /// The same text copied twice in quick succession appends to the clip
+    /// before it. Off by default.
+    public var mergeDoubleCopies: Bool
+    /// A soft sound confirms a merge. On by default.
+    public var playsMergeSound: Bool
+    /// The copy-time action HUD. Off by default.
+    public var copyActions: CopyActionSwitches
+    /// A drop shelf at the notch (top center without one). Off by default.
+    public var notchShelf: Bool
 
     public init(
         captureImages: Bool = true,
@@ -30,7 +39,11 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
         isPrivateModePaused: Bool = false,
         privateModeStartedAt: Date? = nil,
         privateModeEndsAt: Date? = nil,
-        privateModeSkippedCopies: Int = 0
+        privateModeSkippedCopies: Int = 0,
+        mergeDoubleCopies: Bool = false,
+        playsMergeSound: Bool = true,
+        copyActions: CopyActionSwitches = CopyActionSwitches(),
+        notchShelf: Bool = false
     ) {
         self.captureImages = captureImages
         self.captureFileReferences = captureFileReferences
@@ -39,9 +52,14 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
         self.privateModeStartedAt = privateModeStartedAt
         self.privateModeEndsAt = privateModeEndsAt
         self.privateModeSkippedCopies = privateModeSkippedCopies
+        self.mergeDoubleCopies = mergeDoubleCopies
+        self.playsMergeSound = playsMergeSound
+        self.copyActions = copyActions
+        self.notchShelf = notchShelf
     }
 
-    /// Blobs saved before the Private Mode timer decode with it unset.
+    /// Blobs saved before the Private Mode timer, the merge switches, the
+    /// copy actions or the notch shelf decode with their defaults.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         captureImages = try container.decode(Bool.self, forKey: .captureImages)
@@ -53,6 +71,14 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
         privateModeEndsAt = try container.decodeIfPresent(Date.self, forKey: .privateModeEndsAt)
         privateModeSkippedCopies =
             try container.decodeIfPresent(Int.self, forKey: .privateModeSkippedCopies) ?? 0
+        mergeDoubleCopies =
+            try container.decodeIfPresent(Bool.self, forKey: .mergeDoubleCopies) ?? false
+        playsMergeSound =
+            try container.decodeIfPresent(Bool.self, forKey: .playsMergeSound) ?? true
+        copyActions =
+            try container.decodeIfPresent(CopyActionSwitches.self, forKey: .copyActions)
+            ?? CopyActionSwitches()
+        notchShelf = try container.decodeIfPresent(Bool.self, forKey: .notchShelf) ?? false
     }
 
     private static let defaultsKey = "capture-preferences"
@@ -69,6 +95,31 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
     public func save(to defaults: UserDefaults) {
         guard let data = try? JSONEncoder().encode(self) else { return }
         defaults.set(data, forKey: Self.defaultsKey)
+    }
+}
+
+/// Which copies get the copy-time action HUD: the master switch, then one per kind.
+public struct CopyActionSwitches: Sendable, Equatable, Codable {
+    public var isEnabled: Bool
+    public var colors: Bool
+    public var links: Bool
+    public var oneTimeCodes: Bool
+
+    public init(
+        isEnabled: Bool = false, colors: Bool = true, links: Bool = true, oneTimeCodes: Bool = true
+    ) {
+        self.isEnabled = isEnabled
+        self.colors = colors
+        self.links = links
+        self.oneTimeCodes = oneTimeCodes
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
+        colors = try container.decodeIfPresent(Bool.self, forKey: .colors) ?? true
+        links = try container.decodeIfPresent(Bool.self, forKey: .links) ?? true
+        oneTimeCodes = try container.decodeIfPresent(Bool.self, forKey: .oneTimeCodes) ?? true
     }
 }
 

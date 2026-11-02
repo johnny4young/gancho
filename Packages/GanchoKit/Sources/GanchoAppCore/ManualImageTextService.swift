@@ -32,14 +32,17 @@ public struct ManualOCRResult: Sendable, Equatable {
 public struct ManualImageTextService: Sendable {
     public init() {}
 
+    /// `freshRegions` recognizes the image even when enrichment stored its
+    /// text, so every line comes back with the region it was read from.
     public func result(
-        for id: UUID, store: any ImageTextReading,
+        for id: UUID, store: any ImageTextReading, freshRegions: Bool = false,
         recognize: @Sendable (Data) async throws -> [RecognizedTextLine] = {
             try await ImageTextExtractor().recognizeLines(in: $0)
         }
     ) async throws -> ManualOCRResult? {
         try Task.checkCancellation()
-        let input = try await store.imageTextInput(id: id, now: .now)
+        let input = try await store.imageTextInput(
+            id: id, now: .now, preferringImage: freshRegions)
         try Task.checkCancellation()
         switch input {
         case .cached(let text): return ManualOCRResult(text: text)

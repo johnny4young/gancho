@@ -50,4 +50,9 @@ extension AppModel: PanelSearchSource {
     }
 
     func isDeletionPending(_ id: UUID) -> Bool { reuseController.isDeletionPending(id) }
+
+    func clipsCreated(in range: ClosedRange<Date>) async -> [ClipItem] {
+        guard let reader = fullStore as? any ClipTimeWindowReading else { return [] }
+        return (try? await reader.itemsCreated(in: range)) ?? []
+    }
 }

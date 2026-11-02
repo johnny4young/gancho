@@ -42,6 +42,24 @@ public enum TextActionCatalog {
     public static let trimLines = "trim-lines"
     public static let redactPII = "redact-pii"
     public static let formatContext = "format-context"
+    /// Developer-action steps run `DevActions` by id; titles mirror them (a test
+    /// in GanchoAppCore keeps both lists equal, since GanchoKit can't see GanchoAI).
+    public static let devPrefix = "dev."
+    static let devActions: [(id: String, title: String)] = [
+        ("decodeJWT", "Decode JWT"), ("jsonPretty", "Pretty-print JSON"),
+        ("jsonMinify", "Minify JSON"), ("base64Encode", "Base64 encode"),
+        ("base64Decode", "Base64 decode"), ("parseURL", "Parse URL"),
+        ("convertColor", "Convert color"), ("uuidFormats", "UUID formats"),
+        ("sha256Hex", "SHA-256 hash"), ("sha1Hex", "SHA-1 hash"), ("md5Hex", "MD5 hash"),
+        ("urlEncode", "URL encode"), ("urlDecode", "URL decode"),
+        ("caseConvert", "Convert case"), ("epochToDate", "Epoch to date"),
+        ("dateToEpoch", "Date to epoch"), ("sortLines", "Sort lines"),
+        ("dedupeLines", "Dedupe lines"), ("reverseLines", "Reverse lines"),
+        ("countStats", "Count stats"), ("htmlEntityEncode", "HTML-entity encode"),
+        ("htmlEntityDecode", "HTML-entity decode"), ("slugify", "Slugify"),
+        ("numberBaseConvert", "Convert number base"), ("jsonEscape", "JSON-escape string"),
+        ("jsonUnescape", "JSON-unescape string")
+    ]
 
     public static let descriptors: [TextActionDescriptor] =
         PasteTransform.allCases.map {
@@ -54,6 +72,9 @@ public enum TextActionCatalog {
             TextActionDescriptor(id: redactPII, version: 1, title: "Redact PII"),
             TextActionDescriptor(id: formatContext, version: 1, title: "Format as context")
         ]
+        + devActions.map {
+            TextActionDescriptor(id: devPrefix + $0.id, version: 1, title: $0.title)
+        }
 }
 
 public struct TextRecipe: Codable, Identifiable, Sendable, Equatable {
