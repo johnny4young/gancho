@@ -9,6 +9,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Smart placeholders in snippets, with an Insert placeholder row in the editor
+  that writes them at the caret and colors them in the text:
+  `{clipboard}` inserts what is on the clipboard now, `{clipboard offset=1}` the
+  clip before the newest in history, `{date}` and `{date +2d}` ask for a date
+  with a picker that starts at today plus the offset, `{cursor}` leaves the caret there after
+  pasting, and `| trim` or `| uppercase` can follow any of them but the cursor.
+  A protected copy, a secret, a non-text clip or Private Mode leaves the
+  placeholder empty and says so in a toast, and the fill sheet's preview never
+  reads the clipboard.
 - Suggested snippets in the Library: clips you have used three times or more
   now wait in a Suggested group under your snippets, most used first, with
   Keep to save one as a snippet, Never to stop suggesting it, and Dismiss to
@@ -205,6 +214,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- A snippet that already used `{clipboard}`, `{date}` or `{cursor}` as a field to
+  type now gets the new meaning. Other fields are unchanged, including those
+  names with a default, such as `{date:today}`.
 - Passwords, keys and other secrets no longer sync through iCloud: each one
   stays on the device that copied it until it expires. Secrets uploaded by
   earlier versions are deleted from iCloud; the copies on this device stay.
