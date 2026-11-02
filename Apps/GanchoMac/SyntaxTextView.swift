@@ -35,8 +35,8 @@ final class SnippetBodyEditorHandle {
     }
 
     fileprivate func caretChanged() {
-        // Observation notifies on every set. Publish real changes only, once the
-        // click settles, so no SwiftUI update lands inside the click that focuses the editor.
+        // Setting the text from a SwiftUI update lands here too, so publish afterwards,
+        // and only real changes: Observation notifies on every set.
         Task { @MainActor [weak self] in
             guard let self, let textView = self.textView else { return }
             let canAdd =
