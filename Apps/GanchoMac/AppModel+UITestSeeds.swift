@@ -60,8 +60,37 @@ extension AppModel {
             seedUpNextIfRequested(),
             seedDoubleCopyIfRequested(),
             seedCopyActionsIfRequested(),
-            seedContextSessionIfRequested()
+            seedContextSessionIfRequested(),
+            seedSnippetSuggestionsIfRequested()
         ].compactMap { $0 }
+    }
+
+    /// UI-test hook: two clips that earned a suggestion, one that hasn't, and a
+    /// secret used more than any of them.
+    private func seedSnippetSuggestionsIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-snippet-suggestions"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            let clips: [(String, Int, Bool)] = [
+                ("Cra. 43A #1-50, Envigado", 5, false),
+                ("Thanks for reaching out", 3, false),
+                ("One use short", 2, false),
+                ("Seeded secret", 9, true)
+            ]
+            return Task {
+                for (text, uses, isSensitive) in clips {
+                    let item = ClipItem(
+                        preview: text, contentHash: "ui-suggestion-\(text)",
+                        isSensitive: isSensitive, uses: uses)
+                    _ = try? await fullStore.insert(item, content: .text(text))
+                }
+                await refreshRecents()
+                notifyStoreChanged()
+            }
+        #else
+            return nil
+        #endif
     }
 
     /// UI-test hook: a work session, copied within four minutes an hour ago,

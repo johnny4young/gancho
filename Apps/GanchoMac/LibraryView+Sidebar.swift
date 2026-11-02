@@ -105,11 +105,44 @@ extension LibraryView {
                         createSnippet()
                     }
                 }
+
+                suggestedSection
             }
             .focused($sidebarFocused)
             proFooter
         }
         .frame(minWidth: 232)
+    }
+
+    /// Cards quote the clip, so the group hides with the previews.
+    @ViewBuilder private var suggestedSection: some View {
+        let items = snippetSuggestions.items.filter { !model.pendingDeletionIDs.contains($0.id) }
+        let hidden = snippetSuggestions.items.count - items.count
+        if !items.isEmpty, !model.previewsHidden {
+            Section {
+                ForEach(items) { item in
+                    SnippetSuggestionCard(
+                        item: item,
+                        keep: { model.promoteToSnippet(item) },
+                        never: { answerSuggestion(item, .never) },
+                        dismiss: { answerSuggestion(item, .dismissed) }
+                    )
+                    .selectionDisabled()
+                }
+            } header: {
+                Text("Suggested · \(snippetSuggestions.total - hidden)")
+                    .textCase(.uppercase)
+                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .accessibilityIdentifier("snippet-suggestions-header")
+            }
+        }
+    }
+
+    private func answerSuggestion(_ item: ClipItem, _ decision: SnippetSuggestionDecision) {
+        Task { @MainActor in
+            guard await model.decideSnippetSuggestion(item, decision) else { return }
+            snippetSuggestions = await model.snippetSuggestions()
+        }
     }
 
     private func navRow(

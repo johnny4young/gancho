@@ -9,6 +9,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Suggested snippets in the Library: clips you have used three times or more
+  now wait in a Suggested group under your snippets, most used first, with
+  Keep to save one as a snippet, Never to stop suggesting it, and Dismiss to
+  hide it until three more uses. The use-time suggestion in the panel follows
+  the same answers. Secrets and masked kinds are never suggested, the group
+  hides in Private Mode and while the screen is shared, and your answers stay
+  on this device.
 - Agent reads you can see: when a local AI client reads your clips through
   `gancho mcp`, the menu-bar icon shows a blue dot for two minutes (or until
   you open the menu) and a HUD names the client, how many clips it read or

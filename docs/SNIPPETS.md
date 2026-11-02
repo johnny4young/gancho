@@ -27,3 +27,15 @@ instead of substituting a different body. Reopen it and try again. Field editors
 scroll while Insert and Cancel remain visible, and the preview follows the
 panel's text-size preference. Cancelling or changing the search also cancels a
 pending template load.
+
+## Suggested snippets
+
+Clips you have used three times or more appear under **Suggested** in the macOS
+Library, most used first, with how many times you used them. **Keep** saves the
+clip as a snippet through the normal path, Free limit included. **Never** stops
+suggesting that clip for good. **Dismiss** hides it until three more uses, when
+it returns to the group and the toast in the panel offers it once more.
+
+Snippets, secrets, masked kinds, archived and expired clips are never suggested,
+and the group hides in Private Mode and while the screen is shared. Your answers
+live in a local table that does not sync, and they are deleted with the clip.

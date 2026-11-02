@@ -1247,7 +1247,7 @@ final class AppModel {
         outcome == .pasted
     }
 
-    /// Turns the exact third-use signal into one non-blocking curation action.
+    /// Turns the exact-threshold signal into one non-blocking curation action.
     /// A confident board has priority over snippet promotion so the user never
     /// receives two competing suggestions for the same demonstrated reuse.
     private func presentReuseSuggestion(_ item: ClipItem) async {
@@ -1266,7 +1266,7 @@ final class AppModel {
         }
         toasts.show(
             GanchoToast(
-                message: "Used 3 times — save as a snippet?",
+                message: "Used \(item.uses) times — save as a snippet?",
                 style: .suggestion,
                 action: ToastAction(
                     title: "Save as snippet",

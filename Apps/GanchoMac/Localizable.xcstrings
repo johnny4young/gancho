@@ -5205,16 +5205,6 @@
         }
       }
     },
-    "Used 3 times — save as a snippet?": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lo usaste 3 veces. ¿Guardarlo como snippet?"
-          }
-        }
-      }
-    },
     "Select all in search": {
       "localizations": {
         "es": {
@@ -13887,6 +13877,116 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@, un agente leyó clips"
+          }
+        }
+      }
+    },
+    "Used %lld times": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Used %lld time"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Used %lld times"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usado %lld vez"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usado %lld veces"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Suggested · %lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sugeridos · %lld"
+          }
+        }
+      }
+    },
+    "Keep": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conservar"
+          }
+        }
+      }
+    },
+    "Couldn’t update the suggestion.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo actualizar la sugerencia."
+          }
+        }
+      }
+    },
+    "Used %lld times — save as a snippet?": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Used %lld time — save as a snippet?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Used %lld times — save as a snippet?"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usado %lld vez — ¿guardar como snippet?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usado %lld veces — ¿guardar como snippet?"
+                }
+              }
+            }
           }
         }
       }
