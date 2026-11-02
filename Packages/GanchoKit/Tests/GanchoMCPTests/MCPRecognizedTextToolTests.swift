@@ -204,6 +204,88 @@ struct MCPRecognizedTextToolTests {
                 == [fixture.image.id],
             "the rewrite landed before the query, so only the second check can filter it")
     }
+
+    @Test(
+        "Search cannot match an image's unreviewed title or preview",
+        arguments: ["fuzzy", "exact", "regex"])
+    func searchIgnoresHiddenMetadata(mode: String) async throws {
+        let fixture = try await makeFixture()
+        for word in ["Private", "Image", "Private workers"] {
+            let result = await runner(fixture).call(
+                tool: "search_clips",
+                arguments: .object([
+                    "query": .string(mode == "regex" ? "^\(word)" : word), "mode": .string(mode)
+                ]))
+            #expect(!result.isError)
+            #expect(try resultJSON(result)["clips"]?.arrayValue?.isEmpty == true)
+        }
+    }
+
+    @Test(
+        "Metadata scope cannot search hidden image fields or recognized text",
+        arguments: ["fuzzy", "exact"])
+    func metadataSearchHasNoImageText(mode: String) async throws {
+        let fixture = try await makeFixture()
+        for word in ["Private", "Image", "workers"] {
+            let result = await runner(fixture, scope: .metadata).call(
+                tool: "search_clips",
+                arguments: .object(["query": .string(word), "mode": .string(mode)]))
+            #expect(!result.isError)
+            #expect(try resultJSON(result)["clips"]?.arrayValue?.isEmpty == true)
+        }
+    }
+
+    @Test(
+        "Reviewed image text still matches in every content search mode",
+        arguments: ["fuzzy", "exact", "regex"])
+    func searchMatchesReviewedText(mode: String) async throws {
+        let fixture = try await makeFixture()
+        let result = await runner(fixture).call(
+            tool: "search_clips",
+            arguments: .object([
+                "query": .string(mode == "regex" ? "^Queue.*workers$" : "Queue sits"),
+                "mode": .string(mode)
+            ]))
+        #expect(!result.isError)
+        let hits = try #require(resultJSON(result)["clips"]?.arrayValue)
+        #expect(hits.count == 1)
+        expectIdentityOnly(hits.first, of: fixture.image)
+    }
+
+    @Test(
+        "A hidden metadata match cannot consume a text clip's result slot",
+        arguments: ["fuzzy", "exact", "regex"])
+    func hiddenMatchCannotConsumeLimit(mode: String) async throws {
+        let fixture = try await makeFixture()
+        // Put a much stronger metadata match ahead of the note in both FTS
+        // ranking and regex recency. The body remains the same reviewed text.
+        let hiddenTitle = Array(repeating: "Deploy", count: 20).joined(separator: " ")
+        let image = ClipItem(
+            createdAt: .now.addingTimeInterval(60), updatedAt: fixture.image.updatedAt,
+            kind: .image, title: hiddenTitle, preview: hiddenTitle, contentHash: "limit-image")
+        try await fixture.store.insert(
+            image, content: .binary(data: Data([0x89]), typeIdentifier: "public.png"))
+        try await fixture.store.attachExtractedText(id: image.id, text: Self.reviewedText)
+        let unscoped = try await fixture.store.search(
+            ClipSearchQuery(
+                text: mode == "regex" ? "^Deploy" : "Deploy",
+                mode: try #require(ClipSearchQuery.Mode(rawValue: mode))), limit: 1)
+        #expect(unscoped.map(\.id) == [image.id], "fixture must rank the hidden match first")
+        let limited = Fixture(store: fixture.store, image: image, note: fixture.note)
+        let scopes: [MCPAccessScope] = mode == "regex" ? [.all] : [.all, .metadata]
+        for scope in scopes {
+            let result = await runner(limited, scope: scope).call(
+                tool: "search_clips",
+                arguments: .object([
+                    "query": .string(mode == "regex" ? "^Deploy" : "Deploy"),
+                    "mode": .string(mode), "limit": .int(1)
+                ]))
+            #expect(!result.isError)
+            let hits = try #require(resultJSON(result)["clips"]?.arrayValue)
+            #expect(hits.map { $0["id"]?.stringValue } == [fixture.note.id.uuidString])
+            #expect(hits.first?["title"]?.stringValue == "Deploy note")
+        }
+    }
 }
 
 /// Rewrites the image's recognized text after the runner's preliminary checks
