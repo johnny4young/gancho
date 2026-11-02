@@ -35,10 +35,15 @@ final class SnippetBodyEditorHandle {
     }
 
     fileprivate func caretChanged() {
-        guard let textView else { return }
-        canAddModifier =
-            SnippetTemplate.modifierInsertionPoint(
-                in: textView.string, caret: textView.selectedRange().location) != nil
+        // Observation notifies on every set. Publish real changes only, once the
+        // click settles, so no SwiftUI update lands inside the click that focuses the editor.
+        Task { @MainActor [weak self] in
+            guard let self, let textView = self.textView else { return }
+            let canAdd =
+                SnippetTemplate.modifierInsertionPoint(
+                    in: textView.string, caret: textView.selectedRange().location) != nil
+            if canAdd != canAddModifier { canAddModifier = canAdd }
+        }
     }
 }
 
