@@ -85,6 +85,7 @@ would mean introducing a NEW field and migrating writers, never converting.
 | `contentText` | encrypted | The clip body itself. |
 | `title` | encrypted | Derived from content (user- or AI-written). |
 | `preview` | encrypted | A prefix or masked form of the content. |
+| `parts` | encrypted | A merged clip's separator and part lengths (no text), so Split works on every device. Lengths reveal the content's shape, so they ride encrypted. |
 | `contentAsset` | `CKAsset` | Binary payloads; CloudKit encrypts assets in transit and at rest server-side. Local staging is plaintext but lifecycle-bounded (see `ClipRecordMapper`). |
 | `kind` | plain | Closed enum token; lets a device render list rows without decrypting. |
 | `contentHash` | plain | Dedupe/conflict key (SHA-256 of canonical content + kind). Reveals content *equality* across the user's own records, never content; low-entropy content is in principle dictionary-checkable by the storage operator — accepted so dedupe works without decryption. |

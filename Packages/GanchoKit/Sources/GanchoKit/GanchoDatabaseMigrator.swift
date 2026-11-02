@@ -34,6 +34,7 @@ enum GanchoDatabaseMigrator {
         case imageSize = "v27-image-size"
         case localSecrets = "v28-local-secrets"
         case pasteEvents = "v29-paste-events"
+        case clipParts = "v30-clip-parts"
     }
 
     static var identifiers: [String] {
@@ -99,6 +100,10 @@ enum GanchoDatabaseMigrator {
         }
         registerLocalSecretsMigration(in: &migrator)
         PasteEventLog.registerMigration(in: &migrator)
+        migrator.registerMigration(Identifier.clipParts.rawValue) { db in
+            // Part boundaries of a double-copy merge; synced encrypted.
+            try db.alter(table: "clip") { table in table.add(column: "parts", .text) }
+        }
         return migrator
     }
 

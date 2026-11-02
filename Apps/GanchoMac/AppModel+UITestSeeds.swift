@@ -57,7 +57,8 @@ extension AppModel {
             seedRecognizedTextImageIfRequested(),
             seedMultiFileDragIfRequested(),
             seedPrivateActivityReceiptIfRequested(),
-            seedUpNextIfRequested()
+            seedUpNextIfRequested(),
+            seedDoubleCopyIfRequested()
         ].compactMap { $0 }
     }
 

@@ -25,6 +25,14 @@ struct CaptureSettingsTab: View {
             }
 
             Section {
+                Toggle(isOn: $model.preferences.mergeDoubleCopies) {
+                    Text("Merge double copies")
+                    Text("Press ⌘C twice on a selection to add it to the clip before it.")
+                }
+                .accessibilityIdentifier("settings-merge-double-copies")
+            }
+
+            Section {
                 LabeledContent {
                     Button("Open Intelligence…") { model.intelligenceWindow.show(model: model) }
                         .accessibilityIdentifier("open-intelligence")

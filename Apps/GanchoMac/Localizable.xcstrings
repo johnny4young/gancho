@@ -13322,6 +13322,36 @@
           }
         }
       }
+    },
+    "Merge double copies": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unir copias dobles"
+          }
+        }
+      }
+    },
+    "Press ⌘C twice on a selection to add it to the clip before it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulsa ⌘C dos veces sobre una selección para agregarla al clip anterior."
+          }
+        }
+      }
+    },
+    "Merged · %lld parts": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unido · %lld partes"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

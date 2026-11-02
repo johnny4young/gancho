@@ -43,9 +43,10 @@ struct DatabaseMigrationTests {
                 "v26-embedding-cleanup",
                 "v27-image-size",
                 "v28-local-secrets",
-                "v29-paste-events"
+                "v29-paste-events",
+                "v30-clip-parts"
             ])
-        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 29)
+        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 30)
     }
 
     @Test(
