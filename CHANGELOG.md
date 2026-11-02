@@ -214,6 +214,7 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Update Sparkle to 2.10.1.
 - A snippet that already used `{clipboard}`, `{date}` or `{cursor}` as a field to
   type now gets the new meaning. Other fields are unchanged, including those
   names with a default, such as `{date:today}`.

@@ -176,7 +176,25 @@ signed direct-download DMG must build with re-signed helpers and pass
 
 ## October 2026 maintenance review
 
-SQLCipher and Sparkle adopt the stable releases reported by the October 5
+### Sparkle 2.10.0 → 2.10.1
+
+[The release](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.1)
+fixes premature installation from NFC Unicode paths, release-note URL whitespace,
+custom-prefix appcast parsing, and localization/appcast-generation details. Its
+macOS 12 floor stays below Gancho's. The download pin, the checksum (the release
+asset's published digest) and the canary pin moved together in
+`scripts/fetch-sparkle.sh` and `scripts/upstream-pins.env`.
+
+The [Sparkle](#sparkle) merge gate passed on November 2, 2026: a Developer
+ID-signed direct-download DMG built from this change, with the nested helpers
+re-signed, passed `codesign --verify --deep --strict`. It was not notarized.
+Before the next release, run the signed updater smoke check and compare the
+first `generate_appcast` output with the published feed, because 2.10.1 changes
+how that tool writes `sparkle:format` and `sparkle:locales`.
+
+### October 5 canary updates
+
+SQLCipher and Sparkle adopted the stable releases reported by the October 5
 canary. KeyboardShortcuts 3.1.0 is deferred after native validation; its
 intentional hold does not suppress the canary's newer-release warning. This
 maintenance changes dependencies without rebasing the GRDB fork or changing
@@ -221,7 +239,7 @@ formatting, lint, package encryption/raw-key/migration/durability tests,
 StoreKit tests, and both app builds. A local fixture test is not evidence that
 the real Sparkle binary was downloaded or signed correctly.
 
-Before releasing these updates, also record the results that ordinary
+Before releasing the October 5 updates, also record the results that ordinary
 unsigned PR CI cannot supply:
 
 - `GANCHO_PERF=1 make bench` for storage/search budgets.
