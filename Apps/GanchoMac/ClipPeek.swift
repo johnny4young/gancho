@@ -68,6 +68,7 @@ struct ClipPeek: View {
     /// While the multiline editor owns the keyboard, parent navigation must
     /// not intercept Return, arrows, or Escape.
     @State private var isEditingText = false
+    @State private var isRewritingParts = false
     /// Shared by the two OCR views (regions over the thumbnail, section under
     /// it): the line under the cursor, the line just copied, the reveal state
     /// of a recognized secret, and whether the inline editor has the keyboard.
@@ -140,6 +141,12 @@ struct ClipPeek: View {
                                 .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
                         }
                         hero
+                        if let mergedParts, let parts = item.parts, !isEditingText {
+                            PeekPartsControls(
+                                separator: parts.separator, partCount: mergedParts.count,
+                                isBusy: isRewritingParts, choose: rejoinParts,
+                                split: splitParts)
+                        }
                         if ocrShowsHere {
                             PeekImageTextSection(
                                 item: item, hoveredLine: $ocrHoveredLine,
@@ -463,6 +470,30 @@ extension ClipPeek {
         return ClipLinkParts(text: presentedText)
     }
 
+    /// The parts of a merged clip while its text still matches them.
+    private var mergedParts: [String]? {
+        guard isTextEditable, !hidesPreview, presentedText.count <= 4_000 else { return nil }
+        return item.parts?.split(presentedText)
+    }
+
+    private func rejoinParts(_ separator: ClipParts.Separator) {
+        guard !isRewritingParts else { return }
+        isRewritingParts = true
+        Task { @MainActor in
+            _ = await model.rejoinParts(item, with: separator)
+            isRewritingParts = false
+        }
+    }
+
+    private func splitParts() {
+        guard !isRewritingParts else { return }
+        isRewritingParts = true
+        Task { @MainActor in
+            await model.splitParts(item)
+            isRewritingParts = false
+        }
+    }
+
     private var colorValue: ColorValue? {
         guard item.kind == .color, !ClipSafePresentation.requiresMasking(item) else { return nil }
         return ColorValue.parse(presentedText)
@@ -482,6 +513,7 @@ extension ClipPeek {
                 // The link hero already shows the URL; the editor keeps only
                 // its Edit affordance until editing starts.
                 readViewHidden: linkParts != nil,
+                parts: mergedParts,
                 onEditingChanged: { editing in
                     isEditingText = editing
                     focus.wrappedValue = editing ? nil : .peek

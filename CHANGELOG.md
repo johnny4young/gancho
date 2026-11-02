@@ -13,7 +13,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   on a selection and it is added to the clip before it, on a new line, and
   the merged text goes back on the clipboard. It never merges into a secret,
   a card or a token, or a snippet, and the boundaries between parts sync
-  encrypted.
+  encrypted. A small HUD and a soft sound, which you can turn off, confirm
+  each merge. The peek shows each part, joins them with a newline, a space
+  or a comma, and splits them back into separate clips.
 - Up next, off by default in Intelligence: the panel shows the clip you
   usually paste into the app in front above the list, with why ("Pasted into
   Xcode 3× today"), and ⌘↩ pastes it. It learns from a paste log kept only on

@@ -126,6 +126,7 @@ final class AppModel {
     let panel: PanelController
     /// Transient HUD for action feedback (copy-only paste, pin/unpin).
     let toasts: ToastPresenter
+    let copyHUD: CopyHUDPresenter
     let manualOCR: ManualOCRSession
     let manualOCRWindow = ManualOCRWindowController()
     let screenTextWorkflow: ScreenTextWorkflow
@@ -222,7 +223,7 @@ final class AppModel {
     private let curationController = ClipCurationController()
     private let deletionWorkflow = ClipDeletionWorkflow()
     private let editingController = ClipEditingController()
-    private let ingestionCoordinator = ClipIngestionCoordinator()
+    let ingestionCoordinator = ClipIngestionCoordinator()
     private let enrichmentScheduler = EnrichmentScheduler()
     let defaults: UserDefaults
     private let activationTracker: ActivationTracker
@@ -505,6 +506,7 @@ final class AppModel {
         self.manualOCR = manualOCR
         self.screenTextWorkflow = screenTextWorkflow
         self.toasts = toasts
+        copyHUD = CopyHUDPresenter(defaults: appDefaults)
         captureLifecycle = CaptureLifecycleController(
             monitor: resolvedMonitor,
             preferences: loadedPreferences,
@@ -802,13 +804,7 @@ final class AppModel {
         let task = Task {
             await previous?.value
             if await mergeDoubleCopyIfNeeded(capture) { return }
-            let configuration = ClipIngestionCoordinator.Configuration(
-                sensitiveLifetime: retentionPolicy.sensitiveLifetime,
-                detectSecrets: intelligence.detectSecrets,
-                tier: tier,
-                intelligence: intelligence,
-                allowsFreeTitle: freeAITitlesRemaining > 0,
-                sourceDeviceName: PlatformDeviceProvenance.currentDeviceName())
+            let configuration = ingestionConfiguration()
             // Closed by the coordinator the moment the insert phase ends, on
             // success and on failure both — NOT when `ingest` returns. `ingest`
             // also awaits the sync enqueue, which builds `CKSyncEngine` on
@@ -846,6 +842,16 @@ final class AppModel {
         }
         lastIngest = task
         return task
+    }
+
+    func ingestionConfiguration() -> ClipIngestionCoordinator.Configuration {
+        ClipIngestionCoordinator.Configuration(
+            sensitiveLifetime: retentionPolicy.sensitiveLifetime,
+            detectSecrets: intelligence.detectSecrets,
+            tier: tier,
+            intelligence: intelligence,
+            allowsFreeTitle: freeAITitlesRemaining > 0,
+            sourceDeviceName: PlatformDeviceProvenance.currentDeviceName())
     }
 
     #if DEBUG
@@ -889,7 +895,7 @@ final class AppModel {
     #endif
     /// Pro-tier async enrichment — never blocks capture: OCR makes image
     /// clips searchable; the tiered annotator titles text clips.
-    private func enrich(_ outcome: ClipIngestionCoordinator.Outcome) {
+    func enrich(_ outcome: ClipIngestionCoordinator.Outcome) {
         guard !outcome.enrichment.isEmpty, let fullStore else { return }
         let syncEngine: (any SyncEngine)? =
             syncController.isEnabled

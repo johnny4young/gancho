@@ -93,9 +93,19 @@ public struct DoubleCopyMerger: Sendable {
 
 /// Appends a double copy to the clip before it, re-checking the merged text
 /// for secrets and masked kinds, then drops the clip the first copy created.
+/// Also re-joins a merged clip with another separator and splits it back.
 public struct ClipMergeWorkflow: Sendable {
     public enum Outcome: Equatable, Sendable {
         case merged(ClipItem, text: String, partCount: Int)
+        case refused
+    }
+
+    public enum SplitOutcome: Equatable, Sendable {
+        /// The clip each part landed in, in part order (a part that matches an
+        /// existing clip lands there); the merged clip is gone.
+        case split([UUID])
+        /// Some parts were saved and the merged clip was kept.
+        case failed(saved: [UUID])
         case refused
     }
 
@@ -115,24 +125,76 @@ public struct ClipMergeWorkflow: Sendable {
         store: any ClipReading & ClipMerging, deletion: @Sendable ([UUID]) async -> Void,
         engine: any SyncEngine
     ) async -> Outcome {
+        guard let (item, current) = await editableText(target, store: store) else {
+            return .refused
+        }
+        let existing = item.parts?.split(current) ?? [current]
+        let separator = item.parts?.separator ?? .newline
+        guard let joined = ClipParts.join(existing + [text], separator: separator) else {
+            return .refused
+        }
+        let outcome = await write(
+            target, expecting: current, joined, movesToTop: true, store: store, engine: engine)
+        if case .merged = outcome, let discard, discard != target { await deletion([discard]) }
+        return outcome
+    }
+
+    /// Re-joins a merged clip's parts with `separator`, in place.
+    public func rejoin(
+        _ target: UUID, with separator: ClipParts.Separator,
+        store: any ClipReading & ClipMerging, engine: any SyncEngine
+    ) async -> Outcome {
+        guard let (item, current) = await editableText(target, store: store),
+            let parts = item.parts, parts.separator != separator,
+            let rejoined = parts.rejoined(current, with: separator)
+        else { return .refused }
+        return await write(
+            target, expecting: current, rejoined, movesToTop: false, store: store, engine: engine)
+    }
+
+    /// Saves each part as its own clip, in order, and drops the merged clip
+    /// only once every part landed. `remove` reports whether the delete committed.
+    public func split(
+        _ target: UUID, store: any ClipReading, save: @Sendable (String) async -> UUID?,
+        remove: @Sendable (UUID) async -> Bool
+    ) async -> SplitOutcome {
+        guard let (item, current) = await editableText(target, store: store),
+            let pieces = item.parts?.split(current)
+        else { return .refused }
+        var saved: [UUID] = []
+        for piece in pieces {
+            guard let id = await save(piece), id != target else { return .failed(saved: saved) }
+            saved.append(id)
+        }
+        guard await remove(target) else { return .failed(saved: saved) }
+        return .split(saved)
+    }
+
+    private func editableText(
+        _ target: UUID, store: any ClipReading
+    ) async -> (ClipItem, String)? {
         guard let item = try? await store.item(id: target), !item.isSensitive,
             !ClipSafePresentation.requiresMasking(item), item.kind.allowsTextEditing,
             case .text(let current)? = try? await store.content(for: target)
-        else { return .refused }
-        let existing = item.parts?.split(current) ?? [current]
-        let separator = item.parts?.separator ?? .newline
-        guard let (merged, parts) = ClipParts.join(existing + [text], separator: separator),
-            detector.detect(merged) == nil
-        else { return .refused }
-        let kind = classifier.classify(merged)
+        else { return nil }
+        return (item, current)
+    }
+
+    private func write(
+        _ target: UUID, expecting current: String, _ rewrite: (String, ClipParts),
+        movesToTop: Bool, store: any ClipReading & ClipMerging, engine: any SyncEngine
+    ) async -> Outcome {
+        let (text, parts) = rewrite
+        guard detector.detect(text) == nil else { return .refused }
+        let kind = classifier.classify(text)
         guard kind.allowsTextEditing,
             (try? await store.mergeClipText(
-                id: target, expecting: current, text: merged, parts: parts, kind: kind)) == true,
+                id: target, expecting: current, text: text, parts: parts, kind: kind,
+                movesToTop: movesToTop)) == true,
             let updated = try? await store.item(id: target)
         else { return .refused }
-        if let discard, discard != target { await deletion([discard]) }
         await engine.enqueue([updated])
-        return .merged(updated, text: merged, partCount: parts.lengths.count)
+        return .merged(updated, text: text, partCount: parts.lengths.count)
     }
 }
 

@@ -13352,6 +13352,96 @@
           }
         }
       }
+    },
+    "Newline": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salto de línea"
+          }
+        }
+      }
+    },
+    "Space": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espacio"
+          }
+        }
+      }
+    },
+    "Comma": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coma"
+          }
+        }
+      }
+    },
+    "Play a sound": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reproducir un sonido"
+          }
+        }
+      }
+    },
+    "Part %lld of %lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parte %lld de %lld"
+          }
+        }
+      }
+    },
+    "Split · %lld clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dividido · %lld clips"
+          }
+        }
+      }
+    },
+    "Split into %lld clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dividir en %lld clips"
+          }
+        }
+      }
+    },
+    "Couldn’t split the clip.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo dividir el clip."
+          }
+        }
+      }
+    },
+    "Couldn’t change the separator.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cambiar el separador."
+          }
+        }
+      }
     }
   },
   "version": "1.1"
