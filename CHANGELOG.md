@@ -205,6 +205,7 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Update Sparkle to 2.10.1.
 - Passwords, keys and other secrets no longer sync through iCloud: each one
   stays on the device that copied it until it expires. Secrets uploaded by
   earlier versions are deleted from iCloud; the copies on this device stay.

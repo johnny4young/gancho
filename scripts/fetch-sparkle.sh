@@ -8,8 +8,8 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root"
 
-SPARKLE_VERSION="${SPARKLE_VERSION:-2.10.0}"
-SPARKLE_SHA256="${SPARKLE_SHA256:-c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c}"
+SPARKLE_VERSION="${SPARKLE_VERSION:-2.10.1}"
+SPARKLE_SHA256="${SPARKLE_SHA256:-1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27}"
 VENDOR_DIR="${VENDOR_DIR:-Vendor}"
 FRAMEWORK="$VENDOR_DIR/Sparkle.framework"
 TOOLS="$VENDOR_DIR/bin"
