@@ -9,6 +9,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Show actions after copying, off by default in Settings › Capture, with a
+  switch for colors, links and one-time codes: copy a color and a small HUD
+  offers Copy as rgb() or HSL, copy a web link and it offers Open, copy a
+  one-time code and it stays masked with Forget now, which removes it from
+  history at once. The HUD stays 4 s, holds while the pointer is over it,
+  never takes focus, and never shows in Private Mode or while the screen is
+  shared.
 - Merge double copies, off by default in Settings › Capture: press ⌘C twice
   on a selection and it is added to the clip before it, on a new line, and
   the merged text goes back on the clipboard. It never merges into a secret,

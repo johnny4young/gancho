@@ -126,6 +126,7 @@ would mean introducing a NEW field and migrating writers, never converting.
 | Password-manager copies entering history | `org.nspasteboard` veto BEFORE any read + preloaded bundle denylist | unit tests (manager type shapes), opt-in real-pasteboard test |
 | Secrets copied by accident | on-device detector → masked stored preview + 10-min expiry | 28-pattern suite |
 | Screen sharing exposing the panel | private mode + share auto-pause (no `NSWindow.sharingType` — breaks DisplayPort, Maccy #1136) | unit tests on the pause path |
+| The copy-time action HUD showing a copy on screen | off by default; never in Private Mode, while the screen is shared, or for a sensitive or masked clip; a one-time code is always shown masked; it shows only a color's value or a link's host | `CopyActionPolicyTests`, `CopyActionsUITests` |
 | Content leaking into logs/crashes | NO logging APIs in engine modules; debug prints content-free | automated source sweep (`NoContentLoggingTests`) |
 | Extensions corrupting/duplicating the store | the share extension uses a sealed inbox; keyboard and App Intent entry points can open the shared encrypted store through `IntentStore`. Cross-process database coordination and app-side dedupe remain required | inbox unit tests, WAL cross-process test |
 | Sync conflicts duplicating or resurrecting clips | hash+device dedupe key, last-writer-wins, tombstones | store tests; on-device verification checklist for the live path |
