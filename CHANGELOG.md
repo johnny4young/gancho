@@ -9,6 +9,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Up next in the iPhone and iPad keyboard, off by default in Settings: a clip
+  you have inserted from the Gancho keyboard at least twice appears in a row at
+  the top of its list, ready to insert again. It ranks by how recent and how
+  frequent those inserts are. iOS doesn't tell a keyboard which app it is in,
+  so the ranking is the same in every app. Secrets and masked kinds are never
+  logged, the log stays on this device for 30 days, and turning the switch off
+  erases it.
 - Smart placeholders in snippets, with an Insert placeholder row in the editor
   that writes them at the caret and colors them in the text:
   `{clipboard}` inserts what is on the clipboard now, `{clipboard offset=1}` the
