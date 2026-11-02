@@ -5581,6 +5581,26 @@
           }
         }
       }
+    },
+    "Up next in the keyboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siguiente en el teclado"
+          }
+        }
+      }
+    },
+    "Remembers what you insert from the keyboard on this device and offers it next. Turning it off erases that.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recuerda lo que insertas desde el teclado en este dispositivo y te lo ofrece primero. Al apagarlo se borra."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

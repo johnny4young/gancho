@@ -88,6 +88,7 @@ extension IOSSettingsView {
             }
             .tint(.primary)
             .accessibilityIdentifier("settings-keyboard-how")
+            KeyboardUpNextToggle()
             Button {
                 guide = .widget
             } label: {
@@ -122,6 +123,25 @@ extension IOSSettingsView {
             Spacer(minLength: 0)
             trailing()
         }
+    }
+}
+
+/// Off unless turned on: while off the keyboard logs nothing, and turning it
+/// off erases what it logged.
+private struct KeyboardUpNextToggle: View {
+    @Environment(IOSAppModel.self) private var model
+    @State private var on = KeyboardUpNextPreference.isEnabled()
+
+    var body: some View {
+        Toggle(isOn: $on) {
+            Text("Up next in the keyboard")
+            Text(
+                // swiftlint:disable:next line_length
+                "Remembers what you insert from the keyboard on this device and offers it next. Turning it off erases that."
+            )
+        }
+        .onChange(of: on) { _, value in model.setKeyboardUpNext(value) }
+        .accessibilityIdentifier("settings-keyboard-up-next")
     }
 }
 
