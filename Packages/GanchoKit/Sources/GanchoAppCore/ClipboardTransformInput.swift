@@ -33,6 +33,13 @@ public enum ClipboardTransformInput {
         else { return .refused(.secret) }
         return .text(text)
     }
+
+    /// A clip's text for a snippet's clipboard placeholder, held to the live
+    /// clipboard's bar: a stored flag can be stale after sync or an older version.
+    public static func historyValue(_ text: String?) -> String? {
+        guard case .text(let value) = evaluate(types: [], text: text) else { return nil }
+        return value
+    }
 }
 
 /// The transform ⌃⌘V repeats: the last pipeline or recipe that delivered a

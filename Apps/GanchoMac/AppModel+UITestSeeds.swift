@@ -226,6 +226,14 @@ extension AppModel {
             {
                 greetingBody = (1...20).map { "{field\($0)}" }.joined(separator: "\n")
             }
+            if CommandLine.arguments.contains("-seed-snippet-placeholders") {
+                greetingBody = """
+                    Hi {name}, as promised:
+                    {clipboard | trim}
+                    I will check back on {date +2d}.
+                    {cursor}
+                    """
+            }
         #endif
         let body = greetingBody
         return Task {

@@ -37,6 +37,10 @@
         func postCommandKey(keyCode: CGKeyCode) {
             lock.withLock { _posted.append(keyCode) }
         }
+
+        func postKey(keyCode: CGKeyCode) {
+            lock.withLock { _posted.append(keyCode) }
+        }
     }
 
     @MainActor
@@ -122,6 +126,24 @@
             #expect(outcome == .pasted)
             #expect(
                 writer.writes.map(\.content) == [.fileReferences(["/tmp/a.txt", "/tmp/b.txt"])])
+        }
+
+        @MainActor
+        @Test("The caret moves back with plain left arrows, within the cap, when trusted")
+        func caretMove() {
+            let poster = SpyPoster()
+            let service = makeService(writer: SpyWriter(), poster: poster, trusted: true)
+            service.moveCaretBack(by: 3)
+            #expect(poster.posted == [123, 123, 123])
+
+            service.moveCaretBack(by: 0)
+            service.moveCaretBack(by: -1)
+            service.moveCaretBack(by: PasteBackService.maximumCaretMove + 1)
+            #expect(poster.posted.count == 3)
+
+            let untrusted = SpyPoster()
+            makeService(writer: SpyWriter(), poster: untrusted, trusted: false).moveCaretBack(by: 3)
+            #expect(untrusted.posted.isEmpty)
         }
     }
 

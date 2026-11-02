@@ -1,6 +1,46 @@
 import AppKit
 import GanchoDesign
+import GanchoKit
 import SwiftUI
+
+/// Lets the snippet editor's placeholder chips edit at the caret, through the
+/// text view so undo and the binding keep working.
+@MainActor
+@Observable
+final class SnippetBodyEditorHandle {
+    /// True while the caret sits in or right after a placeholder.
+    fileprivate(set) var canAddModifier = false
+    @ObservationIgnored fileprivate weak var textView: NSTextView?
+
+    /// Inserts at the caret and selects `selecting`, a range within `text`.
+    func insert(_ text: String, selecting: NSRange? = nil) {
+        guard let textView else { return }
+        textView.window?.makeFirstResponder(textView)
+        let start = textView.selectedRange().location
+        textView.insertText(text, replacementRange: textView.selectedRange())
+        if let selecting {
+            textView.setSelectedRange(
+                NSRange(location: start + selecting.location, length: selecting.length))
+        }
+    }
+
+    func add(_ modifier: SnippetTemplate.Modifier) {
+        guard let textView,
+            let point = SnippetTemplate.modifierInsertionPoint(
+                in: textView.string, caret: textView.selectedRange().location)
+        else { return }
+        textView.window?.makeFirstResponder(textView)
+        textView.insertText(
+            " | \(modifier.rawValue)", replacementRange: NSRange(location: point, length: 0))
+    }
+
+    fileprivate func caretChanged() {
+        guard let textView else { return }
+        canAddModifier =
+            SnippetTemplate.modifierInsertionPoint(
+                in: textView.string, caret: textView.selectedRange().location) != nil
+    }
+}
 
 /// A monospaced, line-numbered code editor backed by `NSTextView` that applies
 /// `GanchoSyntax` highlighting on every edit. Fully local — the text never
@@ -13,10 +53,15 @@ import SwiftUI
 struct SyntaxTextView: NSViewRepresentable {
     @Binding var text: String
     var accessibilityID: String
+    var handle: SnippetBodyEditorHandle?
 
-    init(text: Binding<String>, accessibilityID: String = "snippet-editor") {
+    init(
+        text: Binding<String>, accessibilityID: String = "snippet-editor",
+        handle: SnippetBodyEditorHandle? = nil
+    ) {
         self._text = text
         self.accessibilityID = accessibilityID
+        self.handle = handle
     }
 
     static let editorFont = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
@@ -62,6 +107,7 @@ struct SyntaxTextView: NSViewRepresentable {
         context.coordinator.textView = textView
         context.coordinator.ruler = ruler
         context.coordinator.applyHighlight()
+        handle?.textView = textView
         return scrollView
     }
 
@@ -92,6 +138,10 @@ struct SyntaxTextView: NSViewRepresentable {
             ruler?.needsDisplay = true
         }
 
+        func textViewDidChangeSelection(_ notification: Notification) {
+            parent.handle?.caretChanged()
+        }
+
         /// Re-tint the whole document. Cheap for snippet-sized text, and the
         /// selection survives because only attributes change, not the string.
         func applyHighlight() {
@@ -119,6 +169,14 @@ struct SyntaxTextView: NSViewRepresentable {
                 default:
                     break
                 }
+            }
+            // Over the code tint: these spans can hold spaces the tokenizer skips.
+            for token in SnippetTemplate.tokens(in: string) {
+                let color = GanchoTokens.Syntax.nsColor(for: token.placeholder)
+                let nsRange = NSRange(token.range, in: string)
+                storage.addAttribute(.foregroundColor, value: color, range: nsRange)
+                storage.addAttribute(
+                    .backgroundColor, value: color.withAlphaComponent(0.16), range: nsRange)
             }
             storage.endEditing()
         }

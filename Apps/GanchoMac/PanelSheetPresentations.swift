@@ -50,7 +50,7 @@ struct PanelSheetPresentations: ViewModifier {
     /// Also clears a board filter still pointing at the deleted board, which is
     /// why the caller supplies this rather than the modifier calling the model.
     let deleteBoard: (Pinboard) -> Void
-    let pasteSnippet: (SnippetFillRequest, [String: String]) -> Void
+    let pasteSnippet: (SnippetFillRequest, [String: String], [Int: Date]) -> Void
     let updateBoardIdentity: @MainActor (Pinboard, String?, String?) async -> Bool
     /// The review and filter sheets need the app model; the owner builds them.
     let reviewSheet: (Sheet) -> AnyView
@@ -78,8 +78,8 @@ struct PanelSheetPresentations: ViewModifier {
             .sheet(item: $presentedSheet) { sheet in
                 switch sheet {
                 case .snippet(let request):
-                    SnippetFillSheet(request: request) { values in
-                        pasteSnippet(request, values)
+                    SnippetFillSheet(request: request) { values, dates in
+                        pasteSnippet(request, values, dates)
                         presentedSheet = nil
                     } onCancel: {
                         presentedSheet = nil

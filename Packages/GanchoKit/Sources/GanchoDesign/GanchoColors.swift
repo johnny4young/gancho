@@ -277,7 +277,7 @@ extension View {
 
 /// A light/dark-adaptive `Color` from sRGB byte triples. Mirrors
 /// `GanchoTokens.Palette.dynamic` (which is private to `Palette`).
-private func syntaxDynamicColor(light: (Int, Int, Int), dark: (Int, Int, Int)) -> Color {
+func syntaxDynamicColor(light: (Int, Int, Int), dark: (Int, Int, Int)) -> Color {
     #if canImport(AppKit)
         return Color(nsColor: syntaxDynamicNSColor(light: light, dark: dark))
     #elseif canImport(UIKit)
@@ -296,7 +296,7 @@ private func syntaxDynamicColor(light: (Int, Int, Int), dark: (Int, Int, Int)) -
 }
 
 #if canImport(AppKit)
-    private func syntaxDynamicNSColor(
+    func syntaxDynamicNSColor(
         light: (Int, Int, Int), dark: (Int, Int, Int)
     ) -> NSColor {
         NSColor(name: nil) { appearance in

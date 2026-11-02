@@ -13990,6 +13990,26 @@
           }
         }
       }
+    },
+    "Insert placeholder": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insertar marcador"
+          }
+        }
+      }
+    },
+    "A clipboard placeholder was left empty.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un marcador del portapapeles quedó vacío."
+          }
+        }
+      }
     }
   },
   "version": "1.1"
