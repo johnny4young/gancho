@@ -164,27 +164,42 @@ struct MCPRecognizedTextToolTests {
         #expect(try await search("workers").isEmpty)
     }
 
-    @Test("Search never matches a reviewed image's hidden title, and ordinary clips still match")
-    func searchIgnoresHiddenTitle() async throws {
+    @Test(
+        "Search never matches a reviewed image's hidden fields, and ordinary clips still match",
+        arguments: ["fuzzy", "exact", "regex"])
+    func searchIgnoresHiddenTitle(mode: String) async throws {
         let fixture = try await makeFixture()
         let runner = runner(fixture)
-        func search(_ query: String) async throws -> [String?] {
+        func search(_ query: String) async throws -> [JSONValue] {
             let result = await runner.call(
-                tool: "search_clips", arguments: .object(["query": .string(query)]))
-            return try resultJSON(result)["clips"]?.arrayValue?.map { $0["id"]?.stringValue } ?? []
+                tool: "search_clips",
+                arguments: .object(["query": .string(query), "mode": .string(mode)]))
+            #expect(!result.isError)
+            return try resultJSON(result)["clips"]?.arrayValue ?? []
         }
-        #expect(try await search("roadmap").isEmpty, "the title is hidden, so it cannot match")
-        #expect(try await search("workers") == [fixture.image.id.uuidString])
-        #expect(try await search("Deploy") == [fixture.note.id.uuidString])
+        // "Private workers" pairs a hidden title term with a reviewed one.
+        for hidden in ["roadmap", "Image", "Private workers"] {
+            #expect(try await search(hidden).isEmpty, "\(hidden) is hidden, so it cannot match")
+        }
+        let hits = try await search("Queue sits")
+        #expect(hits.count == 1)
+        expectIdentityOnly(hits.first, of: fixture.image)
+        #expect(
+            try await search("Deploy").map { $0["id"]?.stringValue } == [fixture.note.id.uuidString]
+        )
     }
 
-    @Test("Under metadata scope a reviewed image matches no text at all")
-    func metadataSearchSkipsReviewedImages() async throws {
+    @Test(
+        "Under metadata scope a reviewed image matches no text at all",
+        arguments: ["fuzzy", "exact"])
+    func metadataSearchSkipsReviewedImages(mode: String) async throws {
         let fixture = try await makeFixture()
         let runner = runner(fixture, scope: .metadata)
         for query in ["workers", "roadmap", "Image"] {
             let result = await runner.call(
-                tool: "search_clips", arguments: .object(["query": .string(query)]))
+                tool: "search_clips",
+                arguments: .object(["query": .string(query), "mode": .string(mode)]))
+            #expect(!result.isError)
             #expect(
                 try resultJSON(result)["clips"]?.arrayValue?.isEmpty == true, "\(query)")
         }
@@ -206,53 +221,6 @@ struct MCPRecognizedTextToolTests {
     }
 
     @Test(
-        "Search cannot match an image's unreviewed title or preview",
-        arguments: ["fuzzy", "exact", "regex"])
-    func searchIgnoresHiddenMetadata(mode: String) async throws {
-        let fixture = try await makeFixture()
-        for word in ["Private", "Image", "Private workers"] {
-            let result = await runner(fixture).call(
-                tool: "search_clips",
-                arguments: .object([
-                    "query": .string(mode == "regex" ? "^\(word)" : word), "mode": .string(mode)
-                ]))
-            #expect(!result.isError)
-            #expect(try resultJSON(result)["clips"]?.arrayValue?.isEmpty == true)
-        }
-    }
-
-    @Test(
-        "Metadata scope cannot search hidden image fields or recognized text",
-        arguments: ["fuzzy", "exact"])
-    func metadataSearchHasNoImageText(mode: String) async throws {
-        let fixture = try await makeFixture()
-        for word in ["Private", "Image", "workers"] {
-            let result = await runner(fixture, scope: .metadata).call(
-                tool: "search_clips",
-                arguments: .object(["query": .string(word), "mode": .string(mode)]))
-            #expect(!result.isError)
-            #expect(try resultJSON(result)["clips"]?.arrayValue?.isEmpty == true)
-        }
-    }
-
-    @Test(
-        "Reviewed image text still matches in every content search mode",
-        arguments: ["fuzzy", "exact", "regex"])
-    func searchMatchesReviewedText(mode: String) async throws {
-        let fixture = try await makeFixture()
-        let result = await runner(fixture).call(
-            tool: "search_clips",
-            arguments: .object([
-                "query": .string(mode == "regex" ? "^Queue.*workers$" : "Queue sits"),
-                "mode": .string(mode)
-            ]))
-        #expect(!result.isError)
-        let hits = try #require(resultJSON(result)["clips"]?.arrayValue)
-        #expect(hits.count == 1)
-        expectIdentityOnly(hits.first, of: fixture.image)
-    }
-
-    @Test(
         "A hidden metadata match cannot consume a text clip's result slot",
         arguments: ["fuzzy", "exact", "regex"])
     func hiddenMatchCannotConsumeLimit(mode: String) async throws {
@@ -268,8 +236,7 @@ struct MCPRecognizedTextToolTests {
         try await fixture.store.attachExtractedText(id: image.id, text: Self.reviewedText)
         let unscoped = try await fixture.store.search(
             ClipSearchQuery(
-                text: mode == "regex" ? "^Deploy" : "Deploy",
-                mode: try #require(ClipSearchQuery.Mode(rawValue: mode))), limit: 1)
+                text: "Deploy", mode: try #require(ClipSearchQuery.Mode(rawValue: mode))), limit: 1)
         #expect(unscoped.map(\.id) == [image.id], "fixture must rank the hidden match first")
         let limited = Fixture(store: fixture.store, image: image, note: fixture.note)
         let scopes: [MCPAccessScope] = mode == "regex" ? [.all] : [.all, .metadata]
@@ -277,8 +244,7 @@ struct MCPRecognizedTextToolTests {
             let result = await runner(limited, scope: scope).call(
                 tool: "search_clips",
                 arguments: .object([
-                    "query": .string(mode == "regex" ? "^Deploy" : "Deploy"),
-                    "mode": .string(mode), "limit": .int(1)
+                    "query": .string("Deploy"), "mode": .string(mode), "limit": .int(1)
                 ]))
             #expect(!result.isError)
             let hits = try #require(resultJSON(result)["clips"]?.arrayValue)
