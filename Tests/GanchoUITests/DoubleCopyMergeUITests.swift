@@ -36,7 +36,9 @@ final class DoubleCopyMergeUITests: XCTestCase {
         XCTAssertTrue(label.contains("Cra. 43A"), label)
         let hud = app.descendants(matching: .any)["copy-hud"].firstMatch
         XCTAssertTrue(hud.waitForExistence(timeout: 5))
-        XCTAssertTrue(hud.label.contains("Merged · 2 parts"), hud.label)
+        // A macOS static text carries its string as the value.
+        let title = (hud.value as? String) ?? ""
+        XCTAssertTrue(title.contains("Merged · 2 parts"), title)
         XCTAssertFalse(
             app.descendants(matching: .any)["gancho-toast"].exists, "the HUD replaces the toast")
         try keepRender(of: "history-panel", in: app, named: "Double copy merged")

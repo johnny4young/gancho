@@ -27,6 +27,8 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
     public var mergeDoubleCopies: Bool
     /// A soft sound confirms a merge. On by default.
     public var playsMergeSound: Bool
+    /// The copy-time action HUD. Off by default.
+    public var copyActions: CopyActionSwitches
 
     public init(
         captureImages: Bool = true,
@@ -37,7 +39,8 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
         privateModeEndsAt: Date? = nil,
         privateModeSkippedCopies: Int = 0,
         mergeDoubleCopies: Bool = false,
-        playsMergeSound: Bool = true
+        playsMergeSound: Bool = true,
+        copyActions: CopyActionSwitches = CopyActionSwitches()
     ) {
         self.captureImages = captureImages
         self.captureFileReferences = captureFileReferences
@@ -48,10 +51,11 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
         self.privateModeSkippedCopies = privateModeSkippedCopies
         self.mergeDoubleCopies = mergeDoubleCopies
         self.playsMergeSound = playsMergeSound
+        self.copyActions = copyActions
     }
 
-    /// Blobs saved before the Private Mode timer or the merge switches decode
-    /// with their defaults.
+    /// Blobs saved before the Private Mode timer, the merge switches or the
+    /// copy actions decode with their defaults.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         captureImages = try container.decode(Bool.self, forKey: .captureImages)
@@ -67,6 +71,9 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
             try container.decodeIfPresent(Bool.self, forKey: .mergeDoubleCopies) ?? false
         playsMergeSound =
             try container.decodeIfPresent(Bool.self, forKey: .playsMergeSound) ?? true
+        copyActions =
+            try container.decodeIfPresent(CopyActionSwitches.self, forKey: .copyActions)
+            ?? CopyActionSwitches()
     }
 
     private static let defaultsKey = "capture-preferences"
@@ -83,6 +90,31 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
     public func save(to defaults: UserDefaults) {
         guard let data = try? JSONEncoder().encode(self) else { return }
         defaults.set(data, forKey: Self.defaultsKey)
+    }
+}
+
+/// Which copies get the copy-time action HUD: the master switch, then one per kind.
+public struct CopyActionSwitches: Sendable, Equatable, Codable {
+    public var isEnabled: Bool
+    public var colors: Bool
+    public var links: Bool
+    public var oneTimeCodes: Bool
+
+    public init(
+        isEnabled: Bool = false, colors: Bool = true, links: Bool = true, oneTimeCodes: Bool = true
+    ) {
+        self.isEnabled = isEnabled
+        self.colors = colors
+        self.links = links
+        self.oneTimeCodes = oneTimeCodes
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
+        colors = try container.decodeIfPresent(Bool.self, forKey: .colors) ?? true
+        links = try container.decodeIfPresent(Bool.self, forKey: .links) ?? true
+        oneTimeCodes = try container.decodeIfPresent(Bool.self, forKey: .oneTimeCodes) ?? true
     }
 }
 

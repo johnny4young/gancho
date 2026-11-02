@@ -58,7 +58,8 @@ extension AppModel {
             seedMultiFileDragIfRequested(),
             seedPrivateActivityReceiptIfRequested(),
             seedUpNextIfRequested(),
-            seedDoubleCopyIfRequested()
+            seedDoubleCopyIfRequested(),
+            seedCopyActionsIfRequested()
         ].compactMap { $0 }
     }
 
