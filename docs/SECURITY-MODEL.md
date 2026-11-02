@@ -31,7 +31,10 @@ transient content in process memory; sync asset staging uses lifecycle-bounded
 files as described below. Opt-in Spotlight stores sanitized titles/previews of
 eligible curated clips in the local system index, not raw history. A scoped MCP
 grant permits eligible content to be read by the authorized local client;
-Gancho cannot retract bytes already delivered to that client.
+Gancho cannot retract bytes already delivered to that client. Each read is
+made visible as it happens: the CLI posts a name-only distributed
+notification, the app reads the new content-free ledger rows and shows a
+menu-bar dot and a HUD with Revoke, which stops the client's next call.
 
 Protected outbound surfaces use the same intrinsic-kind rule as passive
 presentation: flagged clips and JWT, credit-card and secret kinds remain

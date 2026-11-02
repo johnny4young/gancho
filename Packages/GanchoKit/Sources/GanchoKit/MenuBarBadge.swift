@@ -7,17 +7,22 @@ public enum MenuBarBadge: Equatable, Sendable {
     case paused
     case privateMode
     case ignoreNext
+    /// An agent read clips in the last few minutes.
+    case agentRead
     case stack(Int)
 
     /// Denied, then paused (manual, screen share or lock), then Private Mode,
-    /// then an armed ignore-next, then a waiting paste stack.
+    /// then an armed ignore-next, then a recent agent read, then a waiting
+    /// paste stack.
     public static func resolve(
-        denied: Bool, paused: Bool, privateMode: Bool, ignoresNextCopy: Bool, stackCount: Int
+        denied: Bool, paused: Bool, privateMode: Bool, ignoresNextCopy: Bool,
+        agentRead: Bool = false, stackCount: Int
     ) -> MenuBarBadge? {
         if denied { return .denied }
         if paused { return .paused }
         if privateMode { return .privateMode }
         if ignoresNextCopy { return .ignoreNext }
+        if agentRead { return .agentRead }
         return stackCount > 0 ? .stack(stackCount) : nil
     }
 
@@ -28,6 +33,7 @@ public enum MenuBarBadge: Equatable, Sendable {
         case .paused: "‖"
         case .privateMode: "/"
         case .ignoreNext: "−"
+        case .agentRead: ""
         case .stack(let count): count > 9 ? "9+" : "\(count)"
         }
     }
@@ -38,6 +44,7 @@ public enum MenuBarBadge: Equatable, Sendable {
         case .paused: "paused"
         case .privateMode: "private"
         case .ignoreNext: "ignore-next"
+        case .agentRead: "agent-read"
         case .stack(let count): "stack:\(count)"
         }
     }
@@ -48,6 +55,7 @@ public enum MenuBarBadge: Equatable, Sendable {
         case "paused": self = .paused
         case "private": self = .privateMode
         case "ignore-next": self = .ignoreNext
+        case "agent-read": self = .agentRead
         default:
             guard bridgeValue.hasPrefix("stack:"),
                 let count = Int(bridgeValue.dropFirst("stack:".count)), count > 0

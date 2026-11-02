@@ -6,11 +6,11 @@ import Testing
 struct MenuBarBadgeTests {
     private func badge(
         denied: Bool = false, paused: Bool = false, privateMode: Bool = false,
-        ignoring: Bool = false, stack: Int = 0
+        ignoring: Bool = false, agentRead: Bool = false, stack: Int = 0
     ) -> MenuBarBadge? {
         MenuBarBadge.resolve(
             denied: denied, paused: paused, privateMode: privateMode, ignoresNextCopy: ignoring,
-            stackCount: stack)
+            agentRead: agentRead, stackCount: stack)
     }
 
     @Test("Capturing with nothing waiting is the bare hook")
@@ -18,14 +18,18 @@ struct MenuBarBadgeTests {
         #expect(badge() == nil)
     }
 
-    @Test("Denied > paused > private > ignore-next > stack")
+    @Test("Denied > paused > private > ignore-next > agent read > stack")
     func precedence() {
         #expect(
-            badge(denied: true, paused: true, privateMode: true, ignoring: true, stack: 2)
-                == .denied)
-        #expect(badge(paused: true, privateMode: true, ignoring: true, stack: 2) == .paused)
-        #expect(badge(privateMode: true, ignoring: true, stack: 2) == .privateMode)
-        #expect(badge(ignoring: true, stack: 2) == .ignoreNext)
+            badge(
+                denied: true, paused: true, privateMode: true, ignoring: true, agentRead: true,
+                stack: 2) == .denied)
+        #expect(
+            badge(paused: true, privateMode: true, ignoring: true, agentRead: true, stack: 2)
+                == .paused)
+        #expect(badge(privateMode: true, ignoring: true, agentRead: true, stack: 2) == .privateMode)
+        #expect(badge(ignoring: true, agentRead: true, stack: 2) == .ignoreNext)
+        #expect(badge(agentRead: true, stack: 2) == .agentRead)
         #expect(badge(stack: 2) == .stack(2))
     }
 
@@ -35,6 +39,7 @@ struct MenuBarBadgeTests {
         #expect(MenuBarBadge.paused.glyph == "‖")
         #expect(MenuBarBadge.privateMode.glyph == "/")
         #expect(MenuBarBadge.ignoreNext.glyph == "−")
+        #expect(MenuBarBadge.agentRead.glyph.isEmpty, "a plain dot")
         #expect(MenuBarBadge.stack(9).glyph == "9")
         #expect(MenuBarBadge.stack(12).glyph == "9+")
     }
@@ -49,7 +54,9 @@ struct MenuBarBadgeTests {
 
     @Test("Every badge survives the helper bridge; anything else reads as no badge")
     func bridgeRoundTrip() {
-        for badge in [MenuBarBadge.denied, .paused, .privateMode, .ignoreNext, .stack(3)] {
+        for badge in [
+            MenuBarBadge.denied, .paused, .privateMode, .ignoreNext, .agentRead, .stack(3)
+        ] {
             #expect(MenuBarBadge(bridgeValue: badge.bridgeValue) == badge)
         }
         #expect(MenuBarBadge(bridgeValue: "") == nil)

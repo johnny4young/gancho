@@ -5,6 +5,7 @@ struct IntegrationsSettingsTab: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        @Bindable var model = model
         Form {
             Section("Local MCP server") {
                 Toggle(
@@ -26,6 +27,10 @@ struct IntegrationsSettingsTab: View {
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            }
+            Section {
+                Toggle("Show a menu-bar dot when an agent reads", isOn: $model.showsAgentReads)
+                    .accessibilityIdentifier("settings-agent-reads")
             }
         }
         .formStyle(.grouped)

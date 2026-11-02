@@ -79,6 +79,8 @@
                 NSColor(srgbRed: 0x5E / 255, green: 0x5C / 255, blue: 0xE6 / 255, alpha: 1)
             case .ignoreNext:
                 NSColor(srgbRed: 0x8E / 255, green: 0x8E / 255, blue: 0x93 / 255, alpha: 1)
+            case .agentRead:
+                NSColor(srgbRed: 0x5A / 255, green: 0xC8 / 255, blue: 0xFA / 255, alpha: 1)
             case .stack: ink
             }
         }
@@ -86,7 +88,7 @@
         /// Dark on the light fills (amber, grey), white on the rest: 4.5:1 or more.
         public static func glyphColor(for badge: MenuBarBadge) -> NSColor {
             switch badge {
-            case .paused, .ignoreNext: ink
+            case .paused, .ignoreNext, .agentRead: ink
             case .denied, .privateMode, .stack: .white
             }
         }

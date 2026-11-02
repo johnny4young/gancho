@@ -50,6 +50,9 @@ struct MCPAccessView: View {
                 presentsNewGrant = false
             }
         }
+        .task(id: model.mcpLedgerRevision) {
+            log = await model.recentMCPAccesses(limit: 30)
+        }
         .task {
             await model.refreshBoards()
             while !Task.isCancelled {
@@ -215,37 +218,54 @@ struct MCPAccessView: View {
         .padding(.vertical, GanchoTokens.Spacing.xxs)
     }
 
+    /// Client · tool · context at call time · clips · time, as the call ran.
     private func ledgerRow(_ event: MCPAccessEvent) -> some View {
-        LabeledContent {
-            Text(event.occurredAt, format: .relative(presentation: .named))
-        } label: {
-            Label {
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: GanchoTokens.Spacing.xs) {
-                        Text(verbatim: event.clientName ?? String(localized: "Unknown client"))
-                        Text(verbatim: event.tool.rawValue).monospaced()
-                    }
-                    if let denial = event.denialReason {
-                        Text(verbatim: denial.rawValue)
-                            .font(.caption2)
-                            .foregroundStyle(GanchoTokens.Palette.warningInk)
-                    } else if event.resultCount > 0 {
-                        Text(
-                            event.resultCount == 1
-                                ? "1 clip exposed" : "\(event.resultCount) clips exposed"
-                        )
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                    }
+        HStack(spacing: 10) {
+            Text(verbatim: MCPAccessLabels.client(event.clientName))
+                .fontWeight(.semibold)
+                .lineLimit(1)
+                .frame(width: 96, alignment: .leading)
+            Text(verbatim: event.tool.rawValue)
+                .font(.caption.monospaced())
+                .lineLimit(1)
+                .frame(width: 84, alignment: .leading)
+            Text(verbatim: ledgerScope(event))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            ZStack(alignment: .trailing) {
+                if event.wasDenied {
+                    Text("Denied").foregroundStyle(GanchoTokens.Palette.warningInk)
+                } else if event.resultCount > 0 {
+                    Text("\(event.resultCount) clips")
                 }
-            } icon: {
-                Image(systemName: event.wasDenied ? "minus.circle" : "checkmark.circle")
-                    .foregroundStyle(
-                        ReadableInk(
-                            base: event.wasDenied
-                                ? GanchoTokens.Palette.warning : GanchoTokens.Palette.success))
             }
+            .frame(width: 64, alignment: .trailing)
+            Text(verbatim: ledgerTime(event.occurredAt))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(width: 54, alignment: .trailing)
         }
+        .font(.callout)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("mcp-ledger-row")
+    }
+
+    private func ledgerScope(_ event: MCPAccessEvent) -> String {
+        if let denial = event.denialReason {
+            return denial.rawValue
+        }
+        if let context = event.context {
+            return MCPAccessLabels.context(context, boards: model.boards)
+        }
+        return String(localized: scopeLabel(event.scope))
+    }
+
+    private func ledgerTime(_ date: Date) -> String {
+        Calendar.current.isDate(date, inSameDayAs: currentTime)
+            ? date.formatted(date: .omitted, time: .shortened)
+            : date.formatted(.dateTime.month(.abbreviated).day())
     }
 
     private var statusBadge: some View {
@@ -280,7 +300,7 @@ struct MCPAccessView: View {
             .accessibilityIdentifier("mcp-client-state-\(slug)")
     }
 
-    private func policyBadge(_ text: LocalizedStringKey, tint: Color) -> some View {
+    private func policyBadge(_ text: LocalizedStringResource, tint: Color) -> some View {
         Text(text)
             .font(.caption2.weight(.medium))
             .padding(.horizontal, 6)
@@ -300,14 +320,14 @@ struct MCPAccessView: View {
         mode == .readWrite ? GanchoTokens.Palette.warning : GanchoTokens.Palette.success
     }
 
-    private func accessModeLabel(_ mode: MCPAccessMode) -> LocalizedStringKey {
+    private func accessModeLabel(_ mode: MCPAccessMode) -> LocalizedStringResource {
         switch mode {
         case .readOnly: "Read only"
         case .readWrite: "Read and organize"
         }
     }
 
-    private func scopeLabel(_ scope: MCPAccessScope) -> LocalizedStringKey {
+    private func scopeLabel(_ scope: MCPAccessScope) -> LocalizedStringResource {
         switch scope {
         case .metadata: "Metadata only"
         case .boards: "Marked clips"
@@ -317,17 +337,7 @@ struct MCPAccessView: View {
 
     private func contextLabel(_ context: MCPContextPack) -> String {
         let board = context.boardName ?? context.name
-        return "\(board) · \(timeScopeLabel(context.timeScope))"
-    }
-
-    private func timeScopeLabel(_ scope: MCPTimeScope) -> String {
-        switch scope {
-        case .lastHour: String(localized: "Last hour")
-        case .lastDay: String(localized: "Last day")
-        case .lastWeek: String(localized: "Last 7 days")
-        case .lastMonth: String(localized: "Last 30 days")
-        case .allTime: String(localized: "All time")
-        }
+        return "\(board) · \(MCPAccessLabels.timeScope(context.timeScope))"
     }
 
     private func connectionCommand(for grant: MCPClientGrant) -> String {

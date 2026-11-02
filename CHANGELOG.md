@@ -9,6 +9,17 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent reads you can see: when a local AI client reads your clips through
+  `gancho mcp`, the menu-bar icon shows a blue dot for two minutes (or until
+  you open the menu) and a HUD names the client, how many clips it read or
+  pinned, the board and time window it was allowed, and offers Revoke, which
+  ends that client's access at once. Calls from one client within five
+  seconds add up in one HUD; denials and board listings stay in the ledger.
+  On by default once MCP is set up, with a switch in Settings › Integrations.
+  The ledger in MCP Access now shows each call's board and window as they
+  were when it ran, even if the grant changes later, and boards an active
+  grant exposes are marked "Exposed to agents" in the Library. The signal
+  between `gancho mcp` and the app carries nothing but its name.
 - Jump to context in the history panel: press ⌘J on any result (or choose
   Show context in its menu or the peek) and the list shows the clips first
   copied within two minutes of it, each with the time it was copied, the

@@ -125,6 +125,9 @@ extension LibraryView {
                     .foregroundStyle(.secondary)
             }
             label.lineLimit(1)
+            if let board, model.agentExposedBoardIDs.contains(board.id) {
+                AgentExposedBadge(compact: true)
+            }
             Spacer(minLength: 0)
             if count > 0 {
                 Text(verbatim: "\(count)")

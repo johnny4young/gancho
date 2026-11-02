@@ -45,6 +45,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
             KeyboardShortcuts.disable(.togglePanel)
             pausedPanelShortcut = true
         }
+        model?.acknowledgeAgentRead()
         onOpen()
     }
 

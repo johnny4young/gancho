@@ -35,6 +35,7 @@ enum GanchoDatabaseMigrator {
         case localSecrets = "v28-local-secrets"
         case pasteEvents = "v29-paste-events"
         case clipParts = "v30-clip-parts"
+        case mcpAccessContext = "v31-mcp-access-context"
     }
 
     static var identifiers: [String] {
@@ -104,6 +105,7 @@ enum GanchoDatabaseMigrator {
             // Part boundaries of a double-copy merge; synced encrypted.
             try db.alter(table: "clip") { table in table.add(column: "parts", .text) }
         }
+        GRDBClipboardStore.registerMCPAccessContextMigration(in: &migrator)
         return migrator
     }
 

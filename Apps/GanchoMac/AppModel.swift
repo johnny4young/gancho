@@ -128,6 +128,21 @@ final class AppModel {
     let toasts: ToastPresenter
     let copyHUD: CopyHUDPresenter
     let notchShelf = NotchShelfController()
+    /// The menu-bar dot after an agent read, until it fades or the menu opens.
+    var agentReadDotVisible = false
+    /// Bumped when new ledger rows arrive, so an open ledger re-reads at once.
+    var mcpLedgerRevision = 0
+    /// "Show a menu-bar dot when an agent reads"; on unless turned off.
+    var showsAgentReads = true {
+        didSet {
+            defaults.set(showsAgentReads, forKey: Self.showsAgentReadsKey)
+            if !showsAgentReads { agentReadDotVisible = false }
+        }
+    }
+    @ObservationIgnored var agentReadFeed: AgentReadFeed?
+    @ObservationIgnored var agentReadFetch: Task<Void, Never>?
+    @ObservationIgnored var agentReadFetchPending = false
+    @ObservationIgnored var agentReadDotFade: Task<Void, Never>?
     let manualOCR: ManualOCRSession
     let manualOCRWindow = ManualOCRWindowController()
     let screenTextWorkflow: ScreenTextWorkflow
@@ -442,6 +457,9 @@ final class AppModel {
             }
         #endif
         self.mcpConfig = loadedMCPConfig
+        self.showsAgentReads =
+            appDefaults.object(forKey: Self.showsAgentReadsKey) == nil
+            || appDefaults.bool(forKey: Self.showsAgentReadsKey)
 
         var loadedPreferences = CapturePreferences.load(from: appDefaults)
         #if DEBUG
@@ -689,6 +707,7 @@ final class AppModel {
                 String(localized: "Couldn’t open secure storage — running in memory."))
         }
         configureNotchShelf()
+        startAgentReadWatch()
         Task { await refreshRecents() }
         // Whatever waits on the seeds must also wait on the launch pass: the pass
         // is what turns the expired-secret seed into a receipt entry. Built in one
@@ -1708,17 +1727,22 @@ final class AppModel {
         reviewedImageStore?.removeReviewedImages(except: mcpConfig.liveReviewedImages())
     }
 
-    func revokeMCPGrant(id: UUID) {
-        updateMCPConfig { config in
+    /// True once the revocation is saved.
+    @discardableResult
+    func revokeMCPGrant(id: UUID) -> Bool {
+        let saved = updateMCPConfig { config in
             guard let index = config.grants.firstIndex(where: { $0.id == id }) else { return }
             config.grants[index].revokedAt = .now
         }
         removeUnservedReviewedImages()
+        return saved && mcpConfig.grants.first { $0.id == id }?.revokedAt != nil
     }
 
-    private func updateMCPConfig(_ mutate: (inout MCPServerConfig) -> Void) {
+    @discardableResult
+    private func updateMCPConfig(_ mutate: (inout MCPServerConfig) -> Void) -> Bool {
         do {
             mcpConfig = try MCPServerConfig.update(in: mcpConfigDirectory, mutate)
+            return true
         } catch {
             // A failed save leaves the in-memory config untouched, so the row
             // simply does not change state. Without a toast that is
@@ -1731,6 +1755,7 @@ final class AppModel {
             diagnostics.record(
                 String(localized: "MCP Access"),
                 String(localized: "Couldn’t save local agent access settings."))
+            return false
         }
     }
 

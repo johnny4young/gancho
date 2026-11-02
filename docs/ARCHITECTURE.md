@@ -290,7 +290,11 @@ reloads that grant before every tool call, so disable, expiry, and revoke affect
 already-running stdio clients. Context filters are expressed in the store query
 where possible and rechecked before content reads; an out-of-context identifier
 is indistinguishable from a missing one. Sensitive clips are excluded under all
-grants, and the ledger schema can carry policy/count/denial metadata only.
+grants, and the ledger schema can carry policy/count/denial metadata only,
+plus the grant's board id, selection size and window at call time. After a
+row is written the CLI posts `MCPAccessSignal`, a distributed notification
+with no object or user info; the app reads the rows after the last id it saw,
+so a forged post can only make it re-read rows that already exist.
 
 The CLI and Settings UI are two control surfaces over the same owner-only config
 file. Read-only grants omit mutating tools at the protocol edge. Read-write
