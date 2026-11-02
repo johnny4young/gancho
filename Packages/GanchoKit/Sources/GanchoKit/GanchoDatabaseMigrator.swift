@@ -36,6 +36,7 @@ enum GanchoDatabaseMigrator {
         case pasteEvents = "v29-paste-events"
         case clipParts = "v30-clip-parts"
         case mcpAccessContext = "v31-mcp-access-context"
+        case snippetSuggestions = "v32-snippet-suggestions"
     }
 
     static var identifiers: [String] {
@@ -106,6 +107,7 @@ enum GanchoDatabaseMigrator {
             try db.alter(table: "clip") { table in table.add(column: "parts", .text) }
         }
         GRDBClipboardStore.registerMCPAccessContextMigration(in: &migrator)
+        GRDBClipboardStore.registerSnippetSuggestionMigration(in: &migrator)
         return migrator
     }
 

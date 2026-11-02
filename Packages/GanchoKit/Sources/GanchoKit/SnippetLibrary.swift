@@ -230,31 +230,24 @@ extension GRDBClipboardStore {
 
     /// Records one successful reuse and resolves a one-shot promotion candidate
     /// in the same write transaction. The query returns metadata only; content
-    /// is neither loaded nor logged. Exact equality means dismissing the nudge
-    /// needs no persistent flag — the next use advances past the threshold.
+    /// is neither loaded nor logged. Exact equality makes the nudge one-shot:
+    /// the next use advances past the threshold. A dismissed clip counts from
+    /// its uses when dismissed, and a clip turned down for good never returns.
     @discardableResult
     public func recordUseAndSnippetSuggestion(
         id: UUID, now: Date = .now,
         requiredUses: Int = SnippetLimits.promotionSuggestionUseThreshold
     ) async throws -> ClipItem? {
-        // Never nudge the user to permanently retain and sync a masked-preview
-        // kind (secret/card/JWT): promotion would outlive the short sensitive
-        // lifetime and cross devices. `isSensitive` alone misses a bare JWT.
-        let maskedKinds = ClipContentKind.allCases.filter(\.prefersMaskedPreview).map(\.rawValue)
-        let kindPlaceholders = maskedKinds.map { _ in "?" }.joined(separator: ", ")
-        return try await writer.write { db in
+        // The candidate rule never nudges the user to permanently retain and
+        // sync a masked-preview kind (secret/card/JWT): promotion would outlive
+        // the short sensitive lifetime and cross devices.
+        try await writer.write { db in
             try db.execute(
                 sql: "UPDATE clip SET uses = uses + 1, lastUsedAt = ? WHERE id = ?",
                 arguments: [now, id.uuidString])
-            var arguments: [any DatabaseValueConvertible] = [id.uuidString, requiredUses]
-            arguments.append(contentsOf: maskedKinds)
             return try ClipRow.filter(
-                sql: """
-                    id = ? AND uses = ? AND isSnippet = 0
-                    AND isSensitive = 0 AND isArchived = 0
-                    AND kind NOT IN (\(kindPlaceholders))
-                    """,
-                arguments: StatementArguments(arguments)
+                sql: "id = ? AND " + Self.snippetCandidateSQL(usesComparison: "="),
+                arguments: [id.uuidString, requiredUses]
             ).fetchOne(db)?.item
         }
     }

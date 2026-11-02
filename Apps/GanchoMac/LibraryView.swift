@@ -23,6 +23,7 @@ struct LibraryView: View {
     @State var allCount = 0
     @State var pinnedCount = 0
     @State var snippets: [ClipItem] = []
+    @State var snippetSuggestions = SnippetSuggestions.empty
     @State var filterDraft: SmartCollectionRule?
     @State var metadataGeneration = UUID()
     @State var metadataLoadFailed = false
