@@ -13792,6 +13792,104 @@
           }
         }
       }
+    },
+    "Exposed to agents": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expuesto a agentes"
+          }
+        }
+      }
+    },
+    "Show a menu-bar dot when an agent reads": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar un punto en la barra de menús cuando un agente lee"
+          }
+        }
+      }
+    },
+    "%@ read %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ read %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ leyó %@"
+          }
+        }
+      }
+    },
+    "%@ pinned %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ pinned %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ fijó %@"
+          }
+        }
+      }
+    },
+    "%@ read %@ and pinned %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ read %2$@ and pinned %3$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ leyó %@ y fijó %@"
+          }
+        }
+      }
+    },
+    "Access revoked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso revocado"
+          }
+        }
+      }
+    },
+    "Deleted board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tablero eliminado"
+          }
+        }
+      }
+    },
+    "%@, an agent read clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, un agente leyó clips"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

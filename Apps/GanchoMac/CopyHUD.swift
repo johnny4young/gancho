@@ -8,11 +8,15 @@ import SwiftUI
 struct CopyHUD {
     enum Tile {
         case symbol(String, danger: Bool = false)
+        case agent
         case swatch(ColorValue)
     }
 
     let tile: Tile
     let title: LocalizedStringResource
+    var detail: String?
+    /// The title's accessibility identifier.
+    var identifier = "copy-hud"
     var actions: [CopyHUDAction] = []
 }
 
@@ -21,6 +25,7 @@ struct CopyHUDAction: Identifiable {
     let id: String
     let title: LocalizedStringResource
     var isPrimary = false
+    var isDestructive = false
     let run: @MainActor () -> Void
 }
 
@@ -32,18 +37,28 @@ private struct CopyHUDView: View {
         HStack(alignment: .top, spacing: GanchoTokens.Spacing.sm) {
             tile
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-                Text(hud.title)
-                    .font(.body.weight(.bold))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: 320, minHeight: 34, alignment: .leading)
-                    .accessibilityLabel(Text(hud.title))
-                    .accessibilityIdentifier("copy-hud")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(hud.title)
+                        .font(.body.weight(.bold))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .accessibilityLabel(Text(hud.title))
+                        .accessibilityIdentifier(hud.identifier)
+                    if let detail = hud.detail {
+                        Text(verbatim: detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .accessibilityIdentifier("\(hud.identifier)-detail")
+                    }
+                }
+                .frame(maxWidth: 320, minHeight: 34, alignment: .leading)
                 if !hud.actions.isEmpty {
                     HStack(spacing: 6) {
                         ForEach(hud.actions) { action in
                             Button(String(localized: action.title)) { perform(action) }
-                                .ganchoButtonStyle(action.isPrimary ? .primary : .secondary)
+                                .ganchoButtonStyle(style(for: action))
                                 .fixedSize()
                                 .accessibilityIdentifier("copy-hud-action-\(action.id)")
                         }
@@ -55,6 +70,10 @@ private struct CopyHUDView: View {
         .padding(.trailing, GanchoTokens.Spacing.xs)
         .ganchoSurface(radius: GanchoTokens.Radius.lg)
         .accessibilityElement(children: .contain)
+    }
+
+    private func style(for action: CopyHUDAction) -> GanchoButtonRole {
+        action.isDestructive ? .destructive : action.isPrimary ? .primary : .secondary
     }
 
     @ViewBuilder private var tile: some View {
@@ -76,6 +95,13 @@ private struct CopyHUDView: View {
                         : AnyShapeStyle(GanchoTokens.Palette.brandTint),
                     in: shape
                 )
+                .accessibilityHidden(true)
+        case .agent:
+            Image(systemName: "terminal")
+                .font(.title3.weight(.medium))
+                .foregroundStyle(ReadableInk(base: GanchoTokens.Palette.agent, onWash: 0.15))
+                .frame(width: 34, height: 34)
+                .background(GanchoTokens.Palette.agent.opacity(0.15), in: shape)
                 .accessibilityHidden(true)
         case .swatch(let color):
             shape
@@ -136,6 +162,8 @@ final class CopyHUDPresenter {
     /// Shows the HUD top-center on the active screen, below a visible toast.
     /// One with actions stays longer and holds while the pointer is over it.
     func show(_ hud: CopyHUD, below toastFrame: NSRect? = nil) {
+        // Checked before the first frame, not only by the watch that follows.
+        guard isAllowed() else { return }
         let host = CopyHUDHostingView(
             rootView: AnyView(
                 CopyHUDView(hud: hud) { [weak self] action in

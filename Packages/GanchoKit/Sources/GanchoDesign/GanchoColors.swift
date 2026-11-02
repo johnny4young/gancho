@@ -45,6 +45,10 @@ extension GanchoTokens {
         public static let indigo = dynamic(
             light: (0x5E, 0x5C, 0xE6), dark: (0x5E, 0x5C, 0xE6))
 
+        /// Agent activity: MCP clients reading or organizing clips.
+        public static let agent = dynamic(
+            light: (0x2F, 0x7D, 0xE1), dark: (0x5A, 0xC8, 0xFA))
+
         // MARK: Ink and text derived from the brand green
 
         /// Text and glyphs on a brand-green fill (6.8:1 light, 8.5:1 dark).
