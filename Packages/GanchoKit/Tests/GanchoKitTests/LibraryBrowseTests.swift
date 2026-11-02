@@ -52,6 +52,34 @@ struct LibraryBrowseTests {
         #expect(paged.map(\.preview) == ["pinned old", "new"])
     }
 
+    @Test("Equal capture times keep every clip across page boundaries", arguments: [false, true])
+    func tiedPages(oldestFirst: Bool) async throws {
+        let store = try makeStore()
+        let timestamp = Date(timeIntervalSince1970: 1_700_000_000)
+        // Deliberately insert neither ascending nor descending IDs. Pinned and
+        // unpinned runs each cross a page boundary at the same capture time.
+        for number in [3, 6, 2, 1, 5, 4] {
+            let id = try #require(
+                UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", number)))
+            let item = ClipItem(
+                id: id, createdAt: timestamp, preview: "clip \(number)",
+                contentHash: "tie-\(number)", isPinned: [1, 4, 6].contains(number))
+            try await store.insert(item, content: .text(item.preview))
+        }
+        let query = LibraryBrowseQuery(scope: .all, oldestFirst: oldestFirst)
+        var pages: [ClipItem] = []
+        for offset in stride(from: 0, to: 6, by: 2) {
+            let page = try await store.libraryItems(query, offset: offset, limit: 2)
+            #expect(page.count == 2)
+            pages.append(contentsOf: page)
+        }
+        let expected = oldestFirst ? [1, 4, 6, 2, 3, 5] : [6, 4, 1, 5, 3, 2]
+        #expect(pages.map(\.preview) == expected.map { "clip \($0)" })
+        #expect(Set(pages.map(\.id)).count == 6)
+        #expect(try await store.libraryCount(query) == pages.count)
+        #expect(try await store.libraryItems(query, offset: 6, limit: 2).isEmpty)
+    }
+
     @Test("Scope and kinds narrow both the page and the total")
     func scopeAndKinds() async throws {
         let store = try makeStore()
