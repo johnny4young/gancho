@@ -132,9 +132,9 @@ final class KeyboardModel: ObservableObject {
     }
 
     private func logInsert(_ id: UUID) async {
-        guard let store, KeyboardUpNextPreference.isEnabled() else { return }
-        try? await store.recordPasteEvents(
-            clipIDs: [id], targetBundleID: KeyboardUpNext.logTarget, at: .now)
+        guard let store else { return }
+        await KeyboardUpNext.logInsert(
+            id, in: store, isEnabled: KeyboardUpNextPreference.isEnabled())
     }
 
     func runSearch() async {

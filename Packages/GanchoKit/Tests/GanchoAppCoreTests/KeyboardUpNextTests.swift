@@ -82,6 +82,22 @@ struct KeyboardUpNextTests {
         #expect(rows == 0)
     }
 
+    @Test("An insert logs only while the switch is on")
+    func logsOnlyWhileOn() async throws {
+        let store = try makeStore()
+        let item = ClipItem(preview: "hello", contentHash: "hash-switch")
+        try await store.insert(item, content: .text("hello"))
+        let rows = {
+            try await store.writer.read { db in
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM paste_event") ?? -1
+            }
+        }
+        await KeyboardUpNext.logInsert(item.id, in: store, isEnabled: false)
+        #expect(try await rows() == 0, "the table, not a filtered read")
+        await KeyboardUpNext.logInsert(item.id, in: store, isEnabled: true)
+        #expect(try await rows() == 1)
+    }
+
     @Test("An archived clip leaves the log's results")
     func archivedClipIsNotRead() async throws {
         let store = try makeStore()
