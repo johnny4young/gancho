@@ -9,6 +9,17 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Notch shelf, off by default in Settings › Capture: drag anything (text, a
+  link, an image, files from Finder) to the notch, or to the top center of a
+  screen without one, and a shelf opens with your boards and four actions.
+  Drop on a board to file it, or on New board to start one. Drop an image on
+  Extract text, Resize (long edge 1280 px, never larger) or Strip location
+  (removes GPS, keeps everything else) and the result is saved as a clip and
+  copied. Dropped content goes through the same checks as a copy: password
+  manager markers, the secret detector and the never-capture list, and the shelf refuses
+  drops in Private Mode and while the screen is shared. Files are
+  stored as references and never moved, and nothing is read until the drop
+  lands.
 - Show actions after copying, off by default in Settings › Capture, with a
   switch for colors, links and one-time codes: copy a color and a small HUD
   offers Copy as rgb() or HSL, copy a web link and it offers Open, copy a
