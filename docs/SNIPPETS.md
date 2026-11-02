@@ -39,3 +39,29 @@ it returns to the group and the toast in the panel offers it once more.
 Snippets, secrets, masked kinds, archived and expired clips are never suggested,
 and the group hides in Private Mode and while the screen is shared. Your answers
 live in a local table that does not sync, and they are deleted with the clip.
+
+## Placeholders
+
+The **Insert placeholder** row in the editor writes these at the caret.
+
+| Placeholder | Fills with |
+| --- | --- |
+| `{name}`, `{name:default}` | A field you type in the fill sheet |
+| `{clipboard}` | The clipboard at the moment you insert |
+| `{clipboard offset=1}` | The clip before the newest in history; 2 goes one further back |
+| `{date}`, `{date +2d}`, `{date -1d}` | A date you pick in the fill sheet, starting at today plus the offset |
+| `{cursor}` | Nothing: the caret lands here after pasting |
+
+`| trim` and `| uppercase` can follow any placeholder but the cursor, as in
+`{clipboard | trim}`, and they run in the order written. Anything else in braces
+is pasted as written.
+
+The fill sheet appears only when there is a field to type or a date to pick. Its
+preview shows `{clipboard}` and `{cursor}` as written, because the clipboard is
+read only when you insert.
+
+A clipboard placeholder stays empty, with a toast saying so, in Private Mode and
+when the clip is protected, a secret, a masked kind or not text. Pinned clips
+count at their own time in history, and snippets don't count. If the caret would
+have to move more than 2,000 characters, it stays at the end of the pasted text.
+A name with a default, such as `{date:today}`, is still a field.

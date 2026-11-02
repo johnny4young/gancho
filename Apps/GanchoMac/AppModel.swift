@@ -33,6 +33,7 @@ import SwiftUI
     /// UI-test paste sink: posts no ⌘V, so a test can never type into another app.
     private struct UITestDiscardingKeyEventPoster: KeyEventPosting {
         func postCommandKey(keyCode: CGKeyCode) {}
+        func postKey(keyCode: CGKeyCode) {}
     }
 #endif
 
@@ -1317,22 +1318,31 @@ final class AppModel {
         }
     }
 
-    /// Insert a snippet by keyword: fill its {fields} with the given values,
-    /// paste the result, and bump the usage count. Empty values means a
-    /// non-template snippet (or fields left blank → their defaults apply).
-    func pasteSnippet(_ snippet: ClipItem, values: [String: String]) {
+    /// Insert a snippet by keyword: fill its placeholders, paste the result,
+    /// leave the caret at its {cursor}, and bump the usage count. Empty values
+    /// means a non-template snippet (or fields left blank → their defaults apply).
+    func pasteSnippet(
+        _ snippet: ClipItem, values: [String: String], dates: [Int: Date] = [:]
+    ) {
         guard fullStore != nil else { return }
         let intendedTarget = currentReuseTargetBundleID()
         Task {
             guard let body = await snippetBody(for: snippet), !Task.isCancelled else { return }
-            await pasteBackWorkflow.deliver(
-                .text(SnippetTemplate.fill(body, values: values)),
+            // Read first: delivering overwrites the clipboard.
+            let clipboard = await clipboardPlaceholderValues(in: body)
+            let rendered = SnippetTemplate.render(
+                body, values: values, dates: dates, clipboard: clipboard)
+            let delivery = await pasteBackWorkflow.deliver(
+                .text(rendered.text),
                 asPlainText: false,
                 intendedTarget: intendedTarget,
                 recordReuse: { confirmedTarget in
                     await recordSuccessfulReuse(
                         .snippet, items: [snippet], targetBundleID: confirmedTarget)
                 })
+            if case .delivered(.pasted) = delivery, let back = rendered.charactersAfterCursor {
+                await moveCaretAfterPaste(by: back, in: intendedTarget)
+            }
             await reuseController.recordSnippetPaste(of: snippet)
         }
     }

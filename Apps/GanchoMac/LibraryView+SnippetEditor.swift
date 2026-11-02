@@ -51,7 +51,7 @@ extension LibraryView {
                 Spacer(minLength: 0)
             }
 
-            SyntaxTextView(text: $draft.edited.body)
+            SyntaxTextView(text: $draft.edited.body, handle: snippetBodyEditor)
                 .frame(minHeight: 220)
                 .clipShape(roundedCard)
                 .overlay(
@@ -68,6 +68,8 @@ extension LibraryView {
             if !fields.isEmpty {
                 fieldStrip(fields)
             }
+
+            InsertPlaceholderChips(editor: snippetBodyEditor)
 
             snippetFooter(for: snippet)
         }

@@ -18,6 +18,19 @@ struct RecipeDeliveryTests {
             dev.map(\.title) == DevActions.ActionID.allCases.map { DevActions.action($0).title })
     }
 
+    @Test("A history clip for a snippet meets the live clipboard's bar, whatever its flags")
+    func historyValueIsChecked() {
+        #expect(ClipboardTransformInput.historyValue("plain text") == "plain text")
+        #expect(ClipboardTransformInput.historyValue(nil) == nil)
+        #expect(ClipboardTransformInput.historyValue("") == nil)
+        #expect(
+            ClipboardTransformInput.historyValue("token ghp_" + String(repeating: "a", count: 36))
+                == nil)
+        #expect(
+            ClipboardTransformInput.historyValue(
+                String(repeating: "a", count: TextRecipeExecutor.maximumUTF8Bytes + 1)) == nil)
+    }
+
     @Test("A saved pipeline is a valid recipe that runs the same steps")
     func pipelineSavesAsRecipe() async throws {
         let pipeline = TransformPipeline(steps: [.text(.trimmed), .dev(.base64Encode)])

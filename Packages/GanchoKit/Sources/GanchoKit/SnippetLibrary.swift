@@ -252,6 +252,27 @@ extension GRDBClipboardStore {
         }
     }
 
+    /// The text of the clip `offset` places back in history, for a clipboard
+    /// placeholder. Pins sit at their own time and snippets don't count. Nil
+    /// past the end, for non-text clips, and for anything shown masked.
+    public func historyTextForSnippet(offset: Int, now: Date = .now) async throws -> String? {
+        guard offset >= 0 else { return nil }
+        let item = try await writer.read { db in
+            try ClipRow
+                .select(ClipRow.metadataColumns)
+                .filter(Column("isArchived") == false && Column("isSnippet") == false)
+                .filter(sql: Self.unexpiredPredicate, arguments: [now])
+                .order(sql: "COALESCE(lastUsedAt, createdAt) DESC")
+                .limit(1, offset: offset)
+                .fetchOne(db)?
+                .item
+        }
+        guard let item, !ClipSafePresentation.requiresMasking(item),
+            case .text(let text)? = try await content(for: item.id)
+        else { return nil }
+        return text
+    }
+
     /// The snippet invoked by an exact keyword (case-insensitive), if any — the
     /// in-app keyword expansion path.
     public func snippet(matchingKeyword keyword: String) async throws -> ClipItem? {

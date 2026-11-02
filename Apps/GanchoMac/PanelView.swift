@@ -431,8 +431,8 @@ struct PanelView: View {
                             }
                         }
                     },
-                    pasteSnippet: { request, values in
-                        model.pasteSnippet(request.snippet, values: values)
+                    pasteSnippet: { request, values, dates in
+                        model.pasteSnippet(request.snippet, values: values, dates: dates)
                     },
                     updateBoardIdentity: { board, colorHex, emoji in
                         await model.updateBoardIdentity(board, colorHex: colorHex, emoji: emoji)
@@ -1893,12 +1893,10 @@ struct PanelView: View {
         guard let body = await model.snippetBody(for: snippet),
             !Task.isCancelled, search.pasteInteractionID == interaction
         else { return }
-        let fields = SnippetTemplate.fields(in: body)
-        if fields.isEmpty {
-            model.pasteSnippet(snippet, values: [:])
+        if SnippetTemplate.needsFilling(body) {
+            presentedSheet = .snippet(SnippetFillRequest(snippet: snippet, body: body))
         } else {
-            presentedSheet = .snippet(
-                SnippetFillRequest(snippet: snippet, body: body, fields: fields))
+            model.pasteSnippet(snippet, values: [:])
         }
     }
 }

@@ -25,6 +25,8 @@
     public protocol KeyEventPosting: Sendable {
         /// Posts ⌘+keyCode down/up to the session event tap.
         func postCommandKey(keyCode: CGKeyCode)
+        /// Posts keyCode down/up with no modifier.
+        func postKey(keyCode: CGKeyCode)
     }
 
     /// Pastes a stored clip into the frontmost app: write to the pasteboard
@@ -91,6 +93,18 @@
             }
             return .pasted
         }
+
+        /// Longer than this, the caret stays at the end: a burst of synthetic
+        /// keys would lag visibly in the target app.
+        public static let maximumCaretMove = 2_000
+        private static let leftArrowKeyCode: CGKeyCode = 123
+
+        /// Moves the caret back through just-pasted text, for a snippet's {cursor}.
+        public func moveCaretBack(by characters: Int) {
+            guard characters > 0, characters <= Self.maximumCaretMove, isAccessibilityTrusted()
+            else { return }
+            for _ in 0..<characters { poster.postKey(keyCode: Self.leftArrowKeyCode) }
+        }
     }
 
     /// Real pasteboard writer. Every write carries the self-write marker so
@@ -143,6 +157,17 @@
                 keyboardEventSource: source, virtualKey: keyCode, keyDown: false)
             down?.flags = .maskCommand
             up?.flags = .maskCommand
+            down?.post(tap: .cgSessionEventTap)
+            up?.post(tap: .cgSessionEventTap)
+        }
+
+        public func postKey(keyCode: CGKeyCode) {
+            let source = CGEventSource(stateID: .combinedSessionState)
+            let down = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true)
+            let up = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false)
+            // A Shift still held would otherwise select what was just pasted.
+            down?.flags = []
+            up?.flags = []
             down?.post(tap: .cgSessionEventTap)
             up?.post(tap: .cgSessionEventTap)
         }
