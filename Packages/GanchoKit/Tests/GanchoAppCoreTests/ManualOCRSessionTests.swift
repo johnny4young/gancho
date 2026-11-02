@@ -31,7 +31,9 @@ private struct OCRRecognizerFailure: Error {}
 
 private struct ImageReaderStub: ImageTextReading {
     let input: ImageTextInput?
-    func imageTextInput(id: UUID, now: Date) async throws -> ImageTextInput? { input }
+    func imageTextInput(
+        id: UUID, now: Date, preferringImage: Bool
+    ) async throws -> ImageTextInput? { input }
     func permitsImageText(id: UUID, now: Date) async throws -> Bool { input != nil }
 }
 
@@ -304,6 +306,57 @@ struct ManualOCRSessionTests {
         #expect(await session.reviewedText(session.text) == session.text)
     }
 
+    @Test("Only the flagged line is held; Copy all carries the rest until it is revealed")
+    func holdsBackOneLine() async {
+        let session = ManualOCRSession()
+        await withCheckedContinuation { continuation in
+            session.start(
+                recognize: {
+                    ManualOCRResult(
+                        lines: ["Hola", "card 4242 4242 4242 4242", "Gancho"].map {
+                            RecognizedTextLine(text: $0)
+                        })
+                },
+                isAllowed: { true }, isSensitive: { $0.contains("4242") },
+                clipboardRevision: { 0 }, copy: { _ in }, didFinish: { _ in continuation.resume() })
+        }
+        #expect(session.heldLines == [1])
+        #expect(session.isSensitive)
+        #expect(session.releasedLines(revealed: []) == [0, 2])
+        #expect(session.releasedText(revealed: []) == "Hola\nGancho")
+        #expect(session.releasedLines(revealed: [1]) == [0, 1, 2])
+        session.cancel()
+        #expect(session.heldLines.isEmpty)
+    }
+
+    @Test("A secret only the joined text reveals holds every line")
+    func holdsEveryLineForASplitSecret() {
+        let lines = ["BEGIN", "KEY"].map { RecognizedTextLine(text: $0) }
+        let held = ManualOCRSession.heldLines(lines) { $0 == "BEGIN\nKEY" }
+        #expect(held == [0, 1])
+        #expect(ManualOCRSession.heldLines(lines) { _ in false }.isEmpty)
+        let mixed = ["card 4242", "BEGIN", "KEY"].map { RecognizedTextLine(text: $0) }
+        let heldMixed = ManualOCRSession.heldLines(mixed) {
+            $0.contains("4242") || $0 == "BEGIN\nKEY"
+        }
+        #expect(heldMixed == [0, 1, 2], "a split key stays held beside another secret")
+    }
+
+    @Test("Without auto-copy a clean result waits for a tap")
+    func autoCopyOff() async {
+        let session = ManualOCRSession()
+        var copies = 0
+        let result = await withCheckedContinuation { continuation in
+            session.start(
+                recognize: { ManualOCRResult(text: "Hola\nGancho") }, isAllowed: { true },
+                autoCopy: false, clipboardRevision: { 0 }, copy: { _ in copies += 1 },
+                didFinish: { continuation.resume(returning: $0) })
+        }
+        #expect(result == .ready)
+        #expect(copies == 0)
+        #expect(session.releasedText(revealed: []) == "Hola\nGancho")
+    }
+
     @Test("The session remembers which clip it serves and forgets it on cancel")
     func itemIdentity() async {
         let session = ManualOCRSession()
@@ -347,6 +400,15 @@ struct ManualOCRSessionTests {
         }
     }
 
+    @Test("Fresh regions recognize the image even when its text is stored")
+    func freshRegions() async throws {
+        let box = CGRect(x: 0.1, y: 0.1, width: 0.5, height: 0.1)
+        let result = try await ManualImageTextService().result(
+            for: UUID(), store: StoredTextReader(), freshRegions: true
+        ) { _ in [RecognizedTextLine(text: "fresh", box: box)] }
+        #expect(result?.lines == [RecognizedTextLine(text: "fresh", box: box)])
+    }
+
     /// Bounded wait for a terminal state. Without the deadline a session that
     /// never finishes hangs the package run instead of failing this test.
     private func settled(_ session: ManualOCRSession) async -> Bool {
@@ -358,10 +420,22 @@ struct ManualOCRSessionTests {
     }
 }
 
+/// Hands back stored text unless the caller prefers the image.
+private struct StoredTextReader: ImageTextReading {
+    func imageTextInput(
+        id: UUID, now: Date, preferringImage: Bool
+    ) async throws -> ImageTextInput? {
+        preferringImage ? .image(Data([1])) : .cached("stored")
+    }
+    func permitsImageText(id: UUID, now: Date) async throws -> Bool { true }
+}
+
 private struct DelayedImageReader: ImageTextReading {
     let latch: OCRLatch
     let input: ImageTextInput
-    func imageTextInput(id: UUID, now: Date) async throws -> ImageTextInput? {
+    func imageTextInput(
+        id: UUID, now: Date, preferringImage: Bool
+    ) async throws -> ImageTextInput? {
         _ = await latch.recognize()
         return input
     }

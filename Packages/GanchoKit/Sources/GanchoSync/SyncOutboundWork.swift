@@ -82,7 +82,10 @@ struct SyncOutboundWork: Sendable {
                 ?? BoardRecordMapper.record(for: board, systemFields: nil, zoneID: boardZone)
         }
         guard recordID.zoneID == clipZone else { return nil }
-        guard let entry = try await store.pendingUpload(id: id) else { return nil }
+        // The store already holds secrets back; a record is never built for one.
+        guard let entry = try await store.pendingUpload(id: id), !entry.item.isSensitive else {
+            return nil
+        }
         let fields = try await store.systemFields(for: id)
         let membership = Array(try await store.boardIDs(forClip: id))
         return ClipRecordMapper.record(

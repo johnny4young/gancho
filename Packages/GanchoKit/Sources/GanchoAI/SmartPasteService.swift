@@ -169,6 +169,36 @@ public struct SmartPasteService: Sendable {
         return Locale(identifier: "en").localizedString(forIdentifier: identifier) ?? identifier
     }
 
+    /// The longest change request sent to the model.
+    public static let maxChangeCharacters = 300
+
+    /// Whether a text fits whole into one request; a longer one would come
+    /// back cut, so the rewrite is not offered for it.
+    public func fitsDescribeChange(_ text: String) -> Bool {
+        // Redaction shortens text only a little, so a far longer one never fits.
+        guard text.count <= maxPromptCharacters * 2 else { return false }
+        return ModelInputSanitizer.sanitized(text).count <= maxPromptCharacters
+    }
+
+    /// The single message a change request sends: both parts sanitized, the
+    /// request clamped (pure → unit-tested).
+    public static func describeChangeMessage(change: String, text: String) -> String {
+        let request = ModelInputSanitizer.sanitized(change)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(maxChangeCharacters)
+        return "Change: \(request)\n\nText:\n\(ModelInputSanitizer.sanitized(text))"
+    }
+
+    /// Rewrites `text` as the user's `change` asks, on a fresh on-device session.
+    public func describeChange(_ text: String, change: String) async throws -> String {
+        guard Self.isAvailable else { throw AnnotationError.backendUnavailable }
+        guard fitsDescribeChange(text) else { throw AnnotationError.backendUnavailable }
+        let session = LanguageModelSession(instructions: PromptCatalog.describeChange.instructions)
+        let response = try await session.respond(
+            to: Self.describeChangeMessage(change: change, text: text))
+        return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Runs the action on a FRESH session (no transcript carryover) and returns
     /// the transformed text. Model-backed actions throw
     /// `AnnotationError.backendUnavailable` when Apple Intelligence is off;

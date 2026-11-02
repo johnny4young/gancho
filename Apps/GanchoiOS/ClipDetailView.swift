@@ -113,6 +113,10 @@ struct ClipDetailView: View {
     @State var isSnippet = false
     /// A link shows as its hero until the user asks to edit its text.
     @State var editingLink = false
+    /// Held-back lines of the image's text the user revealed, by index.
+    @State var ocrRevealed: Set<Int> = []
+    @State var ocrCopiedLine: Int?
+    @State var ocrLinks: [Int: URL] = [:]
 
     /// Text-like clips (not image / file / colour) — what snippets, Smart Paste
     /// and most dev actions apply to.
@@ -166,6 +170,9 @@ struct ClipDetailView: View {
                 contentSection
             }
             actionsSection
+            ClipImageTextSection(
+                item: item, revealed: $ocrRevealed, copiedLine: ocrCopiedLine, links: ocrLinks,
+                onLine: tapRecognizedLine)
             smartActionsSection
             boardsSection
         }
@@ -186,8 +193,20 @@ struct ClipDetailView: View {
         .task(id: translationAvailabilityRequest) { await refreshTranslationTargets() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { translationRefresh += 1 }
+            if phase == .background { ocrRevealed = [] }
         }
-        .onDisappear { translationTask?.cancel() }
+        .onDisappear {
+            translationTask?.cancel()
+            if !showFullImage, !showMoveSheet { model.endImageText(for: item.id) }
+        }
+        .task(id: item.id) { model.readImageText(item) }
+        .onChange(of: model.manualOCR.requestID) { _, _ in
+            ocrRevealed = []
+            ocrCopiedLine = nil
+        }
+        .onChange(of: model.manualOCR.state, initial: true) { _, state in
+            ocrLinks = state == .ready ? ImageTextLineStyle.links(in: model.manualOCR.lines) : [:]
+        }
         .onChange(of: fullText) { _, _ in
             translationTargets = []
             translationTask?.cancel()
@@ -256,6 +275,11 @@ struct ClipDetailView: View {
                 thumbnail
                     .resizable()
                     .scaledToFit()
+                    .overlay {
+                        ClipImageTextRegions(
+                            item: item, revealed: ocrRevealed, copiedLine: ocrCopiedLine,
+                            links: ocrLinks, onLine: tapRecognizedLine)
+                    }
                     .frame(maxWidth: .infinity, maxHeight: 340, alignment: .center)
                     .clipShape(
                         RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)

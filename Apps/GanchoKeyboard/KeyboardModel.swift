@@ -23,6 +23,7 @@ final class KeyboardModel: ObservableObject {
     // A resource (not a bare key) so flashNote can also speak it to VoiceOver.
     @Published var note: LocalizedStringResource?
     @Published private(set) var saving = false
+    @Published private(set) var inserted = KeyboardInsertedMarks()
     /// Board filter (a higher axis than search). nil = all clips; otherwise the
     /// selected board, including the always-present Favorites. Synced boards
     /// made on other devices appear here too.
@@ -42,7 +43,8 @@ final class KeyboardModel: ObservableObject {
     let onNextKeyboard: () -> Void
     var onModeChange: ((Bool) -> Void)?
 
-    private let onInsert: (String) -> Void
+    /// Types the text into the host field and returns that field's document id.
+    private let onInsert: (String) -> UUID?
     /// The store surface the keyboard needs: read + search the history, list a
     /// board's members, and sync-delete an entry. Held as facets so the keyboard
     /// depends on capabilities, not the concrete store.
@@ -53,7 +55,7 @@ final class KeyboardModel: ObservableObject {
 
     init(
         hasFullAccess: Bool,
-        onInsert: @escaping (String) -> Void,
+        onInsert: @escaping (String) -> UUID?,
         onDelete: @escaping () -> Void,
         onNextKeyboard: @escaping () -> Void
     ) {
@@ -162,12 +164,11 @@ final class KeyboardModel: ObservableObject {
                 flashNote("This clip is no longer available")
                 return
             }
-            switch payload.content {
-            case .text(let text):
-                onInsert(text)
-            case .fileReferences(let paths):
-                onInsert(paths.joined(separator: "\n"))
-            case .binary(let data, let type):
+            if let text = KeyboardInsertedMarks.fieldText(for: payload.content) {
+                if let document = onInsert(text) {
+                    inserted.markInserted(entry.id, into: document)
+                }
+            } else if case .binary(let data, let type) = payload.content {
                 // A keyboard can only type text into another app — iOS has no
                 // API to insert an image — so hand it off via the pasteboard and
                 // tell the user how to drop it in (long-press the field → Paste).
@@ -175,6 +176,11 @@ final class KeyboardModel: ObservableObject {
                 flashNote("Image copied — long-press the field to paste")
             }
         }
+    }
+
+    /// The host reported its current document; a different one clears the marks.
+    func documentChanged(to document: UUID) {
+        inserted.observe(document: document)
     }
 
     /// Cached thumbnail for the row, or nil to fall back to the kind tile.

@@ -35,8 +35,37 @@ struct CapturePreferencesTests {
         let start = Date(timeIntervalSince1970: 1_000)
         let saved = CapturePreferences(
             isPrivateModePaused: true, privateModeStartedAt: start,
-            privateModeEndsAt: start.addingTimeInterval(3_600), privateModeSkippedCopies: 3)
+            privateModeEndsAt: start.addingTimeInterval(3_600), privateModeSkippedCopies: 3,
+            notchShelf: true)
         saved.save(to: defaults)
         #expect(CapturePreferences.load(from: defaults) == saved)
+    }
+
+    @Test("Double-copy merging is off and its sound on, by default and in older blobs")
+    func mergeDefaults() throws {
+        #expect(!CapturePreferences().mergeDoubleCopies)
+        #expect(CapturePreferences().playsMergeSound)
+        let old = Data(
+            #"{"captureImages":true,"captureFileReferences":true,"captureRichText":true,"isPrivateModePaused":false}"#
+                .utf8)
+        let decoded = try JSONDecoder().decode(CapturePreferences.self, from: old)
+        #expect(!decoded.mergeDoubleCopies)
+        #expect(decoded.playsMergeSound)
+        #expect(decoded.copyActions == CopyActionSwitches())
+        #expect(!decoded.notchShelf)
+        #expect(!CapturePreferences().notchShelf)
+    }
+
+    @Test("Copy actions start off with every kind on, and keep a saved choice")
+    func copyActionDefaults() throws {
+        let defaults = CopyActionSwitches()
+        #expect(!defaults.isEnabled)
+        #expect(defaults.colors && defaults.links && defaults.oneTimeCodes)
+        let partial = try JSONDecoder().decode(
+            CopyActionSwitches.self, from: Data(#"{"isEnabled":true,"links":false}"#.utf8))
+        #expect(partial == CopyActionSwitches(isEnabled: true, links: false))
+        let kindOnly = try JSONDecoder().decode(
+            CopyActionSwitches.self, from: Data(#"{"links":false}"#.utf8))
+        #expect(!kindOnly.isEnabled)
     }
 }

@@ -416,6 +416,7 @@ public struct MCPToolRunner: Sendable {
                 resultCount: count,
                 wasDenied: denial != nil,
                 denialReason: denial,
+                context: grant.contextPack.map(MCPAccessContext.init),
                 occurredAt: now()))
     }
 

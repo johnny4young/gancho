@@ -29,7 +29,10 @@ import AppKit
             guard parts.count == 3, parts[0] == directory.lastPathComponent,
                 parts[2].allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }),
                 let window = NSApp.windows.first(where: { $0.isVisible && matches($0, parts[1]) }),
-                let view = window.contentView?.superview ?? window.contentView,
+                // A popover's frame view draws a material the cache can't capture.
+                let view =
+                    parts[1] == "@popover"
+                    ? window.contentView : window.contentView?.superview ?? window.contentView,
                 let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds)
             else { return }
             view.cacheDisplay(in: view.bounds, to: rep)
@@ -38,10 +41,13 @@ import AppKit
                 to: directory.appendingPathComponent("\(parts[2]).png"), options: .atomic)
         }
 
-        /// A window by title or accessibility identifier; `@sheet` is the
-        /// visible sheet, which has neither.
+        /// A window by title or accessibility identifier; `@sheet` and
+        /// `@popover` are the visible sheet and popover, which have neither.
         private static func matches(_ window: NSWindow, _ selector: String) -> Bool {
             if selector == "@sheet" { return window.sheetParent != nil }
+            if selector == "@popover" {
+                return String(describing: type(of: window)).contains("Popover")
+            }
             return window.title == selector || window.accessibilityIdentifier() == selector
         }
     }

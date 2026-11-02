@@ -313,6 +313,7 @@ extension LibraryView {
         do {
             let nextBoards = try await model.fullStore?.pinboards() ?? []
             let nextSnippets = try await model.fullStore?.snippets() ?? []
+            let nextSuggestions = await model.snippetSuggestions()
             let scope = try await model.fullStore?.scopeCounts(excluding: [])
             let nextAllCount: Int
             if let scope {
@@ -327,6 +328,7 @@ extension LibraryView {
             guard metadataGeneration == request, !Task.isCancelled else { return }
             boards = nextBoards
             snippets = nextSnippets
+            snippetSuggestions = nextSuggestions
             allCount = nextAllCount
             pinnedCount = nextPinnedCount
             boardCounts = counts

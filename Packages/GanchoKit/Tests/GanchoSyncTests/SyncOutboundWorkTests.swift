@@ -582,3 +582,25 @@ extension SyncOutboundWorkTests {
         #expect(dirty == [staleRecord.recordID])
     }
 }
+
+extension SyncOutboundWorkTests {
+    @Test("A secret is never pending and never becomes a record")
+    func secretNeverBecomesARecord() async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let secret = ClipItem(
+            kind: .secret, preview: "●●●● 4Q2v", contentHash: "s", isSensitive: true)
+        try await fixture.store.insert(secret, content: .text("synthetic key"))
+        try await fixture.store.markNeedsUpload(id: secret.id)
+        let recordID = CKRecord.ID(recordName: secret.id.uuidString, zoneID: fixture.work.clipZone)
+
+        let pending = try await fixture.work.pending()
+        let prepared = try await fixture.work.prepare([recordID])
+
+        #expect(pending.clipUploadIDs.isEmpty && pending.clipDeletionRecordNames.isEmpty)
+        #expect(
+            try await fixture.work.pendingCount()
+                == pending.boardUploadIDs.count + pending.boardDeletionRecordNames.count)
+        #expect(prepared.records.isEmpty && prepared.unreadable.isEmpty)
+    }
+}

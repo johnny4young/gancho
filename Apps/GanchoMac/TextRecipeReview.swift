@@ -43,8 +43,9 @@ struct TextRecipeReview: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Text recipes").panelFont(.headline)
                 .accessibilityIdentifier("text-recipe-title")
-            Text("Local recipes. Originals stay unchanged; copying is explicit.").panelFont(
-                .caption)
+            Text("Local recipes. Originals stay unchanged; copying and pasting are explicit.")
+                .panelFont(
+                    .caption)
             Text(
                 "Up to eight steps and 1 MiB per input and result; context formatting allows 64 KiB."
             ).panelFont(.caption)
@@ -71,7 +72,10 @@ struct TextRecipeReview: View {
                 if loading || operation != nil { ProgressView().controlSize(.small) }
                 Button("Run recipe") { run() }.disabled(!valid || input == nil || operation != nil)
                     .accessibilityIdentifier("text-recipe-run")
-                Button("Copy result") { copy() }.keyboardShortcut(.defaultAction)
+                Button("Paste result") { deliver(paste: true) }
+                    .disabled(result == nil || operation != nil)
+                    .accessibilityIdentifier("text-recipe-paste")
+                Button("Copy result") { deliver(paste: false) }.keyboardShortcut(.defaultAction)
                     .ganchoButtonStyle(.primary)
                     .disabled(result == nil || operation != nil)
                     .accessibilityIdentifier("text-recipe-copy")
@@ -144,8 +148,10 @@ struct TextRecipeReview: View {
                     preview("Before", input, identifier: "text-recipe-before")
                     preview("After", result ?? "", identifier: "text-recipe-after")
                 }
-                Text("Previews show up to 8,000 characters. Copy includes the complete result.")
-                    .panelFont(.caption).foregroundStyle(.secondary)
+                Text(
+                    "Previews show up to 8,000 characters. Copy and Paste deliver the complete result."
+                )
+                .panelFont(.caption).foregroundStyle(.secondary)
             } else if !loading {
                 Text("This clip is unavailable, protected or not text-backed.").foregroundStyle(
                     .orange)
@@ -188,6 +194,11 @@ struct TextRecipeReview: View {
                     .accessibilityIdentifier("text-recipe-add-step")
                 Button("Save recipe") { save() }.disabled(!valid || !dirty || storage == nil)
                     .accessibilityIdentifier("text-recipe-save")
+            }
+            if let savedID = UUID(uuidString: selectedID), !dirty {
+                ShortcutRecorder(
+                    "Shortcut:", name: .recipe(savedID),
+                    accessibilityIdentifier: "text-recipe-shortcut")
             }
             if !valid {
                 Text(
@@ -300,6 +311,7 @@ struct TextRecipeReview: View {
         operation = Task {
             do {
                 try await storage.saveTextRecipe(draft)
+                await model.registerRecipeShortcuts()
                 let refreshed = try await storage.textRecipes()
                 guard !Task.isCancelled, generation == request else { return }
                 records = refreshed
@@ -341,6 +353,7 @@ struct TextRecipeReview: View {
         operation = Task {
             do {
                 try await storage.deleteTextRecipe(id: id)
+                if let deleted = UUID(uuidString: id) { model.recipeDeleted(deleted) }
                 let refreshed = try await storage.textRecipes()
                 guard !Task.isCancelled, generation == request else { return }
                 records = refreshed
@@ -353,6 +366,9 @@ struct TextRecipeReview: View {
             }
         }
     }
+}
+
+extension TextRecipeReview {
     private func run() {
         guard let draft, let input else { return }
         cancel()
@@ -372,8 +388,11 @@ struct TextRecipeReview: View {
             }
         }
     }
-    private func copy() {
+    /// Copy and Paste share the revalidation: the clip, privacy and deletion
+    /// state, and an unchanged clipboard, checked right before delivery.
+    private func deliver(paste: Bool) {
         guard let result, let part, let reader = model.textReuseReader else { return }
+        let steps = draft?.steps.map(\.actionID) ?? []
         failed = false
         let request = generation
         operation = Task {
@@ -385,6 +404,11 @@ struct TextRecipeReview: View {
                         !model.preferences.isPrivateModePaused && !model.isDeletionPending(clipID)
                     },
                     write: { text in
+                        model.rememberLastTransform(steps)
+                        if paste {
+                            model.pasteText(text)
+                            return
+                        }
                         #if DEBUG
                             if !CommandLine.arguments.contains("-ui-test-paste-sink") {
                                 SystemPasteboardWriter().write(.text(text), asPlainText: true)

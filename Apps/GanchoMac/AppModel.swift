@@ -126,6 +126,23 @@ final class AppModel {
     let panel: PanelController
     /// Transient HUD for action feedback (copy-only paste, pin/unpin).
     let toasts: ToastPresenter
+    let copyHUD: CopyHUDPresenter
+    let notchShelf = NotchShelfController()
+    /// The menu-bar dot after an agent read, until it fades or the menu opens.
+    var agentReadDotVisible = false
+    /// Bumped when new ledger rows arrive, so an open ledger re-reads at once.
+    var mcpLedgerRevision = 0
+    /// "Show a menu-bar dot when an agent reads"; on unless turned off.
+    var showsAgentReads = true {
+        didSet {
+            defaults.set(showsAgentReads, forKey: Self.showsAgentReadsKey)
+            if !showsAgentReads { agentReadDotVisible = false }
+        }
+    }
+    @ObservationIgnored var agentReadFeed: AgentReadFeed?
+    @ObservationIgnored var agentReadFetch: Task<Void, Never>?
+    @ObservationIgnored var agentReadFetchPending = false
+    @ObservationIgnored var agentReadDotFade: Task<Void, Never>?
     let manualOCR: ManualOCRSession
     let manualOCRWindow = ManualOCRWindowController()
     let screenTextWorkflow: ScreenTextWorkflow
@@ -191,6 +208,9 @@ final class AppModel {
     /// Bumped by every applied tier, so a slow launch lookup cannot overwrite a
     /// tier StoreKit delivered while it was in flight.
     @ObservationIgnored private var tierGeneration = 0
+    @ObservationIgnored private var stackIdleTask: Task<Void, Never>?
+    @ObservationIgnored private let stackStrip = PasteStackRunStripController()
+    @ObservationIgnored var registeredRecipeShortcuts: Set<UUID> = []
 
     /// Optional anonymous diagnostics are off until the user explicitly
     /// consents. Withdrawing consent tears down the transport immediately.
@@ -219,9 +239,9 @@ final class AppModel {
     private let curationController = ClipCurationController()
     private let deletionWorkflow = ClipDeletionWorkflow()
     private let editingController = ClipEditingController()
-    private let ingestionCoordinator = ClipIngestionCoordinator()
+    let ingestionCoordinator = ClipIngestionCoordinator()
     private let enrichmentScheduler = EnrichmentScheduler()
-    private let defaults: UserDefaults
+    let defaults: UserDefaults
     private let activationTracker: ActivationTracker
     private var retentionTimer: Timer?
     /// Light periodic sync pull for the menu-bar agent (see `scheduleSyncPoll`).
@@ -269,14 +289,30 @@ final class AppModel {
 
     var preferences: CapturePreferences {
         get { captureLifecycle.preferences }
-        set { captureLifecycle.preferences = newValue }
+        set {
+            let shelfChanged = newValue.notchShelf != captureLifecycle.preferences.notchShelf
+            captureLifecycle.preferences = newValue
+            if shelfChanged { notchShelf.setEnabled(newValue.notchShelf) }
+        }
     }
 
     /// On-device intelligence toggles (the Intelligence screen). Each gates a
     /// real enrichment stage in `enrich`/`ClipItemFactory.make`.
     var intelligence: IntelligencePreferences {
-        didSet { intelligence.save(to: defaults) }
+        didSet {
+            intelligence.save(to: defaults)
+            if intelligence.upNext != oldValue.upNext { upNextPreferenceChanged() }
+        }
     }
+
+    @ObservationIgnored var copyMerger = DoubleCopyMerger()
+    @ObservationIgnored var lastIngest: Task<Void, Never>?
+
+    /// The panel's Up next slot; nil hides it.
+    var upNextSlot: UpNextSlot?
+    @ObservationIgnored var upNextRefresh: Task<Void, Never>?
+    /// Paste-log writes and erases run in the order they were asked for.
+    @ObservationIgnored let upNextWrites = OrderedWrites()
 
     /// Curated-Library Spotlight donation (snippets + pins only — never raw
     /// history). Turning it off wipes Gancho's Spotlight domain immediately.
@@ -421,6 +457,9 @@ final class AppModel {
             }
         #endif
         self.mcpConfig = loadedMCPConfig
+        self.showsAgentReads =
+            appDefaults.object(forKey: Self.showsAgentReadsKey) == nil
+            || appDefaults.bool(forKey: Self.showsAgentReadsKey)
 
         var loadedPreferences = CapturePreferences.load(from: appDefaults)
         #if DEBUG
@@ -490,6 +529,7 @@ final class AppModel {
         self.manualOCR = manualOCR
         self.screenTextWorkflow = screenTextWorkflow
         self.toasts = toasts
+        copyHUD = CopyHUDPresenter(defaults: appDefaults)
         captureLifecycle = CaptureLifecycleController(
             monitor: resolvedMonitor,
             preferences: loadedPreferences,
@@ -515,7 +555,13 @@ final class AppModel {
             },
             privateModeDuration: { PrivateModeAutoOff.load(from: appDefaults).duration })
         monitor.denylist = SourceAppDenylist.load(from: appDefaults)
+        copyHUD.isAllowed = { [weak self] in
+            guard let self else { return false }
+            return !preferences.isPrivateModePaused && sharingAppName == nil
+        }
         monitor.onCapture = { [weak self] capture in
+            // A copy made here ends a paste-stack run; one from another device doesn't.
+            if !capture.isFromUniversalClipboard { self?.endStackRun() }
             self?.ingest(capture)
         }
         monitor.onPrivateModeCopy = { [weak self] in
@@ -577,6 +623,23 @@ final class AppModel {
         }
         KeyboardShortcuts.onKeyUp(for: .pasteFromStack) { [weak self] in
             self?.pasteNextFromStack()
+        }
+        KeyboardShortcuts.onKeyUp(for: .pasteStackSkip) { [weak self] in
+            self?.skipInStack()
+        }
+        KeyboardShortcuts.onKeyUp(for: .pasteStackBack) { [weak self] in
+            self?.backInStack()
+        }
+        KeyboardShortcuts.onKeyUp(for: .pasteWithLastTransform) { [weak self] in
+            self?.pasteClipboardThroughLastTransform()
+        }
+        Task { [weak self] in await self?.registerRecipeShortcuts() }
+        // The run strip shows only while the panel is closed.
+        for name in [Notification.Name.ganchoPanelDidShow, .ganchoPanelDidHide] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) {
+                [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshStackStrip() }
+            }
         }
 
         // Sync status/idle mapping stays here (the views observe `syncStatus`);
@@ -643,6 +706,8 @@ final class AppModel {
                 String(localized: "Storage"),
                 String(localized: "Couldn’t open secure storage — running in memory."))
         }
+        configureNotchShelf()
+        startAgentReadWatch()
         Task { await refreshRecents() }
         // Whatever waits on the seeds must also wait on the launch pass: the pass
         // is what turns the expired-secret seed into a receipt entry. Built in one
@@ -709,6 +774,9 @@ final class AppModel {
                 },
                 MaintenanceStep("reviewed-image-sweep") { [weak self] in
                     await self?.removeUnservedReviewedImages()
+                },
+                MaintenanceStep("up-next-log-tidy") { [weak self] in
+                    await self?.tidyUpNextLog()
                 }
             ]
             Task(priority: .utility) { await MaintenanceRunner().run(steps) }
@@ -760,48 +828,67 @@ final class AppModel {
         // this also keeps cross-device capture consistent with iOS's consensual
         // model (the origin device decides, the rest receive via sync).
         guard !capture.isFromUniversalClipboard else { return nil }
-        return Task {
-            let configuration = ClipIngestionCoordinator.Configuration(
-                sensitiveLifetime: retentionPolicy.sensitiveLifetime,
-                detectSecrets: intelligence.detectSecrets,
-                tier: tier,
-                intelligence: intelligence,
-                allowsFreeTitle: freeAITitlesRemaining > 0,
-                sourceDeviceName: PlatformDeviceProvenance.currentDeviceName())
-            // Closed by the coordinator the moment the insert phase ends, on
-            // success and on failure both — NOT when `ingest` returns. `ingest`
-            // also awaits the sync enqueue, which builds `CKSyncEngine` on
-            // first use, and folding CloudKit setup into a capture metric would
-            // make the first capture after launch an outlier about something
-            // else entirely.
-            let ingestInterval = Signpost.captureToInsert.begin()
-            let outcome: ClipIngestionCoordinator.Outcome
-            do {
-                outcome = try await ingestionCoordinator.ingest(
-                    capture,
-                    configuration: configuration,
-                    store: store,
-                    syncEngine: syncController.engine,
-                    didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
-            } catch {
-                diagnostics.record(
-                    String(localized: "Capture"), String(localized: "Couldn’t save a copied clip."))
-                return
-            }
-            // Bucketized analytics: kind + a length BUCKET, never the content.
-            telemetry.record(
-                .itemCaptured(
-                    type: outcome.item.kind,
-                    lengthBucket: .init(characterCount: outcome.contentLength)))
-            if outcome.isNew { recordActivationMilestone(.firstCapture) }
-            try? await fullStore?.recordPrivateCapture(
-                sourceAppBundleID: capture.sourceAppBundleID,
-                count: 1,
-                at: capture.capturedAt)
-            await refreshRecents()
-            notifyStoreChanged(for: .captured)
+        // Merging decides from the previous capture's clip, so captures land in order.
+        let previous = preferences.mergeDoubleCopies ? lastIngest : nil
+        let task = Task {
+            await previous?.value
+            if await mergeDoubleCopyIfNeeded(capture) { return }
+            guard let outcome = await saveCapture(capture) else { return }
+            noteIngestedForMerge(capture, outcome: outcome)
+            offerCopyActions(for: outcome, capture: capture)
             enrich(outcome)
         }
+        lastIngest = task
+        return task
+    }
+
+    /// Stores one capture through the coordinator and refreshes the history;
+    /// nil when the write failed.
+    func saveCapture(_ capture: PasteboardCapture) async -> ClipIngestionCoordinator.Outcome? {
+        let configuration = ingestionConfiguration()
+        // Closed by the coordinator the moment the insert phase ends, on
+        // success and on failure both — NOT when `ingest` returns. `ingest`
+        // also awaits the sync enqueue, which builds `CKSyncEngine` on
+        // first use, and folding CloudKit setup into a capture metric would
+        // make the first capture after launch an outlier about something
+        // else entirely.
+        let ingestInterval = Signpost.captureToInsert.begin()
+        let outcome: ClipIngestionCoordinator.Outcome
+        do {
+            outcome = try await ingestionCoordinator.ingest(
+                capture,
+                configuration: configuration,
+                store: store,
+                syncEngine: syncController.engine,
+                didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
+        } catch {
+            diagnostics.record(
+                String(localized: "Capture"), String(localized: "Couldn’t save a copied clip."))
+            return nil
+        }
+        // Bucketized analytics: kind + a length BUCKET, never the content.
+        telemetry.record(
+            .itemCaptured(
+                type: outcome.item.kind,
+                lengthBucket: .init(characterCount: outcome.contentLength)))
+        if outcome.isNew { recordActivationMilestone(.firstCapture) }
+        try? await fullStore?.recordPrivateCapture(
+            sourceAppBundleID: capture.sourceAppBundleID,
+            count: 1,
+            at: capture.capturedAt)
+        await refreshRecents()
+        notifyStoreChanged(for: .captured)
+        return outcome
+    }
+
+    func ingestionConfiguration() -> ClipIngestionCoordinator.Configuration {
+        ClipIngestionCoordinator.Configuration(
+            sensitiveLifetime: retentionPolicy.sensitiveLifetime,
+            detectSecrets: intelligence.detectSecrets,
+            tier: tier,
+            intelligence: intelligence,
+            allowsFreeTitle: freeAITitlesRemaining > 0,
+            sourceDeviceName: PlatformDeviceProvenance.currentDeviceName())
     }
 
     #if DEBUG
@@ -845,10 +932,11 @@ final class AppModel {
     #endif
     /// Pro-tier async enrichment — never blocks capture: OCR makes image
     /// clips searchable; the tiered annotator titles text clips.
-    private func enrich(_ outcome: ClipIngestionCoordinator.Outcome) {
+    func enrich(_ outcome: ClipIngestionCoordinator.Outcome) {
         guard !outcome.enrichment.isEmpty, let fullStore else { return }
         let syncEngine: (any SyncEngine)? =
-            syncController.isEnabled ? syncController.engine : nil
+            syncController.isEnabled
+            ? ExistingClipsSyncEngine(syncController.engine, store: fullStore) : nil
         Task(priority: .utility) { [enrichmentScheduler] in
             // Bounded: a burst of copies used to leave one enrichment in
             // flight per clip, each holding its own model session and
@@ -1046,6 +1134,7 @@ final class AppModel {
         }
         try? await fullStore?.recordPrivateReuse(
             targetAppBundleID: targetBundleID, itemCount: count, at: .now)
+        if method.isPasteBack { recordUpNextPastes(items, targetBundleID: targetBundleID) }
         recordActivationMilestone(.firstSuccessfulReuse)
         let ageBucket: TelemetryEvent.AgeBucket =
             items.count == 1
@@ -1074,13 +1163,14 @@ final class AppModel {
         #endif
         let next = PanelPasteTarget(appName: name, canPostPaste: pasteBack.canPostPaste)
         if pasteTarget != next { pasteTarget = next }
+        refreshUpNext()
     }
 
     /// The production panel is nonactivating, so the OS frontmost application
     /// remains the intended destination while Gancho floats above it. UI tests
     /// activate Gancho itself; treat that as unknown rather than recording a
     /// false self-target.
-    private func currentReuseTargetBundleID() -> String? {
+    func currentReuseTargetBundleID() -> String? {
         let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         guard bundleID != Bundle.main.bundleIdentifier else { return nil }
         return bundleID
@@ -1157,7 +1247,7 @@ final class AppModel {
         outcome == .pasted
     }
 
-    /// Turns the exact third-use signal into one non-blocking curation action.
+    /// Turns the exact-threshold signal into one non-blocking curation action.
     /// A confident board has priority over snippet promotion so the user never
     /// receives two competing suggestions for the same demonstrated reuse.
     private func presentReuseSuggestion(_ item: ClipItem) async {
@@ -1176,7 +1266,7 @@ final class AppModel {
         }
         toasts.show(
             GanchoToast(
-                message: "Used 3 times — save as a snippet?",
+                message: "Used \(item.uses) times — save as a snippet?",
                 style: .suggestion,
                 action: ToastAction(
                     title: "Save as snippet",
@@ -1254,7 +1344,7 @@ final class AppModel {
 
     // MARK: - Smart paste (deterministic + on-device Apple Intelligence)
 
-    private let intelligenceFacade = ClipIntelligenceFacade()
+    let intelligenceFacade = ClipIntelligenceFacade()
 
     /// Smart Paste affordances appear when the user kept the feature on.
     /// Deterministic actions such as PII redaction do not need Apple
@@ -1351,6 +1441,10 @@ final class AppModel {
     /// Queue entries (each with a stable id independent of the clip), so the UI
     /// can render and address duplicates without ClipItem.id collisions.
     var pasteStackEntries: [PasteStack.Entry] { reuseController.pasteStackEntries }
+    /// The queue with its run cursor ("3 of 5").
+    var pasteStack: PasteStack { reuseController.pasteStack }
+    /// Entries still waiting, next first.
+    var pasteStackWaiting: [ClipItem] { Array(pasteStack.items.dropFirst(pasteStack.cursor)) }
 
     func pushToStack(_ item: ClipItem) {
         pushToStack([item])
@@ -1360,14 +1454,17 @@ final class AppModel {
         guard !items.isEmpty else { return }
         reuseController.pushToStack(items)
         toasts.show(GanchoToast(message: "Added to paste stack"))
+        restartStackIdleTimer()
     }
 
     func clearStack() {
         reuseController.clearStack()
+        refreshStackStrip()
     }
 
     func removeFromStack(entryID: Int) {
         reuseController.removeFromStack(entryID: entryID)
+        refreshStackStrip()
     }
 
     func moveInStack(fromOffsets source: IndexSet, toOffset destination: Int) {
@@ -1379,6 +1476,46 @@ final class AppModel {
         paste(item)
         if pasteStackEntries.isEmpty {
             toasts.show(GanchoToast(message: "Paste stack finished"))
+        }
+        restartStackIdleTimer()
+    }
+
+    func skipInStack() {
+        reuseController.skipInStack()
+        restartStackIdleTimer()
+    }
+
+    func backInStack() {
+        reuseController.backInStack()
+        restartStackIdleTimer()
+    }
+
+    func resetStack() {
+        reuseController.resetStack()
+        restartStackIdleTimer()
+    }
+
+    /// Ends the run: pasted entries leave, waiting ones stay.
+    func endStackRun() {
+        stackIdleTask?.cancel()
+        guard pasteStack.isRunActive else { return }
+        reuseController.endStackRun()
+        refreshStackStrip()
+    }
+
+    private func refreshStackStrip() {
+        stackStrip.update(model: self)
+    }
+
+    /// A run ends after `PasteStack.idleLimit` without a stack action.
+    private func restartStackIdleTimer() {
+        refreshStackStrip()
+        stackIdleTask?.cancel()
+        guard pasteStack.isRunActive else { return }
+        stackIdleTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(PasteStack.idleLimit))
+            guard !Task.isCancelled else { return }
+            self?.endStackRun()
         }
     }
 
@@ -1590,17 +1727,22 @@ final class AppModel {
         reviewedImageStore?.removeReviewedImages(except: mcpConfig.liveReviewedImages())
     }
 
-    func revokeMCPGrant(id: UUID) {
-        updateMCPConfig { config in
+    /// True once the revocation is saved.
+    @discardableResult
+    func revokeMCPGrant(id: UUID) -> Bool {
+        let saved = updateMCPConfig { config in
             guard let index = config.grants.firstIndex(where: { $0.id == id }) else { return }
             config.grants[index].revokedAt = .now
         }
         removeUnservedReviewedImages()
+        return saved && mcpConfig.grants.first { $0.id == id }?.revokedAt != nil
     }
 
-    private func updateMCPConfig(_ mutate: (inout MCPServerConfig) -> Void) {
+    @discardableResult
+    private func updateMCPConfig(_ mutate: (inout MCPServerConfig) -> Void) -> Bool {
         do {
             mcpConfig = try MCPServerConfig.update(in: mcpConfigDirectory, mutate)
+            return true
         } catch {
             // A failed save leaves the in-memory config untouched, so the row
             // simply does not change state. Without a toast that is
@@ -1613,6 +1755,7 @@ final class AppModel {
             diagnostics.record(
                 String(localized: "MCP Access"),
                 String(localized: "Couldn’t save local agent access settings."))
+            return false
         }
     }
 
@@ -1794,7 +1937,7 @@ final class AppModel {
     /// Content-free note when a delete did not fully land. `refreshRecents`
     /// (via the deletion coordinator's `didFinish`) puts the surviving row
     /// back on screen, so the user sees the clip return; this says why.
-    private func reportDeletionFailure(_ outcome: ClipDeletionWorkflow.Outcome) {
+    func reportDeletionFailure(_ outcome: ClipDeletionWorkflow.Outcome) {
         switch outcome {
         case .deleted:
             return
@@ -1870,6 +2013,7 @@ final class AppModel {
     func refreshBoards() async {
         guard let fullStore else { return }
         boards = (try? await fullStore.pinboards()) ?? []
+        notchShelf.boardsChanged()
     }
 
     func assign(_ item: ClipItem, toBoard board: Pinboard) {
@@ -2036,10 +2180,11 @@ final class AppModel {
         return counts
     }
 
-    /// The peek's sync chip: nil while sync is off or the store can't answer,
-    /// otherwise whether the clip still has to reach iCloud.
+    /// The peek's sync chip: nil while sync is off, for a secret (it stays on
+    /// this device) or when the store can't answer; otherwise whether the clip
+    /// still has to reach iCloud.
     func uploadState(for item: ClipItem) async -> PeekSyncState? {
-        guard syncController.isEnabled, let fullStore,
+        guard syncController.isEnabled, !item.isSensitive, let fullStore,
             let awaiting = try? await fullStore.isAwaitingUpload(id: item.id)
         else { return nil }
         return awaiting ? .waiting : .synced

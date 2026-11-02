@@ -290,7 +290,11 @@ reloads that grant before every tool call, so disable, expiry, and revoke affect
 already-running stdio clients. Context filters are expressed in the store query
 where possible and rechecked before content reads; an out-of-context identifier
 is indistinguishable from a missing one. Sensitive clips are excluded under all
-grants, and the ledger schema can carry policy/count/denial metadata only.
+grants, and the ledger schema can carry policy/count/denial metadata only,
+plus the grant's board id, selection size and window at call time. After a
+row is written the CLI posts `MCPAccessSignal`, a distributed notification
+with no object or user info; the app reads the rows after the last id it saw,
+so a forged post can only make it re-read rows that already exist.
 
 The CLI and Settings UI are two control surfaces over the same owner-only config
 file. Read-only grants omit mutating tools at the protocol edge. Read-write
@@ -362,6 +366,16 @@ Store shape:
 - a `clip_board` junction plus board metadata and board tombstones.
 - `clip_app_stats`: local-only UTC-day integer aggregates for the 13-month,
   explicitly clearable private activity receipt; no content-shaped columns.
+- `clip.parts` (v30): a double-copy merge's separator and part lengths, JSON,
+  synced encrypted; validated against the text on read and cleared by a text
+  edit, so stale boundaries are ignored rather than applied. A separator
+  change rewrites the clip in place; Split saves each part through
+  `ClipIngestionCoordinator` (classifier, secret detector, dedupe, sync) and
+  deletes the merged clip only once every part landed.
+- `paste_event` (v29): clip id, validated target bundle id and time for Up
+  next. Written only while Up next is on and outside Private Mode, erased when
+  it is turned off, pruned past 30 days, deleted with its clip (and when a clip
+  turns sensitive), never synced or exported.
 - tombstones for sync-compatible deletion.
 - an open JSON/CSV export so users can leave without data lock-in.
 

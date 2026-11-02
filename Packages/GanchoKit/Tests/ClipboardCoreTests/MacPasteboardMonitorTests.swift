@@ -353,5 +353,31 @@
             #expect(captures.count == 500)
             #expect(pasteboard.readCalls == 500)
         }
+
+        @Test("A capture carries its change count, and merging bursts the poll")
+        func changeStampAndBurst() async {
+            let pasteboard = FakePasteboard()
+            let monitor = makeMonitor(pasteboard: pasteboard)
+            var captures: [PasteboardCapture] = []
+            monitor.onCapture = { captures.append($0) }
+
+            pasteboard.write(.text("one"), types: ["public.utf8-plain-text"])
+            monitor.pollOnce()
+            await waitForCaptures(monitor) { captures }
+            pasteboard.write(.text("x"), types: ["public.utf8-plain-text"])
+            pasteboard.write(.text("two"), types: ["public.utf8-plain-text"])
+            monitor.pollOnce()
+            await waitForCaptures(monitor, into: { captures }, count: 2)
+
+            #expect(captures.map { $0.change?.count } == [1, 3])
+
+            pasteboard.write(.text("three"), types: ["public.utf8-plain-text"])
+            #expect(monitor.tick() == monitor.policy.activeInterval, "off: no burst")
+            monitor.preferences.mergeDoubleCopies = true
+            pasteboard.write(.text("four"), types: ["public.utf8-plain-text"])
+            #expect(monitor.tick() == monitor.policy.burstInterval)
+            await monitor.drainPendingRead()
+        }
     }
+
 #endif

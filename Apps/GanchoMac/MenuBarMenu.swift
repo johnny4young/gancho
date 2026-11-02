@@ -45,6 +45,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
             KeyboardShortcuts.disable(.togglePanel)
             pausedPanelShortcut = true
         }
+        model?.acknowledgeAgentRead()
         onOpen()
     }
 
@@ -61,7 +62,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         guard let model else { return }
         let plan = MenuBarMenuPlan(
             recents: model.recentItems,
-            stack: model.pasteStackEntries.map(\.clip),
+            stack: model.pasteStackWaiting,
             previewsHidden: model.previewsHidden,
             accessDenied: model.monitorStatus == .deniedByPrivacySettings)
         for entry in plan.entries {

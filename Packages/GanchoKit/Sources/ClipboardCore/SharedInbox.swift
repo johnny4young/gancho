@@ -63,10 +63,37 @@ public struct SharedInbox: Sendable {
     public struct PreparedCapture: Sendable, Equatable, Codable {
         public var capture: PasteboardCapture
         public var kind: ClipContentKind?
+        /// What the share sheet asked for; nil for an instant save and for
+        /// files written before the sheet existed.
+        public var choices: ShareChoices?
 
-        public init(capture: PasteboardCapture, kind: ClipContentKind? = nil) {
+        public init(
+            capture: PasteboardCapture, kind: ClipContentKind? = nil, choices: ShareChoices? = nil
+        ) {
             self.capture = capture
             self.kind = kind
+            self.choices = choices
+        }
+    }
+
+    /// The title, boards and pin chosen in the share sheet, applied by the
+    /// app when it drains the capture.
+    public struct ShareChoices: Sendable, Equatable, Codable {
+        public var title: String?
+        public var boardIDs: [UUID]
+        /// A board typed in the sheet; the app creates it, or reuses one with
+        /// the same name.
+        public var newBoardName: String?
+        public var isPinned: Bool
+
+        public init(
+            title: String? = nil, boardIDs: [UUID] = [], newBoardName: String? = nil,
+            isPinned: Bool = false
+        ) {
+            self.title = title
+            self.boardIDs = boardIDs
+            self.newBoardName = newBoardName
+            self.isPinned = isPinned
         }
     }
 

@@ -14,14 +14,19 @@
             public var kindSymbolName: String
             public var isSensitive: Bool
             public var sync: ClipSyncBadge
+            /// The clip the actions copy or open; nil in activities started
+            /// before they had actions.
+            public var clipID: UUID?
 
             public init(
-                preview: String, kindSymbolName: String, isSensitive: Bool, sync: ClipSyncBadge
+                preview: String, kindSymbolName: String, isSensitive: Bool, sync: ClipSyncBadge,
+                clipID: UUID? = nil
             ) {
                 self.preview = preview
                 self.kindSymbolName = kindSymbolName
                 self.isSensitive = isSensitive
                 self.sync = sync
+                self.clipID = clipID
             }
         }
 
@@ -47,6 +52,11 @@
             case .paused(.offline), .failed(.offline): self = .offline
             case .paused, .failed: self = .paused
             }
+        }
+
+        /// A secret never syncs, so it always reads as living on this device.
+        public init(_ status: SyncStatus, for item: ClipItem) {
+            self = item.isSensitive ? .local : ClipSyncBadge(status)
         }
 
         public var symbolName: String {

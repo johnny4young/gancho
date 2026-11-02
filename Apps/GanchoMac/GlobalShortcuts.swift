@@ -15,6 +15,11 @@ extension KeyboardShortcuts.Name {
     static let cyclicPaste = Self("cyclic-paste")
     /// Pops and pastes the front of the paste stack.
     static let pasteFromStack = Self("paste-from-stack")
+    /// Skip and Back in a paste-stack run. No initial value, like the stack's own.
+    static let pasteStackSkip = Self("paste-stack-skip")
+    static let pasteStackBack = Self("paste-stack-back")
+    /// Pastes the clipboard through the last transform that delivered. No default.
+    static let pasteWithLastTransform = Self("paste-with-last-transform")
     static let copyScreenText = Self(
         "copy-screen-text", initial: .init(.t, modifiers: [.control, .option]))
 }

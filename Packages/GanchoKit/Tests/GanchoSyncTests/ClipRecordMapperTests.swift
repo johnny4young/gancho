@@ -247,4 +247,22 @@ struct ClipRecordMapperTests {
         #expect(!ClipRecordMapper.remoteWins(localUpdatedAt: newer, remoteUpdatedAt: older))
         #expect(ClipRecordMapper.remoteWins(localUpdatedAt: now, remoteUpdatedAt: now))
     }
+
+    @Test("A merged clip's parts ride encrypted and round-trip")
+    func partsRideEncrypted() throws {
+        let parts = ClipParts(separator: .comma, lengths: [3, 4])
+        let item = ClipItem(kind: .text, contentHash: "p", parts: parts)
+        let record = try #require(
+            ClipRecordMapper.record(
+                for: item, content: .text("Ana, Cra."), systemFields: nil, zoneID: zoneID))
+        #expect(record["parts"] == nil)
+        #expect(record.encryptedValues["parts"] as? String == parts.encoded)
+        #expect(ClipRecordMapper.decode(record)?.item.parts == parts)
+
+        let plain = try #require(
+            ClipRecordMapper.record(
+                for: ClipItem(contentHash: "q"), content: .text("x"), systemFields: nil,
+                zoneID: zoneID))
+        #expect(ClipRecordMapper.decode(plain)?.item.parts == nil)
+    }
 }

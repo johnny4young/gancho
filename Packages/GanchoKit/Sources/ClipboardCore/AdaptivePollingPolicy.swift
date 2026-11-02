@@ -24,17 +24,25 @@ public struct AdaptivePollingPolicy: Sendable, Equatable {
     public var idleAfter: Duration
     /// How often to re-check for unlock while `.paused`.
     public var pausedProbeInterval: Duration
+    /// After a change, a short burst of faster polls so a second copy within
+    /// `burstWindow` is seen on its own instead of folded into the next poll.
+    public var burstInterval: Duration
+    public var burstWindow: Duration
 
     public init(
         activeInterval: Duration = .milliseconds(250),
         idleInterval: Duration = .milliseconds(1500),
         idleAfter: Duration = .seconds(30),
-        pausedProbeInterval: Duration = .seconds(2)
+        pausedProbeInterval: Duration = .seconds(2),
+        burstInterval: Duration = .milliseconds(80),
+        burstWindow: Duration = .milliseconds(600)
     ) {
         self.activeInterval = activeInterval
         self.idleInterval = idleInterval
         self.idleAfter = idleAfter
         self.pausedProbeInterval = pausedProbeInterval
+        self.burstInterval = burstInterval
+        self.burstWindow = burstWindow
     }
 
     /// Lock always wins; otherwise recency of user input picks active vs idle.
@@ -57,5 +65,14 @@ public struct AdaptivePollingPolicy: Sendable, Equatable {
         case .idle: idleInterval
         case .paused: pausedProbeInterval
         }
+    }
+
+    /// The mode's interval, or the burst interval while `sinceLastChange` is
+    /// inside the burst window. Never bursts while paused.
+    public func interval(for mode: Mode, sinceLastChange: Duration?) -> Duration {
+        guard mode != .paused, let sinceLastChange, sinceLastChange < burstWindow else {
+            return interval(for: mode)
+        }
+        return min(burstInterval, interval(for: mode))
     }
 }

@@ -14,7 +14,7 @@ import UniformTypeIdentifiers
 
 extension UTType {
     /// A clip dragged onto a board inside Gancho: its id, never its content.
-    static let ganchoClipReference = UTType(exportedAs: "com.johnny4young.gancho.clip-reference")
+    static let ganchoClipReference = UTType(exportedAs: BoardDrop.clipReferenceType)
 }
 
 /// The materialized file payload for the narrow AppKit path. SwiftUI keeps
