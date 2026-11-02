@@ -338,6 +338,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// BM25); regex scans the text columns with `NSRegularExpression`.
     /// Filters (kind / source app / date) apply to every mode.
     public func search(_ query: ClipSearchQuery, limit: Int = 50) async throws -> [ClipItem] {
+        // Contradictory field limits leave nothing to match, not everything.
+        if query.metadataOnly, query.bodyOnly { return [] }
         if query.mode == .regex {
             return try await regexSearch(query, limit: limit)
         }
@@ -396,7 +398,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
                 let content =
                     query.metadataOnly
                     ? "" : String((row.contentText ?? "").prefix(Self.regexHaystackLimit))
-                let haystacks = [row.title, row.preview, content]
+                let haystacks =
+                    query.bodyOnly ? [content] : [row.title, row.preview, content]
                 let matches = haystacks.contains { text in
                     regex.firstMatch(
                         in: text, range: NSRange(text.startIndex..., in: text)) != nil

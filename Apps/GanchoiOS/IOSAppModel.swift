@@ -99,7 +99,9 @@ final class IOSAppModel {
     }
     /// Content-free recent app options and aggregate counts.
     var sourceApps: [ClipSourceApp] { history.sourceApps }
-    var boards: [Pinboard] = []
+    var boards: [Pinboard] = [] {
+        didSet { if boards != oldValue { publishBoardSnapshot() } }
+    }
     /// A resolved widget/Spotlight deep link; the capture shell consumes it.
     var deepLinkClip: ClipItem?
     /// Row thumbnails, decoded from the store's small cached thumbnail bytes.
@@ -110,6 +112,8 @@ final class IOSAppModel {
     /// The "last clip ready to paste" Live Activity (Dynamic Island + lock
     /// screen); a no-op when the user hasn't enabled Live Activities.
     let clipActivity = ClipActivityController()
+    /// Text read from the open image clip; transient, never stored.
+    let manualOCR = ManualOCRSession()
 
     /// Sync boundary: pull-to-refresh forces a cycle. The controller owns the
     /// engine lifecycle (make/start/stop/reset + the enabled flag); this model
@@ -199,6 +203,13 @@ final class IOSAppModel {
             if let override = Self.uiTestTelemetryConsentOverride {
                 telemetryConsent = override
             }
+            // `-share-saves-instantly YES|NO` pins the share sheet's switch,
+            // which outlives a run in the App Group.
+            if let index = CommandLine.arguments.firstIndex(of: "-share-saves-instantly"),
+                CommandLine.arguments.indices.contains(index + 1)
+            {
+                ShareSheetPreference.setSavesInstantly(CommandLine.arguments[index + 1] == "YES")
+            }
         #endif
         self.telemetryConsent = telemetryConsent
         activationTracker = ActivationTracker(defaults: defaults)
@@ -225,6 +236,7 @@ final class IOSAppModel {
             guard let self else { return }
             let wasSyncing = self.syncStatus == .syncing
             self.syncStatus = status
+            if case .upToDate(let at) = status { WidgetState.syncedAt = at ?? .now }
             // A finished cycle may have pulled new boards/clips from iCloud.
             // Refresh the lists so they appear without having to background and
             // reopen the app.
@@ -234,7 +246,10 @@ final class IOSAppModel {
                 self.reloadWidgets()
             }
         }
-        syncController.onIdle = { [weak self] in self?.syncStatus = .idle }
+        syncController.onIdle = { [weak self] in
+            self?.syncStatus = .idle
+            WidgetState.syncedAt = nil
+        }
         // Content-free sync-trouble trail → the Privacy Center's "Recent issues"
         // (fetched records that fail to decode/apply, non-transient save errors).
         syncController.diagnostics = diagnostics
@@ -437,6 +452,16 @@ final class IOSAppModel {
     func refreshBoards() async {
         guard let full else { return }
         boards = (try? await full.pinboards()) ?? []
+    }
+
+    /// The boards the share sheet offers, sealed in the App Group: the
+    /// extension never opens the store.
+    private func publishBoardSnapshot() {
+        guard store.isDurable,
+            let key = try? StoreContentKey.load(
+                keychainAccessGroup: KeychainPassphraseStore.iosSharedAccessGroup)
+        else { return }
+        try? SharedBoardSnapshot.inAppGroup(key: key)?.write(boards)
     }
 
     private func recordBoardFailure(_ message: String.LocalizationValue) {
@@ -801,7 +826,7 @@ final class IOSAppModel {
             requiredUses: SnippetLimits.promotionSuggestionUseThreshold)
         // Copying a clip is the truest "ready to paste" moment — it's on the
         // pasteboard now — so surface it on the Live Activity too.
-        clipActivity.show(item, sync: ClipSyncBadge(syncStatus))
+        clipActivity.show(item, sync: ClipSyncBadge(syncStatus, for: item))
         await recordSuccessfulReuse(item)
         if let suggestion { await presentReuseSuggestion(suggestion) }
     }
@@ -1247,14 +1272,33 @@ final class IOSAppModel {
         case .inserted(let outcome):
             await presentIngestion(
                 outcome, capture: delivery.prepared.capture, scheduleEnrichment: false)
+            if let choices = delivery.prepared.choices {
+                await applyShareChoices(choices, to: outcome.item, isNew: outcome.isNew)
+            }
             flashNote(
                 outcome.isNew
                     ? String(localized: "Saved") : String(localized: "Already in your history"),
                 kind: .success)
             await enrichInbox(outcome)
         case .replayed(let outcome):
+            if let outcome, let choices = delivery.prepared.choices {
+                await applyShareChoices(choices, to: outcome.item, isNew: outcome.isNew)
+            }
             if let outcome { await enrichInbox(outcome) }
         }
+    }
+
+    /// The share sheet's title, boards and pin, through the same paths as the
+    /// app's own controls (membership and pins sync), and safe to repeat.
+    private func applyShareChoices(
+        _ choices: SharedInbox.ShareChoices, to item: ClipItem, isNew: Bool
+    ) async {
+        await refreshBoards()
+        let plan = ShareChoicesPlan(choices, existing: boards, item: item, isNew: isNew)
+        if let title = plan.title { _ = await updateClipTitle(item, title: title) }
+        if plan.pins { await togglePin(item) }
+        if let name = plan.newBoardName { _ = await createBoard(named: name, filing: item) }
+        for board in plan.boards { await setBoardMembership(item, board: board, member: true) }
     }
 
     /// Keep the inbox file until post-commit work has run. A crash before this
@@ -1329,13 +1373,20 @@ final class IOSAppModel {
         return saved
     }
 
-    /// Stores one seeded capture and confirms it.
-    private func ingest(_ capture: PasteboardCapture) async {
-        guard let outcome = await persist(capture) else { return }
+    /// Stores one capture and confirms it.
+    @discardableResult
+    private func ingest(_ capture: PasteboardCapture) async -> Bool {
+        guard let outcome = await persist(capture) else { return false }
         flashNote(
             outcome.isNew
                 ? String(localized: "Saved") : String(localized: "Already in your history"),
             kind: .success)
+        return true
+    }
+
+    /// Saves text read from an image as a new clip, only on an explicit tap.
+    func saveTextAsClip(_ text: String) async -> Bool {
+        await ingest(PasteboardCapture(text: text))
     }
 
     /// The durable write plus its side effects; nil when the store refused it.
@@ -1385,7 +1436,7 @@ final class IOSAppModel {
         reloadWidgets()
         // Surface the just-captured clip as "ready to paste" (masked if
         // sensitive) on the Dynamic Island / lock screen.
-        clipActivity.show(outcome.item, sync: ClipSyncBadge(syncStatus))
+        clipActivity.show(outcome.item, sync: ClipSyncBadge(syncStatus, for: outcome.item))
         if scheduleEnrichment { enrich(outcome) }
     }
 

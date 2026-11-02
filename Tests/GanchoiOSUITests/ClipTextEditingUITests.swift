@@ -6,8 +6,7 @@ final class ClipTextEditingUITests: XCTestCase {
         let app = try launchSeededApp()
         defer { app.terminate() }
 
-        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        row.tap()
+        seededRow(in: app).tap()
         let edit = app.buttons["detail-edit-content"].firstMatch
         XCTAssertTrue(edit.waitForExistence(timeout: 5))
         edit.tap()
@@ -30,6 +29,16 @@ final class ClipTextEditingUITests: XCTestCase {
         add(attachment)
     }
 
+    /// Only the seeded row proves the fixture loaded; a launch that shows any
+    /// other row (another suite's clip) is relaunched instead of tapped.
+    @MainActor
+    private func seededRow(in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(
+            NSPredicate(
+                format: "identifier == 'clip-row' AND label CONTAINS %@", "Yesterday: fixed search")
+        ).firstMatch
+    }
+
     @MainActor
     private func launchSeededApp() throws -> XCUIApplication {
         let app = XCUIApplication()
@@ -40,8 +49,7 @@ final class ClipTextEditingUITests: XCTestCase {
                 "-force-free-tier", "-AppleLanguages", "(en)"
             ]
             app.launch()
-            let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-            if row.waitForExistence(timeout: 8) { return app }
+            if seededRow(in: app).waitForExistence(timeout: 8) { return app }
         }
         return try XCTUnwrap(
             nil as XCUIApplication?,

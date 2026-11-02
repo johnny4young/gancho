@@ -150,6 +150,8 @@ public final class ReuseController {
     }
 
     public var pasteStackEntries: [PasteStack.Entry] { stack.entries }
+    /// The whole queue with its cursor, for surfaces that show a run.
+    public var pasteStack: PasteStack { stack }
 
     public func pushToStack(_ item: ClipItem) {
         stack.push(item)
@@ -172,8 +174,16 @@ public final class ReuseController {
     }
 
     public func popNextFromStack() -> ClipItem? {
-        stack.popFirst()
+        stack.takeNext()
     }
+
+    public func skipInStack() { stack.skip() }
+
+    public func backInStack() { stack.back() }
+
+    public func resetStack() { stack.reset() }
+
+    public func endStackRun() { stack.endRun() }
 
     /// Hides the row immediately, then lets DeletionCoordinator preserve the
     /// six-second commit/undo ordering. The shell supplies the sync-aware store

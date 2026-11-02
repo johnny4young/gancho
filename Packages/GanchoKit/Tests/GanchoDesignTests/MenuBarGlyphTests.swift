@@ -10,7 +10,7 @@
     @MainActor
     struct MenuBarGlyphTests {
         nonisolated static let badges: [MenuBarBadge] = [
-            .denied, .paused, .privateMode, .ignoreNext, .stack(3)
+            .denied, .paused, .privateMode, .ignoreNext, .agentRead, .stack(3)
         ]
 
         private struct RGBA {

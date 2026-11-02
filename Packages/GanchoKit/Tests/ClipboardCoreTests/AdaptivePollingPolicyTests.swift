@@ -37,4 +37,21 @@ struct AdaptivePollingPolicyTests {
     func pausedProbe() {
         #expect(policy.interval(for: .paused) == .seconds(2))
     }
+
+    @Test("After a change the loop bursts inside the window, never while paused")
+    func burstAfterChange() {
+        #expect(
+            policy.interval(for: .active, sinceLastChange: .milliseconds(100))
+                == policy.burstInterval)
+        #expect(
+            policy.interval(for: .idle, sinceLastChange: .milliseconds(100))
+                == policy.burstInterval)
+        #expect(
+            policy.interval(for: .active, sinceLastChange: policy.burstWindow)
+                == policy.activeInterval)
+        #expect(policy.interval(for: .active, sinceLastChange: nil) == policy.activeInterval)
+        #expect(
+            policy.interval(for: .paused, sinceLastChange: .milliseconds(100))
+                == policy.pausedProbeInterval)
+    }
 }

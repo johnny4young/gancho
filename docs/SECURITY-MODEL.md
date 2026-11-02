@@ -31,7 +31,10 @@ transient content in process memory; sync asset staging uses lifecycle-bounded
 files as described below. Opt-in Spotlight stores sanitized titles/previews of
 eligible curated clips in the local system index, not raw history. A scoped MCP
 grant permits eligible content to be read by the authorized local client;
-Gancho cannot retract bytes already delivered to that client.
+Gancho cannot retract bytes already delivered to that client. Each read is
+made visible as it happens: the CLI posts a name-only distributed
+notification, the app reads the new content-free ledger rows and shows a
+menu-bar dot and a HUD with Revoke, which stops the client's next call.
 
 Protected outbound surfaces use the same intrinsic-kind rule as passive
 presentation: flagged clips and JWT, credit-card and secret kinds remain
@@ -65,6 +68,11 @@ that device, are pruned beyond a rolling 13 months, never sync or export, and
 can be erased from the Privacy Center without deleting clips or changing
 settings.
 
+Up next's `paste_event` rows hold a clip id, a validated target bundle
+identifier and a time. They exist only while the user has turned Up next on,
+never for secrets or masked kinds, stay on that device for a rolling 30 days,
+never sync or export, and are erased when Up next is turned off.
+
 ## Sync record: encrypted vs plain, field by field
 
 `ClipRecordMapper` is the only code that knows the CloudKit record shape. The
@@ -80,6 +88,7 @@ would mean introducing a NEW field and migrating writers, never converting.
 | `contentText` | encrypted | The clip body itself. |
 | `title` | encrypted | Derived from content (user- or AI-written). |
 | `preview` | encrypted | A prefix or masked form of the content. |
+| `parts` | encrypted | A merged clip's separator and part lengths (no text), so Split works on every device. Lengths reveal the content's shape, so they ride encrypted. |
 | `contentAsset` | `CKAsset` | Binary payloads; CloudKit encrypts assets in transit and at rest server-side. Local staging is plaintext but lifecycle-bounded (see `ClipRecordMapper`). |
 | `kind` | plain | Closed enum token; lets a device render list rows without decrypting. |
 | `contentHash` | plain | Dedupe/conflict key (SHA-256 of canonical content + kind). Reveals content *equality* across the user's own records, never content; low-entropy content is in principle dictionary-checkable by the storage operator — accepted so dedupe works without decryption. |
@@ -120,6 +129,8 @@ would mean introducing a NEW field and migrating writers, never converting.
 | Password-manager copies entering history | `org.nspasteboard` veto BEFORE any read + preloaded bundle denylist | unit tests (manager type shapes), opt-in real-pasteboard test |
 | Secrets copied by accident | on-device detector → masked stored preview + 10-min expiry | 28-pattern suite |
 | Screen sharing exposing the panel | private mode + share auto-pause (no `NSWindow.sharingType` — breaks DisplayPort, Maccy #1136) | unit tests on the pause path |
+| The copy-time action HUD showing a copy on screen | off by default; never in Private Mode, while the screen is shared, or for a sensitive or masked clip; a one-time code is always shown masked; it shows only a color's value or a link's host | `CopyActionPolicyTests`, `CopyActionsUITests` |
+| The notch shelf reading a drag the user didn't drop | hover decides from the drag's type list only; content is read once, at the drop, and re-checked against the capture veto; no global event monitor; refused in Private Mode, while the screen is shared or with a denylisted app in front, re-checked before every save or copy; secrets never filed on a board, recognized secrets never copied | `NotchShelfTests`, `NotchShelfUITests` |
 | Content leaking into logs/crashes | NO logging APIs in engine modules; debug prints content-free | automated source sweep (`NoContentLoggingTests`) |
 | Extensions corrupting/duplicating the store | the share extension uses a sealed inbox; keyboard and App Intent entry points can open the shared encrypted store through `IntentStore`. Cross-process database coordination and app-side dedupe remain required | inbox unit tests, WAL cross-process test |
 | Sync conflicts duplicating or resurrecting clips | hash+device dedupe key, last-writer-wins, tombstones | store tests; on-device verification checklist for the live path |

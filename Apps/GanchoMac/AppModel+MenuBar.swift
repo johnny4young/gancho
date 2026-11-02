@@ -33,7 +33,8 @@ extension AppModel {
             paused: pausedStates.contains(monitorStatus),
             privateMode: preferences.isPrivateModePaused,
             ignoresNextCopy: ignoresNextCopy,
-            stackCount: pasteStackEntries.count)
+            agentRead: agentReadDotVisible && showsAgentReads,
+            stackCount: pasteStack.remaining)
     }
 
     /// The status item's spoken label: the capture state, plus what the badge adds.
@@ -42,6 +43,7 @@ extension AppModel {
         return switch menuBarBadge {
         case .ignoreNext: String(localized: "\(base), next copy ignored")
         case .stack(let count): String(localized: "\(base), \(count) waiting in the paste stack")
+        case .agentRead: String(localized: "\(base), an agent read clips")
         case .denied, .paused, .privateMode, nil: base
         }
     }

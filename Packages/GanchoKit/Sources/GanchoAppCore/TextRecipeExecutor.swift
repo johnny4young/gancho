@@ -39,6 +39,12 @@ public struct TextRecipeExecutor: Sendable {
         {
             return transform.apply(to: text)
         }
+        if step.actionID.hasPrefix(TextActionCatalog.devPrefix),
+            let id = DevActions.ActionID(
+                rawValue: String(step.actionID.dropFirst(TextActionCatalog.devPrefix.count)))
+        {
+            return try DevActions.run(id, on: text)
+        }
         switch step.actionID {
         case TextActionCatalog.normalizeNewlines:
             var output = ""

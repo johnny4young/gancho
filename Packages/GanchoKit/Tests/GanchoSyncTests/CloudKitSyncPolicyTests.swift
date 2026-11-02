@@ -24,6 +24,13 @@ struct CloudKitSyncPolicyTests {
         #expect(CloudKitSyncPolicy.interruption(for: TestFailure()) == .unknown)
     }
 
+    @Test("Only a missing record counts as a finished delete")
+    func finishedDeletes() {
+        #expect(CloudKitSyncPolicy.deletionIsComplete(for: .unknownItem))
+        #expect(!CloudKitSyncPolicy.deletionIsComplete(for: .networkFailure))
+        #expect(!CloudKitSyncPolicy.deletionIsComplete(for: .serverRecordChanged))
+    }
+
     @Test(
         "Failed saves choose one explicit recovery",
         arguments: [

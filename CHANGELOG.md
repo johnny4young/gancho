@@ -9,6 +9,85 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Suggested snippets in the Library: clips you have used three times or more
+  now wait in a Suggested group under your snippets, most used first, with
+  Keep to save one as a snippet, Never to stop suggesting it, and Dismiss to
+  hide it until three more uses. The use-time suggestion in the panel follows
+  the same answers. Secrets and masked kinds are never suggested, the group
+  hides in Private Mode and while the screen is shared, and your answers stay
+  on this device.
+- Agent reads you can see: when a local AI client reads your clips through
+  `gancho mcp`, the menu-bar icon shows a blue dot for two minutes (or until
+  you open the menu) and a HUD names the client, how many clips it read or
+  pinned, the board and time window it was allowed, and offers Revoke, which
+  ends that client's access at once. Calls from one client within five
+  seconds add up in one HUD; denials and board listings stay in the ledger.
+  On by default once MCP is set up, with a switch in Settings › Integrations.
+  The ledger in MCP Access now shows each call's board and window as they
+  were when it ran, even if the grant changes later, and boards an active
+  grant exposes are marked "Exposed to agents" in the Library. The signal
+  between `gancho mcp` and the app carries nothing but its name.
+- Jump to context in the history panel: press ⌘J on any result (or choose
+  Show context in its menu or the peek) and the list shows the clips first
+  copied within two minutes of it, each with the time it was copied, the
+  result marked as the match. Esc returns to the results on the same row.
+- Notch shelf, off by default in Settings › Capture: drag anything (text, a
+  link, an image, files from Finder) to the notch, or to the top center of a
+  screen without one, and a shelf opens with your boards and four actions.
+  Drop on a board to file it, or on New board to start one. Drop an image on
+  Extract text, Resize (long edge 1280 px, never larger) or Strip location
+  (removes GPS, keeps everything else) and the result is saved as a clip and
+  copied. Dropped content goes through the same checks as a copy: password
+  manager markers, the secret detector and the never-capture list, and the shelf refuses
+  drops in Private Mode and while the screen is shared. Files are
+  stored as references and never moved, and nothing is read until the drop
+  lands.
+- Show actions after copying, off by default in Settings › Capture, with a
+  switch for colors, links and one-time codes: copy a color and a small HUD
+  offers Copy as rgb() or HSL, copy a web link and it offers Open, copy a
+  one-time code and it stays masked with Forget now, which removes it from
+  history at once. The HUD stays 4 s, holds while the pointer is over it,
+  never takes focus, and never shows in Private Mode or while the screen is
+  shared.
+- Merge double copies, off by default in Settings › Capture: press ⌘C twice
+  on a selection and it is added to the clip before it, on a new line, and
+  the merged text goes back on the clipboard. It never merges into a secret,
+  a card or a token, or a snippet, and the boundaries between parts sync
+  encrypted. A small HUD and a soft sound, which you can turn off, confirm
+  each merge. The peek shows each part, joins them with a newline, a space
+  or a comma, and splits them back into separate clips.
+- Up next, off by default in Intelligence: the panel shows the clip you
+  usually paste into the app in front above the list, with why ("Pasted into
+  Xcode 3× today"), and ⌘↩ pastes it. It learns from a paste log kept only on
+  this Mac and only while Up next is on; turning it off erases the log, and
+  secrets are never logged or offered.
+- "Describe the change…" in the ⌘T list rewrites a text clip as you ask, on
+  your Mac with Apple Intelligence, and shows what was there and what will
+  paste as a word diff before anything is pasted (⇧⏎ pastes the result). Save
+  a request to run it again from the list; saved requests stay on this Mac.
+- Text recipes can paste their result, not only copy it, and can use the
+  developer actions (Base64, JSON escaping and more) as steps. A transform
+  pipeline from ⌘T saves as a recipe. A recipe can have its own shortcut, and
+  "Paste through last transform" pastes the clipboard through the last
+  pipeline or recipe you used; neither has a default. A protected copy, a
+  secret, a token or text over 1 MiB on the clipboard is never transformed.
+- One Transform list behind ⌘T in the peek replaces the Transform and Smart
+  paste menus and More actions: type to filter the clip's own actions, text
+  transforms, recipes and on-device Smart paste. Picking a transform opens a
+  step pipeline with the text before and what will paste after; add steps,
+  drag to reorder, then Paste result (⇧⏎) or Copy result.
+- A paste-stack run keeps what already went in: the queue checks pasted
+  clips, marks the next one and the footer reads "3 of 5". Skip, Back and
+  Reset move through the run, with optional shortcuts in Settings. A run
+  ends after two minutes without a stack action or when you copy something
+  new; clips still waiting stay in the stack. While the panel is closed, a
+  small strip under the menu bar shows the run and the next clip, with
+  Skip, Back, Reset and End run, without taking focus from the app you are
+  pasting into.
+- A secret's peek on the Mac shows its masked value, how long it has left
+  with a lifetime bar, "Reveal for 10 s" and "Delete now". A reveal masks
+  itself again after 10 seconds or when the panel hides, and is off while
+  the screen is shared or Private Mode is on.
 - The peek header shows where a clip came from (app, age, boards), when it
   expires, and whether it has reached iCloud ("Synced" or "Waiting to sync").
 - The active board chip shows how many clips it holds ("All clips · 128");
@@ -95,6 +174,26 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On iPad the clipboard card sits under the sidebar with its own Paste
   button, so the history starts with your clips; with the sidebar hidden,
   Paste and the card move back to the history.
+- A large Gancho widget lists six recent clips, with board chips (All,
+  Favorites and your first boards) that scope them, when Gancho last synced,
+  and Save clipboard and Open Gancho. Passwords and keys show their kind, the
+  stored mask and the time they have left.
+- The "ready to paste" banner on the lock screen offers Copy again and Open
+  in Gancho (never Copy again for a password or key), and ends once something
+  else was copied.
+- The Gancho keyboard marks each clip you insert with a green tint and an
+  "inserted" pill, so a long message shows what already went in. The marks
+  clear once you leave that text field; an image, which the keyboard copies
+  instead of typing, is not marked.
+- Opening an image on iPhone and iPad reads its text on the device: each line
+  is numbered over the image and listed under it, with its own copy button.
+  A line holding a password or key stays masked and out of "Copy all" until
+  you reveal it. "Save text as clip" and Translate sit under the lines, and
+  nothing is copied or saved until you tap.
+- Sharing to Gancho on iPhone and iPad shows what will be saved: the item,
+  its title (the page title the app hands over, editable), boards to add it
+  to (or a new one) and a Pin switch. "Save instantly from the share sheet" in
+  Settings brings back the one-tap save.
 - On iPad, drag a clip from the history or its detail into the app beside
   Gancho: a link drops as a link, an image as a PNG, text as text. Passwords,
   keys and cards never lift.
@@ -106,6 +205,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Passwords, keys and other secrets no longer sync through iCloud: each one
+  stays on the device that copied it until it expires. Secrets uploaded by
+  earlier versions are deleted from iCloud; the copies on this device stay.
 - The iPhone's clipboard row is a card: it names what is on the clipboard
   (a link, search text, a number) without reading it, points at the Paste
   button, and after a save offers to open the clip for a few seconds.

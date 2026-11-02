@@ -35,6 +35,9 @@ public struct ClipItem: Identifiable, Codable, Equatable, Sendable {
     /// Pixel size and format for image clips. Left out of the encoded form so
     /// the CLI's JSON keeps its shape.
     public var imageInfo: ClipImageInfo?
+    /// Part boundaries of a merged clip; validate with `split` before use.
+    /// Left out of the encoded form so the CLI's JSON keeps its shape.
+    public var parts: ClipParts?
 
     private enum CodingKeys: String, CodingKey {
         case id, createdAt, updatedAt, lastUsedAt, kind, title, preview, contentHash
@@ -59,7 +62,8 @@ public struct ClipItem: Identifiable, Codable, Equatable, Sendable {
         tags: [String] = [],
         keyword: String? = nil,
         uses: Int = 0,
-        imageInfo: ClipImageInfo? = nil
+        imageInfo: ClipImageInfo? = nil,
+        parts: ClipParts? = nil
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -78,6 +82,7 @@ public struct ClipItem: Identifiable, Codable, Equatable, Sendable {
         self.keyword = keyword
         self.uses = uses
         self.imageInfo = imageInfo
+        self.parts = parts
     }
 
     /// Dedupe key for a piece of content. Stable across devices so sync

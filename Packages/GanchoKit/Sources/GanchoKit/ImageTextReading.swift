@@ -9,8 +9,22 @@ public enum ImageTextInput: Sendable, Equatable {
 }
 
 public protocol ImageTextReading: Sendable {
-    func imageTextInput(id: UUID, now: Date) async throws -> ImageTextInput?
+    /// `preferringImage` skips text that enrichment already stored, so the
+    /// caller gets regions from a fresh recognition pass.
+    func imageTextInput(id: UUID, now: Date, preferringImage: Bool) async throws -> ImageTextInput?
     func permitsImageText(id: UUID, now: Date) async throws -> Bool
+}
+
+extension ImageTextReading {
+    public func imageTextInput(id: UUID, now: Date) async throws -> ImageTextInput? {
+        try await imageTextInput(id: id, now: now, preferringImage: false)
+    }
+}
+
+/// Text already recognized for a permitted image. Narrower than
+/// ``ImageTextReading``: it never reads the image itself.
+public protocol StoredImageTextReading: Sendable {
+    func storedImageText(id: UUID, now: Date) async throws -> String?
 }
 
 extension GRDBClipboardStore: ImageTextReading {
@@ -37,17 +51,42 @@ extension GRDBClipboardStore: ImageTextReading {
         }
     }
 
-    public func imageTextInput(id: UUID, now: Date) async throws -> ImageTextInput? {
+    public func imageTextInput(
+        id: UUID, now: Date, preferringImage: Bool
+    ) async throws -> ImageTextInput? {
         let row = try await writer.read { db in
             try ClipRow.filter(key: id.uuidString).fetchOne(db)
         }
         guard let row, Self.permitsImageText(row, now: now) else { return nil }
-        if let text = row.contentText, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if !preferringImage, let text = row.contentText,
+            !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         {
             return .cached(text)
         }
         guard case .binary(let data, _) = try await content(for: id) else { return nil }
         return .image(data)
+    }
+
+}
+
+extension GRDBClipboardStore: StoredImageTextReading {
+    public func storedImageText(id: UUID, now: Date) async throws -> String? {
+        try await writer.read { db in
+            guard
+                let row = try ClipRow.filter(key: id.uuidString)
+                    .select(Self.permissionColumns + [Column("contentText")])
+                    .asRequest(of: Row.self).fetchOne(db)
+            else { return nil }
+            let expiresAt: Date? = row["expiresAt"]
+            let text: String? = row["contentText"]
+            guard
+                Self.permitsImageText(
+                    kind: row["kind"], isArchived: row["isArchived"],
+                    isSensitive: row["isSensitive"], expiresAt: expiresAt, now: now),
+                let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else { return nil }
+            return text
+        }
     }
 
     private static func permitsImageText(_ row: ClipRow, now: Date) -> Bool {

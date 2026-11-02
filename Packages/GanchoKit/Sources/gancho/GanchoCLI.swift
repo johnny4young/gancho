@@ -257,9 +257,9 @@ struct GanchoCLI {
             grantProvider: {
                 MCPServerConfig.load(fromStoreDirectory: directory).resolveGrant(id: grantID)
             },
-            log: { event in
-                try? await store.recordMCPAccess(event)
-            })
+            log: MCPAccessLedger.log(
+                record: { try await store.recordMCPAccess($0) },
+                signal: { MCPAccessSignal.post() }))
         // The runner owns the live enabled/grant checks. Keep the protocol edge
         // open so enabling or renewing can take effect without restarting stdio.
         let server = MCPServer(runner: runner, isEnabled: true)

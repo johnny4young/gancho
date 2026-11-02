@@ -354,6 +354,8 @@ public actor CKSyncEngineAdapter: SyncEngine {
     }
 
     public func enqueue(_ items: [ClipItem]) async {
+        // Secrets stay on this device; queueing one would only retry forever.
+        let items = items.filter { !$0.isSensitive }
         let generation = receiveGeneration
         clipIntents.formUnion(items.map(\.id))
         do { try await retryUploadIntents() } catch { return }
@@ -931,7 +933,10 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                 // hot-loop successful cloud uploads against a failing local DB.
             }
         }
-        for recordID in event.deletedRecordIDs {
+        let alreadyGone = event.failedRecordDeletes.compactMap { recordID, error in
+            CloudKitSyncPolicy.deletionIsComplete(for: error.code) ? recordID : nil
+        }
+        for recordID in event.deletedRecordIDs + alreadyGone {
             let operation = OutboundOperation.acknowledgement(recordID)
             do {
                 try await outbound.acknowledgeDeletion(recordID)

@@ -51,11 +51,77 @@ extension AppModel {
             seedClipEditingIfRequested(),
             seedVisualLibraryIfRequested(),
             seedPeekLinkIfRequested(),
+            seedPeekSecretIfRequested(),
             seedSnippetsIfRequested(),
             seedManualOCRIfRequested(),
+            seedRecognizedTextImageIfRequested(),
             seedMultiFileDragIfRequested(),
-            seedPrivateActivityReceiptIfRequested()
+            seedPrivateActivityReceiptIfRequested(),
+            seedUpNextIfRequested(),
+            seedDoubleCopyIfRequested(),
+            seedCopyActionsIfRequested(),
+            seedContextSessionIfRequested(),
+            seedSnippetSuggestionsIfRequested()
         ].compactMap { $0 }
+    }
+
+    /// UI-test hook: two clips that earned a suggestion, one that hasn't, and a
+    /// secret used more than any of them.
+    private func seedSnippetSuggestionsIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-snippet-suggestions"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            let clips: [(String, Int, Bool)] = [
+                ("Cra. 43A #1-50, Envigado", 5, false),
+                ("Thanks for reaching out", 3, false),
+                ("One use short", 2, false),
+                ("Seeded secret", 9, true)
+            ]
+            return Task {
+                for (text, uses, isSensitive) in clips {
+                    let item = ClipItem(
+                        preview: text, contentHash: "ui-suggestion-\(text)",
+                        isSensitive: isSensitive, uses: uses)
+                    _ = try? await fullStore.insert(item, content: .text(text))
+                }
+                await refreshRecents()
+                notifyStoreChanged()
+            }
+        #else
+            return nil
+        #endif
+    }
+
+    /// UI-test hook: a work session, copied within four minutes an hour ago,
+    /// and one clip from an hour before it, for Jump to context.
+    private func seedContextSessionIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-context-session"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            let start = Date.now.addingTimeInterval(-3_600)
+            // Seconds from the session start.
+            let session: [(TimeInterval, ClipContentKind, String)] = [
+                (-3_600, .text, "Lunch order for the team"),
+                (0, .url, "https://developer.apple.com/documentation/appkit"),
+                (60, .text, "NSPanel · floating, non-activating"),
+                (90, .code, "panel.becomesKeyOnlyIfNeeded = true"),
+                (150, .text, "Fix: panel steals focus in full screen"),
+                (210, .url, "https://gancho.app/docs/panel")
+            ]
+            return Task {
+                for (offset, kind, text) in session {
+                    let item = ClipItem(
+                        createdAt: start.addingTimeInterval(offset), kind: kind, preview: text,
+                        contentHash: "context-\(text)")
+                    _ = try? await fullStore.insert(item, content: .text(text))
+                }
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
     }
 
     /// UI-test hook: seed a few KNOWN synthetic clips through the normal capture
@@ -329,6 +395,27 @@ extension AppModel {
         #endif
     }
 
+    /// `-seed-peek-secret`: one fresh synthetic secret with nine and a half
+    /// minutes left, for the peek's countdown, reveal and Delete now.
+    private func seedPeekSecretIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-peek-secret"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            return Task {
+                let now = Date()
+                let item = ClipItem(
+                    createdAt: now.addingTimeInterval(-30), kind: .secret, preview: "●●●● 4Q2v",
+                    contentHash: "peek-secret", sourceAppBundleID: "com.apple.Terminal",
+                    isSensitive: true, expiresAt: now.addingTimeInterval(570))
+                _ = try? await fullStore.insert(item, content: .text("synthetic-peek-secret-4Q2v"))
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
+    }
+
     /// UI-test hook: seed one synthetic clip at two uses so a double-click
     /// drives the real paste-back → atomic third-use → suggestion path. It is
     /// available only with the throwaway durable store.
@@ -402,6 +489,45 @@ extension AppModel {
                     contentHash: "manual-ocr-fixture")
                 _ = try? await fullStore.insert(
                     item, content: .binary(data: data, typeIdentifier: "public.png"))
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
+    }
+
+    /// UI-test hook: one synthetic image whose recognized text is stored directly,
+    /// so selected-context review is deterministic without running Vision.
+    /// Automatic OCR is switched off so nothing rewrites that text, which is why
+    /// the isolated defaults suite is required too.
+    private func seedRecognizedTextImageIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-recognized-text-image"),
+                CommandLine.arguments.contains("-use-temp-durable-store"),
+                Self.uiTestDefaultsSuiteName() != nil, let fullStore
+            else { return nil }
+            intelligence.searchableScreenshots = false
+            let size = NSSize(width: 320, height: 120)
+            let image = NSImage(size: size)
+            image.lockFocus()
+            NSColor.systemIndigo.setFill()
+            NSRect(origin: .zero, size: size).fill()
+            image.unlockFocus()
+            guard let tiff = image.tiffRepresentation,
+                let data = NSBitmapImageRep(data: tiff)?.representation(
+                    using: .png, properties: [:])
+            else { return nil }
+            return Task {
+                // Newer than the source-app fixtures, so it is the first row.
+                let item = ClipItem(
+                    createdAt: Date(timeIntervalSince1970: 1_800_000_010), kind: .image,
+                    title: "Synthetic diagram", contentHash: "recognized-text-fixture")
+                guard
+                    (try? await fullStore.insert(
+                        item, content: .binary(data: data, typeIdentifier: "public.png"))) != nil
+                else { return }
+                try? await fullStore.attachExtractedText(
+                    id: item.id, text: "Synthetic queue between API and workers")
                 await refreshRecents()
             }
         #else

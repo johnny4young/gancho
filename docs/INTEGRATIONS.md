@@ -77,7 +77,20 @@ Sensitive clips are excluded under every policy. Database queries apply context
 filters before results leave the store, and out-of-context IDs look identical
 to missing IDs. Every call is recorded to a **content-free** access ledger
 (grant/client, tool, policy, result count, denial reason, timestamp — never
-clip content), shown in **Privacy Center → Local MCP access**.
+clip content), shown in **Privacy Center → Local MCP access**. Each row
+also keeps the grant's board, curated-selection size and time window as they
+were when the call ran, so editing a grant never rewrites older rows.
+
+### Seeing reads as they happen
+
+After each logged call, `gancho mcp` posts a distributed notification that
+carries only its name. Gancho then reads the new ledger rows itself: a read
+that returned clips, or a pin, lights a blue dot on the menu-bar icon for two
+minutes (or until you open the menu) and shows a HUD with the client, the
+count, the grant's board and window, and **Revoke**. One client's calls within
+five seconds add up in a single HUD; denials stay in the ledger. Boards an
+active grant exposes are marked **Exposed to agents** in the Library. Turn the
+dot and HUD off in **Settings → Integrations**.
 
 ### Connecting a client
 
