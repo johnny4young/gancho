@@ -9,6 +9,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Jump to context in the history panel: press ⌘J on any result (or choose
+  Show context in its menu or the peek) and the list shows the clips first
+  copied within two minutes of it, each with the time it was copied, the
+  result marked as the match. Esc returns to the results on the same row.
 - Notch shelf, off by default in Settings › Capture: drag anything (text, a
   link, an image, files from Finder) to the notch, or to the top center of a
   screen without one, and a shelf opens with your boards and four actions.
