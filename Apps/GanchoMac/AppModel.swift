@@ -532,6 +532,10 @@ final class AppModel {
             },
             privateModeDuration: { PrivateModeAutoOff.load(from: appDefaults).duration })
         monitor.denylist = SourceAppDenylist.load(from: appDefaults)
+        copyHUD.isAllowed = { [weak self] in
+            guard let self else { return false }
+            return !preferences.isPrivateModePaused && sharingAppName == nil
+        }
         monitor.onCapture = { [weak self] capture in
             // A copy made here ends a paste-stack run; one from another device doesn't.
             if !capture.isFromUniversalClipboard { self?.endStackRun() }
@@ -838,6 +842,7 @@ final class AppModel {
                 at: capture.capturedAt)
             await refreshRecents()
             notifyStoreChanged(for: .captured)
+            offerCopyActions(for: outcome, capture: capture)
             enrich(outcome)
         }
         lastIngest = task

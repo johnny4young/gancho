@@ -97,7 +97,7 @@ extension AppModel {
 
     private func confirmMerge(partCount: Int) {
         copyHUD.show(
-            CopyHUD(symbol: "doc.on.doc", title: "Merged · \(partCount) parts"),
+            CopyHUD(tile: .symbol("doc.on.doc"), title: "Merged · \(partCount) parts"),
             below: toasts.visibleFrame)
         // Respects the system "Play user interface sound effects" switch too.
         guard preferences.playsMergeSound,

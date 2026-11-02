@@ -37,6 +37,19 @@ struct CaptureSettingsTab: View {
             }
 
             Section {
+                Toggle("Show actions after copying", isOn: $model.preferences.copyActions.isEnabled)
+                    .accessibilityIdentifier("settings-copy-actions")
+                if model.preferences.copyActions.isEnabled {
+                    Toggle("Colors", isOn: $model.preferences.copyActions.colors)
+                        .accessibilityIdentifier("settings-copy-actions-colors")
+                    Toggle("Links", isOn: $model.preferences.copyActions.links)
+                        .accessibilityIdentifier("settings-copy-actions-links")
+                    Toggle("One-time codes", isOn: $model.preferences.copyActions.oneTimeCodes)
+                        .accessibilityIdentifier("settings-copy-actions-codes")
+                }
+            }
+
+            Section {
                 LabeledContent {
                     Button("Open Intelligence…") { model.intelligenceWindow.show(model: model) }
                         .accessibilityIdentifier("open-intelligence")

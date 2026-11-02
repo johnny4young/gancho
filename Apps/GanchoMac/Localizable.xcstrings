@@ -13442,6 +13442,106 @@
           }
         }
       }
+    },
+    "One-time codes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Códigos de un solo uso"
+          }
+        }
+      }
+    },
+    "Show actions after copying": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar acciones al copiar"
+          }
+        }
+      }
+    },
+    "Color · %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color · %@"
+          }
+        }
+      }
+    },
+    "Link · %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enlace · %@"
+          }
+        }
+      }
+    },
+    "One-time code · %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código de un solo uso · %@"
+          }
+        }
+      }
+    },
+    "Copy as rgb()": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar como rgb()"
+          }
+        }
+      }
+    },
+    "Copy as HSL": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar como HSL"
+          }
+        }
+      }
+    },
+    "Open": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir"
+          }
+        }
+      }
+    },
+    "Forget now": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvidar ahora"
+          }
+        }
+      }
+    },
+    "Forgotten": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvidado"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
