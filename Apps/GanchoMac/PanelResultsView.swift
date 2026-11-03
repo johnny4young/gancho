@@ -185,6 +185,8 @@ struct PanelResultsView<RowContent: View>: View {
                 Rectangle().fill(.ultraThinMaterial)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("panel-section-header")
     }
 
     /// Rolling digits when a section grows or shrinks (a capture, a delete).
