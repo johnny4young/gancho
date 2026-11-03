@@ -10,13 +10,13 @@
 <meta property="og:title" content="gancho — your clipboard, everywhere" />
 <meta property="og:description" content="A private-by-design clipboard history and snippet library for Mac, iPhone, and iPad. Local-first, encrypted, on-device AI." />
 <meta property="og:url" content="https://gancho.app/" />
-<meta property="og:image" content="https://gancho.app/assets/v0.10.2-release.png" />
-<meta property="og:image:width" content="1080" />
-<meta property="og:image:height" content="675" />
-<meta property="og:image:alt" content="Gancho v0.10.2 on macOS" />
+<meta property="og:image" content="https://gancho.app/assets/v0.11.0-release.png" />
+<meta property="og:image:width" content="864" />
+<meta property="og:image:height" content="492" />
+<meta property="og:image:alt" content="Gancho v0.11.0 development preview on macOS" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:image" content="https://gancho.app/assets/v0.10.2-release.png" />
-<meta name="twitter:image:alt" content="Gancho v0.10.2 on macOS" />
+<meta name="twitter:image" content="https://gancho.app/assets/v0.11.0-release.png" />
+<meta name="twitter:image:alt" content="Gancho v0.11.0 development preview on macOS" />
 <link rel="icon" href="assets/gancho-mark.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="styles.css" />
 <style>
@@ -526,19 +526,21 @@
 <section class="band band-tint" id="latest-release">
   <div class="wrap release-grid">
     <div class="release-copy">
-      <span class="kicker" data-i18n="rel.kicker">Disponible · v0.10.2</span>
-      <h2 class="h2" data-i18n="rel.title">Clips recuperados tras un cambio de llave.</h2>
-      <p class="lede" data-i18n="rel.lede">La descarga v0.10.2 repara las imágenes y archivos que quedaron cifrados con una llave anterior, restaura desde iCloud los clips sincronizados afectados y cuenta el resto en el Centro de privacidad. La matriz entre dispositivos, Sequoia y accesibilidad real sigue pendiente.</p>
+      <span class="kicker" data-i18n="rel.kicker">En preparación · v0.11.0</span>
+      <h2 class="h2" data-i18n="rel.title">Próxima versión: el panel rehecho, pegado en serie y agentes a la vista.</h2>
+      <p class="lede" data-i18n="rel.lede">v0.11.0 rehace el panel, el peek, la Biblioteca, Ajustes y las apps de iPhone y iPad, y agrega formas nuevas de reutilizar lo que copias. Necesita un Mac con Apple Silicon y macOS 26. La descarga actual sigue siendo v0.10.2.</p>
       <ul class="release-list">
-        <li data-i18n="rel.1"><b>Copiar de nuevo repara el archivo:</b> si guardas los mismos bytes otra vez, Gancho los vuelve a cifrar con la llave actual.</li>
-        <li data-i18n="rel.2"><b>iCloud restaura lo sincronizado:</b> al iniciar el sync, Gancho baja de nuevo la copia de iCloud de esos clips.</li>
-        <li data-i18n="rel.3"><b>Lo que queda, a la vista:</b> el Centro de privacidad cuenta los clips que no se pueden abrir y te deja quitarlos solo de este dispositivo.</li>
+        <li data-i18n="rel.1"><b>Pegado en serie:</b> la pila marca lo que ya pegaste, muestra «3 de 5» y sigue a la vista con el panel cerrado.</li>
+        <li data-i18n="rel.2"><b>Una sola lista de transformaciones:</b> ⌘T reúne acciones, recetas y Pegado inteligente, y ves el antes y el después antes de pegar.</li>
+        <li data-i18n="rel.3"><b>Snippets que se llenan solos:</b> {clipboard}, {date} y {cursor} se insertan desde el editor, y lo que más reutilizas se sugiere como snippet.</li>
+        <li data-i18n="rel.4"><b>Agentes a la vista:</b> cuando un cliente de IA local lee tus clips, un aviso dice cuál, qué leyó y ofrece Revocar.</li>
+        <li data-i18n="rel.5"><b>Secretos en un solo dispositivo:</b> contraseñas y claves ya no se sincronizan, y el Centro de privacidad te deja verificar el cifrado.</li>
       </ul>
-      <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/releases/tag/v0.10.2" data-i18n="rel.cta">Ver notas y descargar v0.10.2</a>
+      <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/blob/main/CHANGELOG.md" data-i18n="rel.cta">Ver todo lo que incluye 0.11.0</a>
     </div>
     <figure class="release-shot">
-      <img src="assets/v0.10.2-release.png" width="1080" height="675" loading="lazy" decoding="async" alt="Panel sólido de Gancho con el peek de un enlace / Solid Gancho panel with a link peek" />
-      <figcaption data-i18n="rel.caption">v0.10.2 en macOS con datos sintéticos; el panel no cambia respecto de 0.10.0 y no sustituye las pruebas del DMG publicado.</figcaption>
+      <img src="assets/v0.11.0-release.png" width="864" height="492" loading="lazy" decoding="async" alt="Panel de Gancho con modos de búsqueda y el peek de un enlace / Gancho panel with search modes and a link peek" />
+      <figcaption data-i18n="rel.caption">Vista previa del candidato macOS v0.11.0 con fixtures sintéticos; no es evidencia de una release publicada.</figcaption>
     </figure>
   </div>
 </section>
@@ -549,20 +551,20 @@
     <div class="sec-head">
       <span class="kicker" data-i18n="evo.kicker">Evolución reciente</span>
       <h2 class="h2" data-i18n="evo.title">Cada versión amplía lo que Gancho puede recordar por ti.</h2>
-      <p class="lede" data-i18n="evo.lede">Las nuevas formas de reutilizar de 0.10.0 y el sync que ya no se atasca desde 0.10.1 son la base que 0.10.2 recupera tras un cambio de llave.</p>
+      <p class="lede" data-i18n="evo.lede">El sync que ya no se atasca desde 0.10.1 y los clips recuperados de 0.10.2 son la base sobre la que 0.11.0 rehace cada pantalla.</p>
     </div>
     <div class="evolution-grid">
+      <article class="milestone-card">
+        <div class="milestone-meta"><span class="milestone-version">0.10.2</span><span class="milestone-date">16 Oct 2026</span></div>
+        <h3 data-i18n="evo.v0102.t">Clips recuperados tras un cambio de llave.</h3>
+        <p data-i18n="evo.v0102.p">Copiar de nuevo repara el archivo, iCloud restaura lo sincronizado y el Centro de privacidad cuenta lo que queda.</p>
+        <a class="milestone-link" href="#release-0-10-2" data-i18n="evo.v0102.cta">Ver notas de 0.10.2 →</a>
+      </article>
       <article class="milestone-card">
         <div class="milestone-meta"><span class="milestone-version">0.10.1</span><span class="milestone-date">16 Oct 2026</span></div>
         <h3 data-i18n="evo.v0101.t">El sync de iCloud que no se atasca.</h3>
         <p data-i18n="evo.v0101.p">Un clip ilegible en tu Mac ya no detiene todas las subidas: se salta, queda pendiente y Problemas recientes lo cuenta.</p>
         <a class="milestone-link" href="#release-0-10-1" data-i18n="evo.v0101.cta">Ver notas de 0.10.1 →</a>
-      </article>
-      <article class="milestone-card">
-        <div class="milestone-meta"><span class="milestone-version">0.10.0</span><span class="milestone-date">16 Oct 2026</span></div>
-        <h3 data-i18n="evo.v0100.t">Reutiliza más, con menos estorbo.</h3>
-        <p data-i18n="evo.v0100.p">Recetas de texto, sugerencias por significado, contexto seleccionado para IA, traducción con idiomas instalados y un panel sólido que abre en tu clip más nuevo.</p>
-        <a class="milestone-link" href="#release-0-10-0" data-i18n="evo.v0100.cta">Ver notas de 0.10.0 →</a>
       </article>
     </div>
   </div>
@@ -652,16 +654,16 @@
     </div>
     <div class="grid f2">
       <figure class="release-shot">
-        <img src="assets/screen-ocr-peek.png" width="864" height="540" loading="lazy" decoding="async" alt="Texto reconocido de una imagen junto a la vista previa del panel / Text recognized from an image beside the panel preview" />
+        <img src="assets/screen-ocr-peek.png" width="864" height="492" loading="lazy" decoding="async" alt="Texto reconocido de una imagen junto a la vista previa del panel / Text recognized from an image beside the panel preview" />
         <figcaption data-i18n="shots.1">OCR manual gratuito: el texto de la imagen aparece junto a ella, listo para copiar, abrir o traducir.</figcaption>
       </figure>
       <figure class="release-shot">
-        <img src="assets/screen-library.png" width="1200" height="892" loading="lazy" decoding="async" alt="Biblioteca con tarjetas de código, color, imagen y un clip protegido / Library cards for code, color, image and a protected clip" />
+        <img src="assets/screen-library.png" width="900" height="672" loading="lazy" decoding="async" alt="Biblioteca con tarjetas de código, color, imagen y un clip protegido / Library cards for code, color, image and a protected clip" />
         <figcaption data-i18n="shots.2">La biblioteca muestra código, colores e imágenes de un vistazo; un clip protegido queda enmascarado.</figcaption>
       </figure>
       <figure class="release-shot">
-        <img src="assets/screen-privacy-settings.png" width="1010" height="824" loading="lazy" decoding="async" alt="Ajustes de privacidad de Gancho en Mac / Gancho privacy settings on Mac" />
-        <figcaption data-i18n="shots.3">La privacidad se explica donde se decide: Spotlight, búsquedas recordadas y diagnósticos desactivados por defecto.</figcaption>
+        <img src="assets/screen-privacy-settings.png" width="760" height="532" loading="lazy" decoding="async" alt="Ajustes de privacidad de Gancho en Mac / Gancho privacy settings on Mac" />
+        <figcaption data-i18n="shots.3">Ajustes › Privacidad abre con cuatro mosaicos: captura, cifrado, copias protegidas omitidas y sync.</figcaption>
       </figure>
       <figure class="release-shot">
         <img src="assets/screen-ios-masked.png" width="600" height="1304" style="width:auto;max-height:560px;margin:0 auto" loading="lazy" decoding="async" alt="Vista previa enmascarada de un token en iPhone / Masked token preview on iPhone" />
@@ -669,21 +671,21 @@
       </figure>
     </div>
     <div class="sec-head follows">
-      <span class="kicker" data-i18n="shots.next.kicker">Nuevo en v0.9.0</span>
-      <p class="lede" data-i18n="shots.next.lede">El panel rediseñado de v0.9.0: una sola barra de herramientas, filas que muestran qué es cada clip, un peek con tarjeta y dock de acciones, un color ambiental opcional y una galería con ⌘G.</p>
+      <span class="kicker" data-i18n="shots.next.kicker">Rehecho en v0.11.0</span>
+      <p class="lede" data-i18n="shots.next.lede">El panel del código fuente de v0.11.0: modos de búsqueda, chips de tablero y tipo con conteos, filas que muestran qué es cada clip, un peek con su origen y un dock de acciones, un color ambiental opcional y una galería con ⌘G.</p>
     </div>
     <div class="grid f3">
       <figure class="release-shot">
-        <img src="assets/screen-panel-peek.png" width="864" height="540" loading="lazy" decoding="async" alt="Panel rediseñado con barra única, filas por tipo y el peek de un enlace / Redesigned panel with one toolbar, kind rows and a link peek" />
-        <figcaption data-i18n="shots.n1">El dominio y la ruta de un enlace, en grande y leídos en tu Mac, sin descargar nada; Pegar, Plano, Fijar y Tablero en el dock.</figcaption>
+        <img src="assets/screen-panel-peek.png" width="864" height="492" loading="lazy" decoding="async" alt="Panel rediseñado con barra única, filas por tipo y el peek de un enlace / Redesigned panel with one toolbar, kind rows and a link peek" />
+        <figcaption data-i18n="shots.n1">El dominio y la ruta de un enlace, en grande y leídos en tu Mac, sin descargar nada. El botón principal dice Copiar porque la captura corre sin Accesibilidad; con ella, nombra la app donde pega.</figcaption>
       </figure>
       <figure class="release-shot">
-        <img src="assets/screen-panel-gallery.png" width="864" height="540" loading="lazy" decoding="async" alt="Galería de tarjetas en modo oscuro / Gallery of cards in dark mode" />
-        <figcaption data-i18n="shots.n2">⌘G muestra el historial como tarjetas; las flechas se mueven por fila y por columna.</figcaption>
+        <img src="assets/screen-panel-gallery.png" width="864" height="492" loading="lazy" decoding="async" alt="Galería de tarjetas en modo oscuro / Gallery of cards in dark mode" />
+        <figcaption data-i18n="shots.n2">⌘G muestra el historial como tarjetas; un color abre con sus valores HEX, RGB, HSL y Swift, y su contraste.</figcaption>
       </figure>
       <figure class="release-shot">
-        <img src="assets/screen-panel-ambient.png" width="864" height="540" loading="lazy" decoding="async" alt="Panel con color ambiental detrás de una imagen / Panel with ambient colour behind an image" />
-        <figcaption data-i18n="shots.n3">Color ambiental opcional: un lavado tenue del color de la imagen seleccionada, apagado por defecto.</figcaption>
+        <img src="assets/screen-panel-ambient.png" width="864" height="492" loading="lazy" decoding="async" alt="Panel con color ambiental detrás de una imagen / Panel with ambient colour behind an image" />
+        <figcaption data-i18n="shots.n3">Color ambiental opcional: un lavado tenue del color de la imagen seleccionada, apagado por defecto. El peek de una imagen lista sus colores dominantes.</figcaption>
       </figure>
     </div>
   </div>
@@ -1015,6 +1017,10 @@
       <p class="lede" data-i18n="log.lede">Explora cada versión, de la más reciente a la primera. Abre solo el hito que quieras conocer; sus metadatos y artefactos se verifican juntos en CI.</p>
     </div>
     <div class="log">
+      <details class="release-detail" id="release-0-10-2">
+        <summary><span class="log-meta"><span class="ver">0.10.2</span><span class="dt">16 Oct 2026</span></span><span class="release-summary-title" data-i18n="evo.v0102.t">Clips recuperados tras un cambio de llave.</span><svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+        <div class="log-body"><ul><li data-i18n="evo.v0102.p">Copiar de nuevo repara el archivo, iCloud restaura lo sincronizado y el Centro de privacidad cuenta lo que queda.</li><li><a href="https://github.com/johnny4young/gancho/releases/tag/v0.10.2" data-i18n="evo.v0102.cta">Ver notas de 0.10.2 →</a></li></ul></div>
+      </details>
       <details class="release-detail" id="release-0-10-1">
         <summary><span class="log-meta"><span class="ver">0.10.1</span><span class="dt">16 Oct 2026</span></span><span class="release-summary-title" data-i18n="evo.v0101.t">El sync de iCloud que no se atasca.</span><svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
         <div class="log-body"><ul><li data-i18n="evo.v0101.p">Un clip ilegible en tu Mac ya no detiene todas las subidas: se salta, queda pendiente y Problemas recientes lo cuenta.</li><li><a href="https://github.com/johnny4young/gancho/releases/tag/v0.10.1" data-i18n="evo.v0101.cta">Ver notas de 0.10.1 →</a></li></ul></div>
@@ -1240,24 +1246,29 @@
       "panel.search": "Search your clipboard…", "panel.foot": "Local · encrypted on this Mac",
       "clip.code.t": "useEffect cleanup", "clip.secret.t": "OpenAI API key", "clip.url.t": "Privacy policy", "clip.color.t": "Brand green", "clip.image.t": "Launch mark", "clip.image.p": "PNG · 248 KB · 1640×1024 · encrypted",
       "trust.1": "Local-first", "trust.2": "Encrypted on device", "trust.3": "No middle servers", "trust.4": "No content telemetry",
-      "rel.kicker": "Available now · v0.10.2", "rel.title": "Clips recovered after a key change.",
-      "rel.lede": "The v0.10.2 download repairs images and files left encrypted under an earlier key, restores affected synced clips from iCloud and counts the rest in the Privacy Center. Cross-device, Sequoia and real accessibility acceptance remain pending.",
-      "rel.1": "<b>Copying again repairs the file:</b> saving the same bytes again re-encrypts them under the current key.",
-      "rel.2": "<b>iCloud restores synced clips:</b> when sync starts, Gancho fetches the iCloud copy of those clips again.",
-      "rel.3": "<b>What's left, in view:</b> the Privacy Center counts clips that can't be opened and lets you remove them from this device only.",
-      "rel.cta": "Read notes and download v0.10.2",
-      "rel.caption": "v0.10.2 on macOS with synthetic data; the panel is unchanged from 0.10.0 and this is not a substitute for testing the published DMG.",
+      "rel.kicker": "In preparation · v0.11.0", "rel.title": "Next release: a rebuilt panel, paste runs and agents in plain view.",
+      "rel.lede": "v0.11.0 rebuilds the panel, the peek, the Library, Settings and the iPhone and iPad apps, and adds new ways to reuse what you copy. It needs an Apple Silicon Mac with macOS 26. The current download remains v0.10.2.",
+      "rel.1": "<b>Paste runs:</b> the stack checks what you already pasted, reads “3 of 5” and stays in view with the panel closed.",
+      "rel.2": "<b>One Transform list:</b> ⌘T holds actions, recipes and Smart paste, and shows the before and after before you paste.",
+      "rel.3": "<b>Snippets that fill themselves:</b> {clipboard}, {date} and {cursor} insert from the editor, and what you reuse most is suggested as a snippet.",
+      "rel.4": "<b>Agents in plain view:</b> when a local AI client reads your clips, a notice says which one and what it read, and offers Revoke.",
+      "rel.5": "<b>Secrets on one device:</b> passwords and keys no longer sync, and the Privacy Center lets you verify the encryption.",
+      "rel.cta": "See everything in 0.11.0",
+      "rel.caption": "Preview of the macOS v0.11.0 candidate with synthetic fixtures; this is not evidence of a published release.",
       "shots.kicker": "What it looks like", "shots.title": "Real app screens, with synthetic data.",
       "shots.lede": "Captured from the app's UI tests: only Gancho's own window, and only sample content.",
       "shots.1": "Free manual OCR: the image's text appears beside it, ready to copy, open or translate.",
       "shots.2": "The Library shows code, colors and images at a glance; a protected clip stays masked.",
-      "shots.3": "Privacy is explained where you decide it: Spotlight, remembered searches and diagnostics off by default.",
+      "shots.3": "Settings › Privacy opens with four tiles: capture, encryption, skipped protected copies and sync.",
       "shots.4": "On iPhone, a token stays masked when you long-press it and is not offered for sharing.",
-      "shots.next.kicker": "New in v0.9.0",
-      "shots.next.lede": "The redesigned panel of v0.9.0: one toolbar, rows that show what each clip is, a peek with a hero card and an action dock, an optional ambient colour and a gallery behind ⌘G.",
-      "shots.n1": "A link's host and path set large, parsed on your Mac without fetching anything; Paste, Plain, Pin and Board in the dock.",
-      "shots.n2": "⌘G shows the history as cards; the arrows move by row and by column.",
-      "shots.n3": "Optional ambient colour: a faint wash of the selected image's own colour, off by default.",
+      "shots.next.kicker": "Rebuilt in v0.11.0",
+      "shots.next.lede": "The panel in the v0.11.0 source: search modes, board and kind chips with counts, rows that show what each clip is, a peek with its provenance and an action dock, an optional ambient colour and a gallery behind ⌘G.",
+      "shots.n1": "A link's host and path set large, parsed on your Mac without fetching anything. The main button reads Copy because the capture runs without Accessibility; with it, the button names the app it pastes into.",
+      "shots.n2": "⌘G shows the history as cards; a color opens with its HEX, RGB, HSL and Swift values and its contrast.",
+      "shots.n3": "Optional ambient colour: a faint wash of the selected image's own colour, off by default. An image's peek lists its dominant colours.",
+      "evo.v0102.t": "Clips recovered after a key change.",
+      "evo.v0102.p": "Copying again repairs the file, iCloud restores what was synced and the Privacy Center counts what's left.",
+      "evo.v0102.cta": "Read 0.10.2 release notes →",
       "evo.v0101.t": "iCloud sync that doesn't get stuck.",
       "evo.v0101.p": "One unreadable clip on your Mac no longer stops every upload: it is skipped, stays pending and Recent issues counts it.",
       "evo.v0101.cta": "Read 0.10.1 release notes →",
@@ -1283,7 +1294,7 @@
       "evo.v081.p": "A Pro purchase survives transient StoreKit gaps, with more predictable CloudKit recovery.",
       "evo.v081.cta": "Read 0.8.1 release notes →",
       "evo.kicker": "Recent evolution", "evo.title": "Every release expands what Gancho can remember for you.",
-      "evo.lede": "The new ways to reuse of 0.10.0 and the sync that no longer gets stuck since 0.10.1 are the base that 0.10.2 recovers after a key change.",
+      "evo.lede": "The sync that no longer gets stuck since 0.10.1 and the clips recovered in 0.10.2 are the base on which 0.11.0 rebuilds every screen.",
       "priv.kicker": "Privacy invariants", "priv.title": "It earns your trust before it earns your convenience.",
       "priv.lede": "gancho treats what you copy as private data. It observes metadata first, vetoes sensitive pasteboards before reading them, and keeps logs and diagnostics content-free.",
       "priv.c1.t": "Veto before read", "priv.c1.p": "Password-manager, transient, concealed, and auto-generated types are rejected before gancho reads a payload.", "priv.c1.tag": "Sensitive → skipped",
