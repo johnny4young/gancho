@@ -30,9 +30,9 @@ jobs:
     if: ${{ inputs.scope != 'ios-interaction-stress' && inputs.scope != 'ios-full' }}
     name: ${{ inputs.scope == 'feature-stress' && 'macOS feature stress (10x)' || inputs.scope == 'interaction-stress' && 'macOS interaction stress (10x)' || 'macOS UI tests' }}
     runs-on: macos-26
-    # Ten rounds exceed the full suite's wall-clock allocation. Interaction
-    # timeouts and performance budgets stay unchanged.
-    timeout-minutes: ${{ (inputs.scope == 'interaction-stress' || inputs.scope == 'feature-stress') && 90 || 45 }}
+    # The full suite outgrew 45 minutes, and ten stress rounds need as long.
+    # Interaction timeouts and performance budgets stay unchanged.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
 
