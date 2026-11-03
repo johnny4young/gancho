@@ -226,6 +226,7 @@ struct KeyboardView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             } else if model.isGrouped {
+                if let upNext = model.upNext { upNextRow(upNext) }
                 ForEach(model.sections) { group in
                     Section {
                         ForEach(group.entries) { entry in swipeRow(entry) }
@@ -240,6 +241,38 @@ struct KeyboardView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .environment(\.defaultMinListRowHeight, 0)
+    }
+
+    private func upNextRow(_ entry: WidgetClipEntry) -> some View {
+        let isInserted = model.inserted.contains(entry.id)
+        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+        return Button {
+            model.insert(entry)
+        } label: {
+            HStack(spacing: GanchoTokens.Spacing.xs) {
+                Text("Up next")
+                    .font(.caption2.weight(.heavy))
+                    .textCase(.uppercase)
+                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                Text(entry.displayText)
+                    .lineLimit(1)
+                    .font(.callout)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 0)
+                if isInserted { insertedPill }
+            }
+            .padding(.horizontal, 10)
+            .frame(minHeight: 44)
+            .background(rowFill(isInserted, idle: .fill.quaternary), in: shape)
+            .overlay(shape.strokeBorder(GanchoTokens.Palette.brandGreen, lineWidth: 2))
+            .contentShape(shape)
+        }
+        .buttonStyle(PressableScale())
+        .listRowInsets(EdgeInsets(top: 3, leading: 2, bottom: 3, trailing: 2))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        .accessibilityValue(isInserted ? Text("Inserted") : Text(verbatim: ""))
+        .accessibilityIdentifier("keyboard-up-next")
     }
 
     /// One history row with its swipe actions: Copy (→ pasteboard, so it can be

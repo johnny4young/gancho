@@ -161,6 +161,7 @@ final class IOSAppModel {
     }
     var isTelemetryConsentPromptPresented = false
     @ObservationIgnored var uiTestPrivateActivityReceiptSeedTask: Task<Void, Never>?
+    @ObservationIgnored private let keyboardUpNextWrites = OrderedWrites()
 
     #if DEBUG
         /// UI-test-only consent pin (see init). Nil when the launch argument
@@ -406,10 +407,23 @@ final class IOSAppModel {
         await RetentionPass(steps: .live(store: grdb, sync: syncController))
             .run(policy: policy, tier: { self.tier }, now: Date())
         defaults.set(Date(), forKey: Self.lastMaintenanceKey)
+        // Also catches an insert the keyboard logged just as the switch went off.
+        if !KeyboardUpNextPreference.isEnabled() { try? await grdb.clearPasteEvents() }
         // Immediate: a background run may be suspended before a debounce fires.
         WidgetCenter.shared.reloadAllTimelines()
         if refreshingList { await search() }
         return true
+    }
+
+    /// Both ways leave an empty log: off stops the keyboard before the erase, and
+    /// on starts it after one, dropping a row that slipped past the last erase.
+    func setKeyboardUpNext(_ on: Bool) {
+        let grdb = grdbForEngines
+        keyboardUpNextWrites.enqueue {
+            if !on { KeyboardUpNextPreference.setEnabled(false) }
+            try? await grdb?.clearPasteEvents()
+            if on { KeyboardUpNextPreference.setEnabled(true) }
+        }
     }
 
     /// Resolves a `gancho://clip/<id>` link and hands the clip to the shell.

@@ -129,6 +129,22 @@ final class IOSFlowsV4UITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Gancho keyboard"].waitForExistence(timeout: 5))
     }
 
+    /// The switch lives in the App Group, so the test leaves it off as it found it.
+    @MainActor
+    func testKeyboardUpNextIsOffUntilTurnedOn() throws {
+        let app = try launch(["-force-free-tier"])
+        defer { app.terminate() }
+        app.buttons["Settings"].firstMatch.tap()
+        let toggle = app.switches["settings-keyboard-up-next"].firstMatch
+        for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertEqual(toggle.value as? String, "0", "off unless turned on")
+        toggle.switches.firstMatch.tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        toggle.switches.firstMatch.tap()
+        XCTAssertEqual(toggle.value as? String, "0")
+    }
+
     @MainActor
     func testPrivacyCenterVerifiesEncryptionFirst() throws {
         let app = XCUIApplication()

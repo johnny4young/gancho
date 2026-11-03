@@ -1,3 +1,5 @@
+import ClipboardCore
+import GanchoAppCore
 import GanchoKit
 import ImageIO
 import SwiftUI
@@ -28,6 +30,8 @@ final class KeyboardModel: ObservableObject {
     /// selected board, including the always-present Favorites. Synced boards
     /// made on other devices appear here too.
     @Published var boards: [Pinboard] = []
+    /// The clip offered above the plain recent list; see `KeyboardUpNext`.
+    @Published private(set) var upNext: WidgetClipEntry?
     @Published var selectedBoardID: UUID?
     /// Tiny downsampled image thumbnails, keyed by clip id. A keyboard runs under
     /// a hard memory budget, so this is capped (FIFO) and the decode never loads
@@ -48,7 +52,8 @@ final class KeyboardModel: ObservableObject {
     /// The store surface the keyboard needs: read + search the history, list a
     /// board's members, and sync-delete an entry. Held as facets so the keyboard
     /// depends on capabilities, not the concrete store.
-    private let store: (any ClipReading & ClipSearching & BoardStoring & ClipMutating)?
+    private let store:
+        (any ClipReading & ClipSearching & BoardStoring & ClipMutating & PasteEventLogging)?
     private var noteTask: Task<Void, Never>?
     /// The one in-flight list reload; each keystroke or board switch replaces it.
     private var reloadTask: Task<Void, Never>?
@@ -105,7 +110,31 @@ final class KeyboardModel: ObservableObject {
                     ? nil : KeyboardClipSection(section: group.section, entries: entries)
             }
             entries = sections.flatMap(\.entries)
+            await refreshUpNext()
         }
+    }
+
+    /// Reads the log only while the switch is on; a stale or protected clip shows nothing.
+    private func refreshUpNext() async {
+        guard let store, KeyboardUpNextPreference.isEnabled(),
+            let events = try? await store.pasteEvents(
+                targetBundleID: KeyboardUpNext.logTarget, now: .now),
+            let id = KeyboardUpNext.clipID(
+                events: events, isBrowsing: isGrouped, firstRowID: entries.first?.id),
+            let item = try? await store.item(id: id), ClipSafeDelivery.isEligible(item)
+        else {
+            upNext = nil
+            return
+        }
+        upNext =
+            isCurrent(text: "", board: nil)
+            ? WidgetClips.entries(from: [item], limit: 1).first : nil
+    }
+
+    private func logInsert(_ id: UUID) async {
+        guard let store else { return }
+        await KeyboardUpNext.logInsert(
+            id, in: store, isEnabled: KeyboardUpNextPreference.isEnabled())
     }
 
     func runSearch() async {
@@ -167,6 +196,7 @@ final class KeyboardModel: ObservableObject {
             if let text = KeyboardInsertedMarks.fieldText(for: payload.content) {
                 if let document = onInsert(text) {
                     inserted.markInserted(entry.id, into: document)
+                    await logInsert(entry.id)
                 }
             } else if case .binary(let data, let type) = payload.content {
                 // A keyboard can only type text into another app — iOS has no

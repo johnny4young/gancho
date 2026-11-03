@@ -91,7 +91,7 @@ extension GRDBClipboardStore: PasteEventLogging {
                 sql: """
                     SELECT e.clipID, e.pastedAt FROM paste_event e
                     JOIN clip c ON c.id = e.clipID
-                    WHERE e.targetBundleID = ? AND e.pastedAt >= ?
+                    WHERE e.targetBundleID = ? AND e.pastedAt >= ? AND c.isArchived = 0
                         AND c.isSensitive = 0 AND c.kind NOT IN (\(PasteEventLog.maskedKindsSQL))
                     ORDER BY e.pastedAt DESC LIMIT ?
                     """,

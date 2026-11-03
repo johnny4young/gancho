@@ -360,6 +360,16 @@
           }
         }
       }
+    },
+    "Up next": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siguiente"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
