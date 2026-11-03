@@ -59,14 +59,20 @@ published_sha="$(sed -nE 's/^SHA-256: `([a-f0-9]{64})`.*/\1/p' "$published_notes
 [[ -n "$published_sha" ]] || fail "published release notes must state the DMG checksum"
 require_literal packaging/Casks/gancho.rb "version \"${published_version}\""
 require_literal packaging/Casks/gancho.rb "sha256 \"${published_sha}\""
-# The cask describes the published DMG; from the first macOS 26 release on it
-# must refuse Intel and pre-Tahoe Macs.
-if [[ "$published_floor" == 15.* ]]; then
+# A tag regenerates the tap cask from this template, changing only version and
+# checksum, so its requirements must already describe the source version.
+source_version="$(sed -nE 's/^[[:space:]]*MARKETING_VERSION:[[:space:]]*"?([0-9.]+)"?.*/\1/p' project.yml | head -1)"
+source_notes="docs/releases/v${source_version}.md"
+[[ -f "$source_notes" ]] || fail "source version release notes are missing"
+source_floor="$(sed -nE 's/^Gancho requires macOS ([0-9.]+) or later.*/\1/p' "$source_notes")"
+[[ -n "$source_floor" ]] || fail "source version release notes must state their macOS floor"
+if [[ "$source_floor" == 15.* ]]; then
 	require_literal packaging/Casks/gancho.rb 'depends_on macos: :sequoia'
-	require_literal packaging/Casks/gancho.rb "Gancho requires macOS ${published_floor} or later."
+	require_literal packaging/Casks/gancho.rb "Gancho requires macOS ${source_floor} or later."
 else
 	require_literal packaging/Casks/gancho.rb 'depends_on macos: :tahoe'
 	require_literal packaging/Casks/gancho.rb 'depends_on arch: :arm64'
+	forbid_regex packaging/Casks/gancho.rb 'macOS 15|:sequoia'
 fi
 
 require_literal README.md 'eight library products + a CLI'

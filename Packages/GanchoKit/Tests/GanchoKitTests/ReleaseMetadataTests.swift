@@ -199,20 +199,25 @@ struct ReleaseMetadataTests {
         let version = try Self.firstCapture(
             in: readme, pattern: #"\*\*Status: public v([0-9]+\.[0-9]+\.[0-9]+);"#)
         let notes = try Self.text("docs", "releases", "v\(version).md")
-        let floor = try Self.firstCapture(
-            in: notes, pattern: #"Gancho requires macOS ([0-9.]+) or later"#)
         let checksum = try Self.firstCapture(in: notes, pattern: #"SHA-256: `([a-f0-9]{64})`"#)
+        let source = try Self.firstCapture(
+            in: try Self.text("project.yml"),
+            pattern: #"MARKETING_VERSION: "([0-9.]+)""#)
+        let sourceNotes = try Self.text("docs", "releases", "v\(source).md")
+        let floor = try Self.firstCapture(
+            in: sourceNotes, pattern: #"Gancho requires macOS ([0-9.]+) or later"#)
         let cask = try Self.text("packaging", "Casks", "gancho.rb")
         #expect(cask.contains("version \"\(version)\""))
         #expect(cask.contains("sha256 \"\(checksum)\""))
-        // The cask describes the published DMG: from the first macOS 26 release
-        // on, Homebrew must refuse Intel and pre-Tahoe Macs.
+        // A tag regenerates the tap cask from this template, changing only version
+        // and checksum, so its requirements must already describe the source version.
         if floor.hasPrefix("15.") {
             #expect(cask.contains("depends_on macos: :sequoia"))
             #expect(cask.contains("Gancho requires macOS \(floor) or later."))
         } else {
             #expect(cask.contains("depends_on macos: :tahoe"))
             #expect(cask.contains("depends_on arch: :arm64"))
+            #expect(!cask.contains("macOS 15"))
         }
         let feed = try Self.text("site", "appcast.xml")
         #expect(
