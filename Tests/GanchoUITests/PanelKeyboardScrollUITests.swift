@@ -26,8 +26,12 @@ final class PanelKeyboardScrollUITests: XCTestCase {
             throw XCTSkip("the search field must own keyboard focus to send arrow keys")
         }
         try SynthesizedInput.requireForeground(app)
-        for _ in 1..<Self.rowCount { app.typeKey(.downArrow, modifierFlags: []) }
-        XCTAssertTrue(row(Self.rowCount - 1, in: app).waitForExistence(timeout: 5))
+        // Opening selects the first unpinned row, and ↓ wraps past the last one.
+        let last = row(Self.rowCount - 1, in: app)
+        for _ in 0..<Self.rowCount where !(last.exists && last.isSelected) {
+            app.typeKey(.downArrow, modifierFlags: [])
+        }
+        XCTAssertTrue(last.isSelected, "the arrows never reached the last row")
 
         for index in stride(from: Self.rowCount - 2, through: 0, by: -1) {
             try SynthesizedInput.requireForeground(app)
@@ -50,6 +54,7 @@ final class PanelKeyboardScrollUITests: XCTestCase {
     ) {
         let selected = row(index, in: app)
         XCTAssertTrue(selected.waitForExistence(timeout: 3), "row \(index)", line: line)
+        XCTAssertTrue(selected.isSelected, "row \(index)", line: line)
         let headers = app.descendants(matching: .any).matching(identifier: "panel-section-header")
         var covering: CGRect?
         for _ in 0..<10 {
