@@ -18,8 +18,12 @@ final class SavedFiltersUITests: XCTestCase {
         defer { app.terminate() }
         let field = app.textFields["search-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 15))
-        let initialCount = app.descendants(matching: .any).matching(identifier: "clip-row").count
-        XCTAssertEqual(initialCount, 4)
+        // The field appears before the seed's rows do.
+        let panelRows = app.descendants(matching: .any).matching(identifier: "clip-row")
+        let seeded = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "count == 4"), object: panelRows)
+        XCTAssertEqual(XCTWaiter.wait(for: [seeded], timeout: 15), .completed)
+        let initialCount = panelRows.count
         try typeTextReliably("Yesterday", into: field, in: app)
         app.buttons["filter-save"].click()
         let name = app.textFields["filter-name-field"]
