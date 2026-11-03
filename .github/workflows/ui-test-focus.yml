@@ -1,0 +1,226 @@
+# Verifies named UI tests in minutes instead of running the full suites. It adds
+# evidence for a fix and never replaces the full-platform run a release needs.
+name: UI test focus
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to test
+        type: choice
+        default: macos
+        options:
+          - macos
+          - ios
+      tests:
+        description: Space-separated ClassName or ClassName/testMethod
+        type: string
+        required: true
+      iterations:
+        description: Repetitions of each test, from 1 to 50
+        type: string
+        default: "1"
+  # A dispatch can only start once this file is on main, so a change to it proves
+  # itself on one known test per platform.
+  pull_request:
+    paths:
+      - .github/workflows/ui-test-focus.yml
+      - scripts/ui-test-focus.sh
+
+permissions:
+  contents: read
+
+# Dispatches never cancel each other, so two commits can be compared side by side.
+concurrency:
+  group: ui-test-focus-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS focused UI tests
+    if: ${{ github.event_name == 'pull_request' || inputs.platform == 'macos' }}
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      FOCUS_TESTS: ${{ inputs.tests || 'PanelUITests/testPanelShortcutRestoresAndRegistersOnLaunch' }}
+      FOCUS_ITERATIONS: ${{ inputs.iterations || '1' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate the request
+        run: |
+          ./scripts/ui-test-focus.sh --self-test
+          ./scripts/ui-test-focus.sh arguments GanchoUITests "$FOCUS_TESTS" "$FOCUS_ITERATIONS"
+
+      - name: Cache resolved packages
+        uses: actions/cache@v6
+        with:
+          path: build/xcode-packages
+          key: xcode-spm-${{ runner.os }}-${{ hashFiles('Dependencies/Package.resolved') }}
+
+      - name: Generate project
+        run: |
+          brew install xcodegen
+          make project
+          ./scripts/collect-ui-test-evidence.sh --self-test
+
+      - name: Run the requested tests
+        env:
+          TEST_RUNNER_GANCHO_UI_ADHOC_SIGNING: "1"
+        run: |
+          mkdir -p build
+          set -o pipefail
+          requested=$(./scripts/ui-test-focus.sh arguments GanchoUITests "$FOCUS_TESTS" "$FOCUS_ITERATIONS")
+          test_arguments=()
+          while IFS= read -r argument; do
+            test_arguments+=("$argument")
+          done <<< "$requested"
+          xcodebuild -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
+            test -project Gancho.xcodeproj -scheme Gancho \
+            -destination 'platform=macOS,arch=arm64' \
+            -parallel-testing-enabled NO \
+            "${test_arguments[@]}" \
+            -resultBundlePath build/focus.xcresult \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= \
+            ENABLE_HARDENED_RUNTIME=NO \
+            2>&1 | tee build/focus.log
+
+      - name: Require a passing result for every requested test
+        if: always()
+        run: |
+          ./scripts/collect-ui-test-evidence.sh \
+            build/focus.xcresult "macOS focused UI tests" build/focus-evidence
+          ./scripts/ui-test-focus.sh verify build/focus-evidence/tests.json "$FOCUS_TESTS"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-test-focus-macos-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/focus.xcresult
+            build/focus.log
+            build/focus-evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+  ios:
+    name: iOS focused UI tests
+    if: ${{ github.event_name == 'pull_request' || inputs.platform == 'ios' }}
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      FOCUS_TESTS: ${{ inputs.tests || 'ReuseSuggestionUITests/testThirdCopyOffersOneTapSnippetPromotionAndCapturesEvidence' }}
+      FOCUS_ITERATIONS: ${{ inputs.iterations || '1' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate the request
+        run: |
+          ./scripts/ui-test-focus.sh --self-test
+          ./scripts/ui-test-focus.sh arguments GanchoiOSUITests "$FOCUS_TESTS" "$FOCUS_ITERATIONS"
+
+      - name: Cache resolved packages
+        uses: actions/cache@v6
+        with:
+          path: build/xcode-packages
+          key: xcode-spm-${{ runner.os }}-${{ hashFiles('Dependencies/Package.resolved') }}
+
+      # Before the boot: starting a simulator stalls Homebrew for about three minutes.
+      - name: Generate project
+        run: |
+          brew install xcodegen
+          make project
+          ./scripts/collect-ui-test-evidence.sh --self-test
+          ./scripts/warm-ios-simulator.sh --self-test
+
+      - name: Start an available iPhone simulator
+        run: |
+          runtime=$(xcrun simctl list runtimes available -j \
+            | jq -r '[.runtimes[] | select(.platform == "iOS")] | sort_by(.version) | last | .identifier')
+          simulator=$(xcrun simctl list devices available -j \
+            | jq -r --arg runtime "$runtime" \
+              '.devices[$runtime] | map(select(.name | startswith("iPhone"))) | first | .udid')
+          if [[ -z "$runtime" || "$runtime" == "null" || \
+                -z "$simulator" || "$simulator" == "null" ]]; then
+            echo "::error::No available iOS iPhone simulator was found"
+            exit 1
+          fi
+          echo "IOS_SIMULATOR_UDID=$simulator" >> "$GITHUB_ENV"
+          xcrun simctl boot "$simulator" 2>/dev/null || true
+
+      - name: Build the app and UI test runner
+        run: |
+          mkdir -p build
+          set -o pipefail
+          xcodebuild -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
+            build-for-testing -project Gancho.xcodeproj -scheme GanchoiOS \
+            -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- \
+            PROVISIONING_PROFILE_SPECIFIER= AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            2>&1 | tee build/focus-build.log
+
+      - name: Wait for the simulator to finish booting
+        run: xcrun simctl bootstatus "$IOS_SIMULATOR_UDID" -b
+
+      - name: Warm the simulator with an unmeasured UI launch
+        timeout-minutes: 8
+        continue-on-error: true
+        run: |
+          ./scripts/warm-ios-simulator.sh warm "$IOS_SIMULATOR_UDID" build \
+            -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages
+
+      - name: Stop anything the warm-up left running
+        run: ./scripts/warm-ios-simulator.sh stop "$IOS_SIMULATOR_UDID"
+
+      - name: Run the requested tests
+        run: |
+          set -o pipefail
+          requested=$(./scripts/ui-test-focus.sh arguments GanchoiOSUITests "$FOCUS_TESTS" "$FOCUS_ITERATIONS")
+          test_arguments=()
+          while IFS= read -r argument; do
+            test_arguments+=("$argument")
+          done <<< "$requested"
+          xcodebuild -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
+            test-without-building -project Gancho.xcodeproj -scheme GanchoiOS \
+            -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
+            -parallel-testing-enabled NO \
+            "${test_arguments[@]}" \
+            -resultBundlePath build/focus.xcresult \
+            2>&1 | tee build/focus.log
+
+      - name: Require a passing result for every requested test
+        if: always()
+        run: |
+          ./scripts/collect-ui-test-evidence.sh \
+            build/focus.xcresult "iOS focused UI tests" build/focus-evidence
+          ./scripts/ui-test-focus.sh verify build/focus-evidence/tests.json "$FOCUS_TESTS"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-test-focus-ios-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/focus.xcresult
+            build/focus.log
+            build/focus-build.log
+            build/ios-warm-up-*.log
+            build/ios-warm-up-*.xcresult
+            build/focus-evidence
+          if-no-files-found: warn
+          retention-days: 14

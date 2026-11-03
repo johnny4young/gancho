@@ -700,9 +700,20 @@ The manual `ui-tests.yml` workflow defaults to the complete macOS/iOS suites.
 Its explicit `interaction-stress` scope runs the fixed native interaction suites
 ten times on a clean hosted Mac. The `ios-interaction-stress` scope repeats the
 safe and protected context-menu tests ten times on an iPhone simulator. Each
-scope has a separate concurrency group and skips the other platform only for
-that supplemental run; a successful full-platform run on the same SHA is still
+commit and scope has a separate concurrency group, so runs on two commits of a
+branch can be compared. Each scope skips the other platform only for that
+supplemental run; a successful full-platform run on the same SHA is still
 required. Neither stress run retries failed tests until they pass.
+
+The manual `ui-test-focus.yml` workflow runs named classes or methods on one
+platform, up to 50 times, and fails unless each one has a passing result. Use it
+to verify a fix in minutes; it does not replace the full-platform run:
+
+```bash
+gh workflow run ui-test-focus.yml --ref <branch> -f platform=macos \
+  -f tests="BoardNameUITests PanelUITests/testPanelShortcutRestoresAndRegistersOnLaunch" \
+  -f iterations=1
+```
 
 The macOS stress job has a 90-minute execution allocation: its 19 tests took
 298 seconds in a full-suite sample, so ten rounds plus building do not fit the
