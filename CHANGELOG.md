@@ -7,8 +7,17 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-03
+
 ### Added
 
+- "Prepare context for AI…" accepts images on the Mac. Use recognized text
+  shares the text recognized in an image, and Share image shares a reviewed
+  copy of its pixels: the first frame, at most 1,568 px on its longest side,
+  with EXIF, GPS and other metadata removed. The preview shows exactly what
+  leaves, an agent gets only what you chose, and recognizing the image again
+  withdraws its text until you review it. A context that shares an image can
+  be granted but not copied.
 - Up next in the iPhone and iPad keyboard, off by default in Settings: a clip
   you have inserted from the Gancho keyboard at least twice appears in a row at
   the top of its list, ready to insert again. It ranks by how recent and how
@@ -346,6 +355,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The app filter in the panel and in iPhone history keeps the newest list of
   source apps when two refreshes overlap, instead of sometimes falling back to
   an older one.
+- A search that fails, such as an invalid regular expression, says so and
+  offers Retry on the Mac, iPhone and iPad, instead of showing no results.
+- The panel drops a filtered result when a retention purge, sync or Library
+  edit removes or changes it, instead of keeping it listed with its text in
+  the peek.
+- Create and Rename stay disabled for a board name that is blank once trimmed,
+  on the Mac, iPhone and iPad, instead of closing the prompt with nothing done.
+- When the encrypted store can't open, the Library's kind chips, Pinned scope,
+  Pinned badge and search read the in-memory history correctly.
 
 ## [0.10.2] - 2026-10-16
 

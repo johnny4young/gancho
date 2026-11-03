@@ -323,6 +323,7 @@ schema.** Explicitly exercise optional fields before comparing environments:
 | --- | --- | --- | --- |
 | `Board` | `emoji` | `encryptedValues["emoji"]` → ENCRYPTED STRING | give a board an emoji |
 | `Clip` | `sourceDeviceName` | `record["sourceDeviceName"]` → STRING | capture a new clip on each device; legacy imports may remain nil |
+| `Clip` | `parts` | `encryptedValues["parts"]` → ENCRYPTED STRING | turn on Merge double copies and press ⌘C twice on a selection |
 
 Before deploying, diff the schema against what the mappers write:
 

@@ -17,13 +17,18 @@
 ![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
 
 **Status: public v0.10.2; in active development toward 1.0.**
-**Source version: v0.10.2.** The published direct download requires macOS 15.4+
-(build 21). Local history and manual OCR are Free; Pro activation through
-Lemon Squeezy is included. The on-device model tier requires macOS 26.
+**Source version: v0.11.0 (unreleased).** The published v0.10.2 direct download
+requires macOS 15.4+ (build 21). Local history and manual OCR are Free; Pro
+activation through Lemon Squeezy is included. The on-device model tier requires
+macOS 26. The v0.11.0 source rebuilds the panel, the peek, the Library, Settings
+and the iPhone and iPad apps, adds paste runs, one Transform list, smart snippet
+placeholders and visible agent reads, and needs an Apple Silicon Mac with macOS
+26; it is not yet a published build. See its
+[release notes](docs/releases/v0.11.0.md).
 
-![The Gancho panel, solid by default, with a link peek and developer actions collapsed](site/assets/v0.10.2-release.png)
+![The Gancho panel with search modes, board and kind chips, and a link peek above its action dock](site/assets/v0.11.0-release.png)
 
-*v0.10.2 with synthetic fixtures: the panel is unchanged from v0.10.0 and opens solid on the newest clip.*
+*v0.11.0 candidate with synthetic fixtures; this is not evidence of a published release.*
 
 [Download v0.10.2](https://github.com/johnny4young/gancho/releases/tag/v0.10.2)
 for clips recovered after an encryption key change, iCloud sync that keeps
@@ -47,22 +52,22 @@ not certify them. See the [release notes](docs/releases/v0.10.2.md),
 
 ## The redesigned panel
 
-Shipped in v0.9.0. The Mac panel gets one
-toolbar, rows that show what each clip is at a glance, a peek with a hero card
-and an action dock, motion that respects Reduce Motion, an optional ambient
-colour, and a gallery layout behind ⌘G.
+Redesigned in v0.9.0 and rebuilt in the v0.11.0 source. The Mac panel has search
+modes, board and kind chips with counts, rows that show what each clip is at a
+glance, a peek with a provenance header and an action dock, motion that respects
+Reduce Motion, an optional ambient colour, and a gallery layout behind ⌘G.
 
 <table>
   <tr>
-    <td colspan="2"><img src="site/assets/screen-panel-peek.png" alt="Redesigned Gancho panel: one toolbar, kind-coloured rows and a link peek with an action dock"><br><sub>A link's host and path set large — parsed on the Mac, never fetched — with Paste, Plain, Pin and Board in the dock.</sub></td>
+    <td colspan="2"><img src="site/assets/screen-panel-peek.png" alt="Redesigned Gancho panel: one toolbar, kind-coloured rows and a link peek with an action dock"><br><sub>A link's host and path set large — parsed on the Mac, never fetched — with Copy, Plain, Pin, Board and Context in the dock. The main button reads Copy because the capture runs without Accessibility; with it, the button names the app it pastes into.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="site/assets/screen-panel-gallery.png" alt="Gancho panel gallery layout in dark mode with a colour clip selected"><br><sub>⌘G shows the history as cards; the arrows move by row and by column.</sub></td>
-    <td width="50%"><img src="site/assets/screen-panel-ambient.png" alt="Gancho panel with the optional ambient colour behind an image clip"><br><sub>Optional ambient colour: a faint wash of the selected image's own colour, off by default.</sub></td>
+    <td width="50%"><img src="site/assets/screen-panel-gallery.png" alt="Gancho panel gallery layout in dark mode with a colour clip selected"><br><sub>⌘G shows the history as cards; a color opens with its HEX, RGB, HSL and Swift values and its contrast.</sub></td>
+    <td width="50%"><img src="site/assets/screen-panel-ambient.png" alt="Gancho panel with the optional ambient colour behind an image clip"><br><sub>Optional ambient colour: a faint wash of the selected image's own colour, off by default. An image's peek lists its dominant colours.</sub></td>
   </tr>
 </table>
 
-<sub>Captured by `ProductScreensUITests` from v0.9.0 with synthetic data; capture stays stopped, so no real clipboard content can appear.</sub>
+<sub>Captured by `ProductScreensUITests` from the v0.11.0 source with synthetic data; capture stays stopped, so no real clipboard content can appear.</sub>
 
 ## Contents
 
@@ -120,7 +125,7 @@ stay in reusable modules.
     <td width="50%"><img src="site/assets/screen-library.png" alt="Library cards for code, color, image and a protected clip"><br><sub>Visual Library cards; a protected clip stays masked.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="site/assets/screen-privacy-settings.png" alt="Gancho privacy settings on Mac"><br><sub>Privacy explained where you decide it; diagnostics are off by default.</sub></td>
+    <td width="50%"><img src="site/assets/screen-privacy-settings.png" alt="Gancho privacy settings on Mac"><br><sub>Settings › Privacy opens with four tiles: capture, encryption, skipped protected copies and sync.</sub></td>
     <td width="50%" align="center"><img src="site/assets/screen-ios-masked.png" width="260" alt="Masked token preview on iPhone"><br><sub>On iPhone a token stays masked on long-press and is not offered for sharing.</sub></td>
   </tr>
 </table>
