@@ -455,7 +455,7 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 - **Q24 — RESOLVED 2026-10-23: dropped; most results wins.** GC-08. What does "Older than 30 days" count? The panel has no date filter, and free archiving is 365 days. Is "best" the highest count or a fixed order?
 - **Q25 — RESOLVED 2026-10-23: 15/30/60/120 min or until off, default 1 h; "none read" is a fixed promise.** GC-07. What are the auto-off options and the default? Is "0 read" a real counter or a fixed promise?
 - **Q26 — RESOLVED 2026-10-22: an annotation, not shipped.** GC-05. Is "Shown once. It leaves after your first paste…" UI copy or an annotation?
-- **Q27 GC-12 keys.**
+- **Q27 GC-12 keys — RESOLVED: ⏎ pastes the original and ⇧⏎ the result; esc first closes a result or a pipeline, then hides the panel.**
   - Esc = Discard clashes with esc hiding the panel.
   - ⇧⏎ does not exist today.
 - **Q28 — RESOLVED 2026-10-23: the image's own pixel; a swatch click saves a colour clip.** GC-16.
@@ -464,12 +464,12 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 - **Q29 — RESOLVED 2026-10-23: real ratios (4.7 / 3.5, truncated); Paste into <App> stays primary.** GC-V4-14.
   - The board's contrast numbers are wrong: `#008080` is 4.77 / 3.56, not 4.6 / 3.1.
   - The primary "Paste #008080" contradicts GC-V4-2's "Paste into <App>". Which one?
-- **Q30 GC-11 Transform.**
+- **Q30 GC-11 Transform — RESOLVED: a row opens the pipeline with that step and a live before / after; nothing is pasted or copied without a key.**
   - Does a popover row run immediately, or add a pipeline step?
   - What is the group order?
   - Should ⌃⌘V get a default?
   - Recipes are documented as copy-only. May they paste?
-- **Q31 GC-12 saved prompts.** Saving a prompt as a recipe breaks the deterministic recipe contract. Add a new step kind, or a separate list of saved prompts?
+- **Q31 GC-12 saved prompts — RESOLVED: their own local list that never syncs; recipes stay deterministic.** Saving a prompt as a recipe breaks the deterministic recipe contract. Add a new step kind, or a separate list of saved prompts?
 - **Q32 OCR behaviour — RESOLVED for iPhone 2026-10-30: read on open, no auto-copy, per-line hold-back** (the Mac keeps ⇧⌘C). OCR runs only on ⇧⌘C and auto-copies; the boards show it read on peek open with "Clipboard unchanged". Also, the per-line hold-back is new. Which behaviour?
 - **Q33 — RESOLVED 2026-10-24: the app opens its own menu at the helper's icon.** GC-24. The helper process owns the menu and is content-free. Which approach?
   - The main app shows its own menu at the helper's button.
@@ -549,7 +549,7 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
   - Is it on or off by default?
   - Polling at 250 ms / 1.5 s makes the 600 ms window coarse.
 - **Q60 GC-V6-3 — RESOLVED 2026-11-01: colors, links and codes; a masked code with Forget now, storage unchanged; Copy as rgb() / HSL instead of Add to Colors; off by default, 4 s, hover holds.** "Forget in 60 s" is below the 5-minute minimum for sensitive clips. "Add to Colors" needs a board that doesn't exist.
-- **Q61 GC-10.** Capture ⌘V globally? The hotkey conflicts (Q18).
+- **Q61 GC-10 — RESOLVED: no global ⌘V capture and no default shortcuts.** Capture ⌘V globally? The hotkey conflicts (Q18).
 - **Q62 GC-V6-4 — RESOLVED 2026-11-01: Mac only; text, links, images and Finder files; a zone over the notch, a top-center strip while dragging elsewhere; results saved, copied and confirmed in the HUD; off by default.**
   - Mac only?
   - Accept files dragged from Finder?
