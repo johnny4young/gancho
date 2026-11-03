@@ -92,16 +92,32 @@ final class ManualOCRUITests: XCTestCase {
             "Paste must stay the first peek action: position 0 is what Return runs")
     }
 
+    /// With a mouse attached macOS reserves a gutter for scrollers, and one in
+    /// the peek can resize the image into a layout loop that freezes the panel.
     @MainActor
-    private func launchOCR(language: String, appearance: String) -> XCUIApplication {
+    func testImagePeekShowsNoScrollerEvenWhenTheSystemAlwaysDoes() throws {
+        let app = launchOCR(
+            language: "en", appearance: "dark", extraArguments: ["-AppleShowScrollBars", "Always"])
+        defer { app.terminate() }
+        try recognizeSeededImage(in: app)
+        XCTAssertTrue(element("peek-ocr-line-0", in: app).waitForExistence(timeout: 15))
+        let peek = app.scrollViews.containing(.any, identifier: "peek-ocr").firstMatch
+        XCTAssertEqual(peek.scrollBars.count, 0)
+    }
+
+    @MainActor
+    private func launchOCR(
+        language: String, appearance: String, extraArguments: [String] = []
+    ) -> XCUIApplication {
         let app = GanchoUITestApplication()
-        app.launchArguments = [
-            "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
-            "-place-panel-for-ui-test", "-opaque-panel-for-ui-test",
-            "-seed-manual-ocr", "-force-free-tier", "-start-capture-paused",
-            "-ui-test-paste-sink", "copy-only", "-AppleLanguages", "(\(language))",
-            "-appearance", appearance
-        ]
+        app.launchArguments =
+            [
+                "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
+                "-place-panel-for-ui-test", "-opaque-panel-for-ui-test",
+                "-seed-manual-ocr", "-force-free-tier", "-start-capture-paused",
+                "-ui-test-paste-sink", "copy-only", "-AppleLanguages", "(\(language))",
+                "-appearance", appearance
+            ] + extraArguments
         app.launch()
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))

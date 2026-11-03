@@ -179,6 +179,9 @@ struct ClipPeek: View {
                     .animation(peekContentAnimation, value: isThinking)
                     .animation(peekContentAnimation, value: actionResult)
                 }
+                // A gutter scroller narrows an aspect-fit image until it stops
+                // overflowing, then hides and lets it grow: a layout loop that freezes the panel.
+                .scrollIndicators(item.kind == .image ? .never : .automatic)
             }
             dock
         }
