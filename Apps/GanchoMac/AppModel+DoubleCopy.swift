@@ -132,10 +132,12 @@ extension AppModel {
             let copies: [(String, Int, TimeInterval)] = [
                 ("Ana Restrepo", 1, -5), ("Cra. 43A #1-50", 2, -1), ("Cra. 43A #1-50", 3, -0.8)
             ]
+            let isRich = CommandLine.arguments.contains("-seed-double-copy-rich")
             let tasks = copies.compactMap { text, count, offset in
                 ingest(
                     PasteboardCapture(
-                        payload: .text(text), sourceAppBundleID: "com.apple.Safari",
+                        payload: isRich ? Self.seedRichPayload(text) : .text(text),
+                        sourceAppBundleID: "com.apple.Safari",
                         change: .init(count: count, observedAt: now.addingTimeInterval(offset))))
             }
             return Task { for task in tasks { await task.value } }
@@ -143,4 +145,13 @@ extension AppModel {
             return nil
         #endif
     }
+
+    #if DEBUG
+        private static func seedRichPayload(_ text: String) -> PasteboardCapture.Payload {
+            let attributed = NSAttributedString(string: text)
+            let rtf = attributed.rtf(
+                from: NSRange(location: 0, length: attributed.length), documentAttributes: [:])
+            return rtf.map { .richText(rtf: $0, plainText: text) } ?? .text(text)
+        }
+    #endif
 }
