@@ -27,6 +27,14 @@ struct DateBucketTests {
         #expect(DateBucket.of(day(2024, 3, 1), now: now, calendar: c) == .older)
     }
 
+    @Test("A future date stays with today instead of falling to older")
+    func futureDates() {
+        let now = day(2026, 6, 15)
+        let c = calendar
+        #expect(DateBucket.of(day(2026, 6, 16), now: now, calendar: c) == .today)
+        #expect(DateBucket.of(day(2027, 1, 15), now: now, calendar: c) == .today)
+    }
+
     @Test("January boundary: last month rolls into the previous year")
     func januaryBoundary() {
         let now = day(2026, 1, 10)

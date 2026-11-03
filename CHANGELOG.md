@@ -318,6 +318,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A clip dated in the future, such as one from a device with a wrong clock,
+  shows under Today instead of above it in Older, and its peek shows the date
+  instead of counting back from it.
 - Warning text and status icons (expiry countdowns, denied requests, sync and
   capture status) are readable on light surfaces instead of pale amber or
   green.

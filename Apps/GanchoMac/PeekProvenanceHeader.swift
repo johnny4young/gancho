@@ -31,7 +31,11 @@ struct PeekProvenanceHeader: View {
                 if let bundleID = item.sourceAppBundleID { appChip(bundleID) }
                 chip(identifier: "peek-age") {
                     Image(systemName: "clock")
-                    Text("\(Text(item.createdAt, style: .relative)) ago")
+                    if item.createdAt > .now {
+                        Text(item.createdAt, format: .dateTime.day().month().year())
+                    } else {
+                        Text("\(Text(item.createdAt, style: .relative)) ago")
+                    }
                 }
                 ForEach(boards) { board in
                     chip(identifier: "peek-board-\(board.id.uuidString)") {
