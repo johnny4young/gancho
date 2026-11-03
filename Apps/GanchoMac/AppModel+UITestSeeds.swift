@@ -61,8 +61,33 @@ extension AppModel {
             seedDoubleCopyIfRequested(),
             seedCopyActionsIfRequested(),
             seedContextSessionIfRequested(),
-            seedSnippetSuggestionsIfRequested()
+            seedSnippetSuggestionsIfRequested(),
+            seedPanelSectionsIfRequested()
         ].compactMap { $0 }
+    }
+
+    /// UI-test hook: more rows than fit, under Pinned and date headers.
+    private func seedPanelSectionsIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-panel-sections"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            return Task {
+                let now = Date()
+                for index in 0..<16 {
+                    let text = String(format: "Panel clip %02d", index)
+                    let age = TimeInterval(index) * (index < 8 ? 60 : 86_400)
+                    _ = try? await fullStore.insert(
+                        ClipItem(
+                            createdAt: now.addingTimeInterval(-age), preview: text,
+                            contentHash: "panel-section-\(index)", isPinned: index < 2),
+                        content: .text(text))
+                }
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
     }
 
     /// UI-test hook: two clips that earned a suggestion, one that hasn't, and a

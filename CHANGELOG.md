@@ -324,6 +324,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Warning text and status icons (expiry countdowns, denied requests, sync and
   capture status) are readable on light surfaces instead of pale amber or
   green.
+- Moving up the panel's list with the keyboard no longer leaves the selected
+  row cut off behind its section header.
 - The menu-bar menu shows the panel shortcut you recorded (or none) instead
   of always showing ⇧⌘V.
 - Choosing a Settings section moves keyboard focus with it, so the first row

@@ -247,12 +247,17 @@ public struct PanelDateGroup: Identifiable, Sendable {
         rebuildGroups()
     }
 
+    /// The row the last arrow key moved up to, so the list can make room above
+    /// it. A click clears it: scrolling under the pointer breaks a double click.
+    public private(set) var upwardMoveTarget: UUID?
+
     /// The keyboard/preview cursor into `filtered`. Plain assignments preserve
     /// the historical single-selection behavior by collapsing any batch.
     public var selectedIndex: Int {
         get { selectionModel.selectedIndex }
         set {
             invalidateMeaningIntent()
+            upwardMoveTarget = nil
             selectionModel.select(newValue, toggling: false, in: filtered)
         }
     }
@@ -363,6 +368,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// Select a row by index. Plain click replaces; Command-click toggles.
     public func select(_ index: Int, toggling: Bool = false) {
         invalidateMeaningIntent()
+        upwardMoveTarget = nil
         selectionModel.select(index, toggling: toggling, in: filtered)
     }
 
@@ -375,12 +381,6 @@ public struct PanelDateGroup: Identifiable, Sendable {
     public func endNewestFollow() {
         cancelPendingPaste()
         selectionModel.endNewestFollow()
-    }
-
-    /// Shift-Up/Down grows or contracts a contiguous selection from its anchor.
-    public func moveSelection(by delta: Int, extending: Bool) {
-        invalidateMeaningIntent()
-        selectionModel.move(by: delta, extending: extending, in: filtered)
     }
 
     /// Reconciles selection after deletion/filter changes without selecting a
@@ -618,6 +618,20 @@ private struct PanelContextModeState {
 }
 
 extension PanelSearchModel {
+    /// Shift-Up/Down grows or contracts a contiguous selection from its anchor.
+    public func moveSelection(by delta: Int, extending: Bool) {
+        invalidateMeaningIntent()
+        selectionModel.move(by: delta, extending: extending, in: filtered)
+        upwardMoveTarget = delta < 0 ? selectedItem?.id : nil
+    }
+
+    /// An arrow key's move, as opposed to a click or a programmatic selection.
+    public func moveCursor(to index: Int) {
+        let movesUp = index < selectedIndex
+        selectedIndex = index
+        upwardMoveTarget = movesUp ? selectedItem?.id : nil
+    }
+
     /// Refreshes app choices independently from text search so typing never
     /// repeats the aggregate query. Call on panel open and after history changes.
     /// Reads can overlap and answer out of order, so only the newest one lands.
