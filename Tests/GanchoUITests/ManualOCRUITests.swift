@@ -53,19 +53,19 @@ final class ManualOCRUITests: XCTestCase {
         XCTAssertTrue(edit.waitForExistence(timeout: 15))
         XCTAssertEqual(edit.label, "Editar")
         XCTAssertEqual(app.buttons["peek-ocr-copy"].firstMatch.label, "Copiar todo")
-        edit.click()
+        try clickPeekButton("peek-ocr-edit", in: app)
         let editor = app.textViews["peek-ocr-editor"].firstMatch
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         try typeTextReliably("Texto editado: canción y café", into: editor, in: app)
         try keepRender(
             of: "history-panel", in: app, named: "Manual OCR — Spanish light inline editor")
-        app.buttons["peek-ocr-editor-cancel"].click()
+        try clickPeekButton("peek-ocr-editor-cancel", in: app)
         XCTAssertTrue(editor.waitForNonExistence(timeout: 5))
         XCTAssertEqual(rows(in: app).count, 1, "Cancelling an edit must not save a clip")
-        app.buttons["peek-ocr-edit"].firstMatch.click()
+        try clickPeekButton("peek-ocr-edit", in: app)
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         try typeTextReliably("Texto editado: canción y café", into: editor, in: app)
-        app.buttons["peek-ocr-editor-save"].click()
+        try clickPeekButton("peek-ocr-editor-save", in: app)
         let count = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "count == 2"), object: rows(in: app))
         XCTAssertEqual(
@@ -116,6 +116,20 @@ final class ManualOCRUITests: XCTestCase {
     @MainActor
     private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    /// The section can run past the peek's fold. `isHittable` stays true for a
+    /// button with a clipped center, and a click there lands on nothing.
+    @MainActor
+    private func clickPeekButton(_ identifier: String, in app: XCUIApplication) throws {
+        try SynthesizedInput.requireForeground(app)
+        let button = app.buttons[identifier].firstMatch
+        let peek = app.scrollViews.containing(.any, identifier: "peek-ocr").firstMatch
+        for _ in 0..<3 where !peek.frame.contains(button.frame) {
+            peek.scroll(byDeltaX: 0, deltaY: -400)
+        }
+        XCTAssertTrue(peek.frame.contains(button.frame), identifier)
+        button.click()
     }
 
     /// Right-click the seeded image row and ask for its text. The row is the

@@ -52,10 +52,12 @@ final class SavedFiltersUITests: XCTestCase {
         renamed.rightClick()
         app.menuItems["Delete filter"].click()
         XCTAssertTrue(renamed.waitForNonExistence(timeout: 5))
+        // The scope's total, not the grid: a lazy grid only realizes the cards on screen.
+        let total = library.descendants(matching: .any)["library-scope-count"].firstMatch
         let allClips = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "count == %d", initialCount), object: clips)
-        XCTAssertEqual(XCTWaiter.wait(for: [allClips], timeout: 5), .completed)
+            predicate: NSPredicate(format: "value == %@", "\(initialCount) clips"), object: total)
         XCTAssertEqual(
-            clips.count, initialCount, "Deleting a filter must preserve all original clips")
+            XCTWaiter.wait(for: [allClips], timeout: 5), .completed,
+            "Deleting a filter must preserve all original clips")
     }
 }

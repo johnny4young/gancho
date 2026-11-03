@@ -284,6 +284,33 @@ extension AppModel {
         }
     }
 
+    #if DEBUG
+        /// Exact pixels: a lockFocus image would follow the display's backing scale.
+        private static func visualLibrarySeedPNG(scaleFixture: Bool) -> Data? {
+            let size =
+                scaleFixture ? NSSize(width: 2048, height: 1024) : NSSize(width: 600, height: 300)
+            let pixelsPerPoint = scaleFixture ? 1 : 2
+            guard
+                let bitmap = NSBitmapImageRep(
+                    bitmapDataPlanes: nil, pixelsWide: Int(size.width) * pixelsPerPoint,
+                    pixelsHigh: Int(size.height) * pixelsPerPoint, bitsPerSample: 8,
+                    samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                    colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
+            else { return nil }
+            // Before the context: it takes its scale from the rep's size.
+            bitmap.size = size
+            guard let context = NSGraphicsContext(bitmapImageRep: bitmap) else { return nil }
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = context
+            NSColor.systemTeal.setFill()
+            NSRect(origin: .zero, size: size).fill()
+            NSColor.systemOrange.setFill()
+            NSBezierPath(ovalIn: NSRect(x: 200, y: 50, width: 200, height: 200)).fill()
+            NSGraphicsContext.restoreGraphicsState()
+            return bitmap.representation(using: .png, properties: [:])
+        }
+    #endif
+
     /// Synthetic media only, isolated from real history and capture.
     private func seedVisualLibraryIfRequested() -> Task<Void, Never>? {
         #if DEBUG
@@ -292,20 +319,9 @@ extension AppModel {
             else { return nil }
             return Task {
                 let scaleFixture = CommandLine.arguments.contains("-seed-visual-library-scale")
-                let size =
-                    scaleFixture
-                    ? NSSize(width: 2048, height: 1024) : NSSize(width: 600, height: 300)
-                let image = NSImage(size: size)
-                image.lockFocus()
-                NSColor.systemTeal.setFill()
-                NSRect(origin: .zero, size: size).fill()
-                NSColor.systemOrange.setFill()
-                NSBezierPath(ovalIn: NSRect(x: 200, y: 50, width: 200, height: 200)).fill()
-                image.unlockFocus()
-                guard let tiff = image.tiffRepresentation,
-                    let bitmap = NSBitmapImageRep(data: tiff),
-                    let data = bitmap.representation(using: .png, properties: [:])
-                else { return }
+                guard let data = Self.visualLibrarySeedPNG(scaleFixture: scaleFixture) else {
+                    return
+                }
                 if scaleFixture {
                     for index in 0..<2_000 {
                         let item = ClipItem(

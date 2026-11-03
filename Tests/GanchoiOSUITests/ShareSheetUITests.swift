@@ -104,7 +104,8 @@ final class ShareSheetUITests: XCTestCase {
         }
         let more = safari.buttons["MoreMenuButton"].firstMatch
         guard more.waitForExistence(timeout: 10) else { throw XCTSkip("no Safari menu") }
-        more.tap()
+        // Safari's toolbar can report no hit point for this button, though its frame is valid.
+        more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         let share = safari.descendants(matching: .any).matching(
             NSPredicate(format: "label == 'Share'")
         ).firstMatch
