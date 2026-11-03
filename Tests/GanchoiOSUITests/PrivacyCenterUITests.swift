@@ -53,6 +53,8 @@ final class PrivacyCenterUITests: XCTestCase {
         let alert = app.alerts["Clear activity receipt?"].firstMatch
         XCTAssertTrue(alert.waitForExistence(timeout: 3))
         alert.buttons["Clear receipt"].tap()
+        // Revealing the button can push this row out of the lazy Form.
+        for _ in 0..<3 where !reused.exists { privacyCenter.swipeDown(velocity: .slow) }
 
         let cleared = XCTNSPredicateExpectation(
             predicate: NSPredicate { element, _ in
