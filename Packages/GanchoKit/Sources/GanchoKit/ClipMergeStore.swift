@@ -11,6 +11,13 @@ public protocol ClipMerging: Sendable {
         id: UUID, expecting current: String, text: String, parts: ClipParts,
         kind: ClipContentKind, movesToTop: Bool
     ) async throws -> Bool
+
+    /// The same merge into a rich text clip: its RTF is dropped and it becomes
+    /// plain text. False unless the clip still holds RTF with `contentHash`.
+    func mergeRichClipText(
+        id: UUID, expectingHash contentHash: String, text: String, parts: ClipParts,
+        kind: ClipContentKind, movesToTop: Bool
+    ) async throws -> Bool
 }
 
 extension ClipMerging {
@@ -23,39 +30,84 @@ extension ClipMerging {
     }
 }
 
+private struct ClipMergeWrite: Sendable {
+    let id: UUID
+    let text: String
+    let parts: ClipParts
+    let kind: ClipContentKind
+    let movesToTop: Bool
+}
+
 extension GRDBClipboardStore: ClipMerging {
     public func mergeClipText(
         id: UUID, expecting current: String, text: String, parts: ClipParts,
         kind: ClipContentKind, movesToTop: Bool
     ) async throws -> Bool {
-        guard parts.split(text) != nil, kind.allowsTextEditing else { return false }
+        try await writeMerge(
+            ClipMergeWrite(
+                id: id, text: text, parts: parts, kind: kind, movesToTop: movesToTop),
+            clearing: "",
+            matching: """
+                contentText = ? AND contentBlobHash IS NULL
+                AND (contentTypeIdentifier IS NULL OR contentTypeIdentifier != 'public.file-url')
+                """,
+            arguments: [current])
+    }
+
+    public func mergeRichClipText(
+        id: UUID, expectingHash contentHash: String, text: String, parts: ClipParts,
+        kind: ClipContentKind, movesToTop: Bool
+    ) async throws -> Bool {
+        let blobHash = try await writer.read { db in
+            try ClipRow.filter(key: id.uuidString).fetchOne(db)?.contentBlobHash
+        }
+        guard let blobHash else { return false }
+        let merged = try await writeMerge(
+            ClipMergeWrite(
+                id: id, text: text, parts: parts, kind: kind, movesToTop: movesToTop),
+            clearing: ", contentBlobHash = NULL, contentTypeIdentifier = NULL",
+            matching: """
+                contentHash = ? AND contentBlobHash = ? AND contentTypeIdentifier = 'public.rtf'
+                """,
+            arguments: [contentHash, blobHash])
+        if merged { await removeBlobIfOrphaned(blobHash) }
+        return merged
+    }
+
+    private func writeMerge(
+        _ merge: ClipMergeWrite, clearing: String, matching predicate: String, arguments: [String]
+    ) async throws -> Bool {
+        guard merge.parts.split(merge.text) != nil, merge.kind.allowsTextEditing else {
+            return false
+        }
         let rejectedKinds = ClipContentKind.textEditingRejectedKinds.map(\.rawValue)
         let kindPlaceholders = rejectedKinds.map { _ in "?" }.joined(separator: ", ")
         let now = Date()
         // A recopy of the first part must not dedupe into the merged clip.
-        let hash = ClipItem.hash(of: ContentNormalizer.canonicalText(text, kind: kind), kind: kind)
+        let hash = ClipItem.hash(
+            of: ContentNormalizer.canonicalText(merge.text, kind: merge.kind), kind: merge.kind)
         return try await writer.write { db in
-            var arguments: [any DatabaseValueConvertible] = [
-                text, String(text.prefix(120)), kind.rawValue, hash, parts.encoded, now,
-                movesToTop, now, id.uuidString, current
+            var statementArguments: [any DatabaseValueConvertible] = [
+                merge.text, String(merge.text.prefix(120)), merge.kind.rawValue, hash,
+                merge.parts.encoded, now, merge.movesToTop, now, merge.id.uuidString
             ]
-            arguments.append(contentsOf: rejectedKinds)
+            statementArguments.append(contentsOf: arguments)
+            statementArguments.append(contentsOf: rejectedKinds)
             try db.execute(
                 sql: """
                     UPDATE clip
                     SET contentText = ?, preview = ?, kind = ?, contentHash = ?, parts = ?,
                         updatedAt = ?, lastUsedAt = CASE WHEN ? THEN ? ELSE lastUsedAt END,
-                        needsUpload = 1
-                    WHERE id = ? AND contentText = ?
+                        needsUpload = 1\(clearing)
+                    WHERE id = ? AND \(predicate)
                       AND isSensitive = 0 AND isSnippet = 0
                       AND kind NOT IN (\(kindPlaceholders))
-                      AND contentBlobHash IS NULL
-                      AND (contentTypeIdentifier IS NULL OR contentTypeIdentifier != 'public.file-url')
                     """,
-                arguments: StatementArguments(arguments))
+                arguments: StatementArguments(statementArguments))
             guard db.changesCount == 1 else { return false }
             try db.execute(
-                sql: "DELETE FROM clip_embedding WHERE clipID = ?", arguments: [id.uuidString])
+                sql: "DELETE FROM clip_embedding WHERE clipID = ?",
+                arguments: [merge.id.uuidString])
             return true
         }
     }

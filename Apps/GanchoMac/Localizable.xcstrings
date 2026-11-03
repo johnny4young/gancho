@@ -1,6 +1,23 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Detected secrets — passwords, keys, cards — always follow this limit. A safety guard you can shorten but not extend.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detected secrets — passwords, keys, cards — always follow this limit. A safety guard you can shorten but not extend."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los secretos detectados (contraseñas, claves, tarjetas) siempre siguen este límite. Es una protección que puedes acortar, pero no extender."
+          }
+        }
+      }
+    },
     "Invalid regular expression": {
       "extractionState": "manual",
       "localizations": {

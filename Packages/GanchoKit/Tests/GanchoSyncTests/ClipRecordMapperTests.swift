@@ -153,6 +153,24 @@ struct ClipRecordMapperTests {
         #expect(decoded.content == .binary(data: png, typeIdentifier: "public.png"))
     }
 
+    @Test("A clip that became text drops its asset, which decoding would prefer")
+    func textContentClearsAsset() throws {
+        let item = ClipItem(preview: "Merged", contentHash: "h4")
+        let rich = try #require(
+            ClipRecordMapper.record(
+                for: item, content: .binary(data: png, typeIdentifier: "public.rtf"),
+                systemFields: nil, zoneID: zoneID))
+        #expect(rich["contentAsset"] is CKAsset)
+        let systemFields = ClipRecordMapper.encodeSystemFields(rich)
+        let plain = try #require(
+            ClipRecordMapper.record(
+                for: item, content: .text("Ana\nB"), systemFields: systemFields, zoneID: zoneID))
+        #expect(plain.changedKeys().contains("contentAsset"))
+        #expect(plain["contentAsset"] == nil)
+        let decoded = try #require(ClipRecordMapper.decode(plain))
+        #expect(decoded.content == .text("Ana\nB"))
+    }
+
     @Test("Binary over the size limit syncs metadata but skips the asset")
     func oversizeBinarySkipsAsset() throws {
         let item = ClipItem(kind: .image, preview: "Big", contentHash: "h3")

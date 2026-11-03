@@ -17,7 +17,8 @@ public enum DateBucket: String, CaseIterable, Sendable, Hashable {
 
     /// Which bucket `date` falls in relative to `now`, in `calendar`'s timezone.
     public static func of(_ date: Date, now: Date, calendar: Calendar = .current) -> DateBucket {
-        if calendar.isDate(date, inSameDayAs: now) { return .today }
+        // A future date means a wrong clock, and `older` would sort it above today.
+        if date > now || calendar.isDate(date, inSameDayAs: now) { return .today }
         if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
             calendar.isDate(date, inSameDayAs: yesterday)
         {

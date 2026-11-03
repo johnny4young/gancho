@@ -41,6 +41,16 @@ final class SourceAppFilterUITests: XCTestCase {
         safari.click()
     }
 
+    /// The seeds carry a fixed date, which reads as a wrong clock until it passes.
+    @MainActor
+    func testFutureDatedClipRendersWithoutAgo() throws {
+        let app = launchSeededPanel()
+        defer { app.terminate() }
+        XCTAssertTrue(
+            clipRow(containing: "Xcode source sample", in: app).waitForExistence(timeout: 10))
+        try keepRender(of: "history-panel", in: app, named: "Future dated clip")
+    }
+
     @MainActor
     func testSourceAppFilterNarrowsThePanelAndCapturesEvidence() throws {
         let app = launchSeededPanel()

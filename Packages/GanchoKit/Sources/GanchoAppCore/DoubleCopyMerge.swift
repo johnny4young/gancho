@@ -3,6 +3,12 @@ import Foundation
 import GanchoAI
 import GanchoKit
 
+#if canImport(AppKit)
+    import AppKit
+#elseif canImport(UIKit)
+    import UIKit
+#endif
+
 /// One text copy as the monitor saw it.
 public struct CopyObservation: Equatable, Sendable {
     public let text: String
@@ -15,12 +21,19 @@ public struct CopyObservation: Equatable, Sendable {
         self.change = change
     }
 
-    /// Plain text with a monitor stamp; anything else never merges.
+    /// Text with a monitor stamp, using the plain companion of a rich copy;
+    /// anything else never merges.
     public init?(_ capture: PasteboardCapture) {
-        guard let change = capture.change, case .text(let text) = capture.payload,
-            !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let plainText: String?
+        switch capture.payload {
+        case .text(let text): plainText = text
+        case .richText(_, let plain), .html(_, let plain): plainText = plain
+        case .image, .fileReferences: plainText = nil
+        }
+        guard let change = capture.change, let plainText,
+            !plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return nil }
-        self.init(text: text, sourceAppBundleID: capture.sourceAppBundleID, change: change)
+        self.init(text: plainText, sourceAppBundleID: capture.sourceAppBundleID, change: change)
     }
 }
 
@@ -109,6 +122,12 @@ public struct ClipMergeWorkflow: Sendable {
         case refused
     }
 
+    /// What the store must still hold for a merge to land.
+    private enum MergeBase {
+        case text(String)
+        case richText(contentHash: String)
+    }
+
     private let classifier: RuleClassifier
     private let detector: SensitiveDataDetector
 
@@ -125,7 +144,7 @@ public struct ClipMergeWorkflow: Sendable {
         store: any ClipReading & ClipMerging, deletion: @Sendable ([UUID]) async -> Void,
         engine: any SyncEngine
     ) async -> Outcome {
-        guard let (item, current) = await editableText(target, store: store) else {
+        guard let (item, current, base) = await mergeableText(target, store: store) else {
             return .refused
         }
         let existing = item.parts?.split(current) ?? [current]
@@ -134,7 +153,7 @@ public struct ClipMergeWorkflow: Sendable {
             return .refused
         }
         let outcome = await write(
-            target, expecting: current, joined, movesToTop: true, store: store, engine: engine)
+            target, expecting: base, joined, movesToTop: true, store: store, engine: engine)
         if case .merged = outcome, let discard, discard != target { await deletion([discard]) }
         return outcome
     }
@@ -149,7 +168,8 @@ public struct ClipMergeWorkflow: Sendable {
             let rejoined = parts.rejoined(current, with: separator)
         else { return .refused }
         return await write(
-            target, expecting: current, rejoined, movesToTop: false, store: store, engine: engine)
+            target, expecting: .text(current), rejoined, movesToTop: false, store: store,
+            engine: engine)
     }
 
     /// Saves each part as its own clip, in order, and drops the merged clip
@@ -173,26 +193,67 @@ public struct ClipMergeWorkflow: Sendable {
     private func editableText(
         _ target: UUID, store: any ClipReading
     ) async -> (ClipItem, String)? {
-        guard let item = try? await store.item(id: target), !item.isSensitive,
-            !ClipSafePresentation.requiresMasking(item), item.kind.allowsTextEditing,
+        guard let item = await editableItem(target, store: store),
             case .text(let current)? = try? await store.content(for: target)
         else { return nil }
         return (item, current)
     }
 
+    private func mergeableText(
+        _ target: UUID, store: any ClipReading
+    ) async -> (ClipItem, String, MergeBase)? {
+        guard let item = await editableItem(target, store: store),
+            let content = try? await store.content(for: target)
+        else { return nil }
+        switch content {
+        case .text(let current):
+            return (item, current, .text(current))
+        case .binary(let data, "public.rtf"):
+            guard let current = Self.plainText(ofRTF: data) else { return nil }
+            return (item, current, .richText(contentHash: item.contentHash))
+        case .binary, .fileReferences:
+            return nil
+        }
+    }
+
+    private func editableItem(_ target: UUID, store: any ClipReading) async -> ClipItem? {
+        guard let item = try? await store.item(id: target), !item.isSensitive,
+            !ClipSafePresentation.requiresMasking(item), item.kind.allowsTextEditing
+        else { return nil }
+        return item
+    }
+
+    /// A paragraph break closing the RTF would read as an empty line in the merge.
+    private static func plainText(ofRTF data: Data) -> String? {
+        let text = try? NSAttributedString(
+            data: data, options: [.documentType: NSAttributedString.DocumentType.rtf],
+            documentAttributes: nil
+        ).string.trimmingCharacters(in: .newlines)
+        return text?.isEmpty == false ? text : nil
+    }
+
     private func write(
-        _ target: UUID, expecting current: String, _ rewrite: (String, ClipParts),
+        _ target: UUID, expecting base: MergeBase, _ rewrite: (String, ClipParts),
         movesToTop: Bool, store: any ClipReading & ClipMerging, engine: any SyncEngine
     ) async -> Outcome {
         let (text, parts) = rewrite
         guard detector.detect(text) == nil else { return .refused }
         let kind = classifier.classify(text)
-        guard kind.allowsTextEditing,
-            (try? await store.mergeClipText(
+        guard kind.allowsTextEditing else { return .refused }
+        let didMerge: Bool?
+        switch base {
+        case .text(let current):
+            didMerge = try? await store.mergeClipText(
                 id: target, expecting: current, text: text, parts: parts, kind: kind,
-                movesToTop: movesToTop)) == true,
-            let updated = try? await store.item(id: target)
-        else { return .refused }
+                movesToTop: movesToTop)
+        case .richText(let contentHash):
+            didMerge = try? await store.mergeRichClipText(
+                id: target, expectingHash: contentHash, text: text, parts: parts, kind: kind,
+                movesToTop: movesToTop)
+        }
+        guard didMerge == true, let updated = try? await store.item(id: target) else {
+            return .refused
+        }
         await engine.enqueue([updated])
         return .merged(updated, text: text, partCount: parts.lengths.count)
     }

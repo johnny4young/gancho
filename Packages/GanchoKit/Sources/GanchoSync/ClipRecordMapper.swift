@@ -67,6 +67,8 @@ public enum ClipRecordMapper {
         case .text(let text):
             record.encryptedValues["contentText"] = text
             record["contentTypeIdentifier"] = nil
+            // A rich clip merged into plain text keeps its record, and decoding prefers the asset.
+            record["contentAsset"] = nil
         case .fileReferences(let paths):
             record.encryptedValues["contentText"] = paths.joined(separator: "\n")
             record["contentTypeIdentifier"] = "public.file-url"
