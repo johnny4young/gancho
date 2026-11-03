@@ -12,6 +12,14 @@ public struct KeyboardInsertedMarks: Sendable, Equatable {
 
     public func contains(_ id: UUID) -> Bool { ids.contains(id) }
 
+    /// The host field's document id. UIKit can answer nil here, and reading its
+    /// non-optional Swift property then traps and takes the keyboard down.
+    public static func documentID(of proxy: any NSObjectProtocol) -> UUID? {
+        let getter = NSSelectorFromString("documentIdentifier")
+        guard proxy.responds(to: getter) else { return nil }
+        return proxy.perform(getter)?.takeUnretainedValue() as? UUID
+    }
+
     /// The text a tap types into the field, or nil when the content can only
     /// travel through the pasteboard (a keyboard cannot type an image).
     public static func fieldText(for content: ClipContent) -> String? {

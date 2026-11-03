@@ -23,7 +23,7 @@ final class KeyboardViewController: UIInputViewController {
             onInsert: { [weak self] text in
                 guard let proxy = self?.textDocumentProxy else { return nil }
                 proxy.insertText(text)
-                return proxy.documentIdentifier
+                return KeyboardInsertedMarks.documentID(of: proxy)
             },
             onDelete: { [weak self] in self?.textDocumentProxy.deleteBackward() },
             onNextKeyboard: { [weak self] in self?.advanceToNextInputMode() })
@@ -61,12 +61,12 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        model?.documentChanged(to: textDocumentProxy.documentIdentifier)
+        model?.documentChanged(to: KeyboardInsertedMarks.documentID(of: textDocumentProxy))
     }
 
     // Fires for edits in the field too; only a new document id clears the marks.
     override func textDidChange(_ textInput: (any UITextInput)?) {
         super.textDidChange(textInput)
-        model?.documentChanged(to: textDocumentProxy.documentIdentifier)
+        model?.documentChanged(to: KeyboardInsertedMarks.documentID(of: textDocumentProxy))
     }
 }

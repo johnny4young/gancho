@@ -5,6 +5,19 @@ import Testing
 
 @Suite("Keyboard inserted marks")
 struct KeyboardInsertedMarksTests {
+    private final class FakeProxy: NSObject {
+        @objc let documentIdentifier: NSUUID?
+        init(_ id: UUID?) { documentIdentifier = id as NSUUID? }
+    }
+
+    @Test("a proxy without a document reads as nil instead of trapping")
+    func documentIDToleratesNil() {
+        let id = UUID()
+        #expect(KeyboardInsertedMarks.documentID(of: FakeProxy(id)) == id)
+        #expect(KeyboardInsertedMarks.documentID(of: FakeProxy(nil)) == nil)
+        #expect(KeyboardInsertedMarks.documentID(of: NSObject()) == nil)
+    }
+
     @Test("every row typed into the same document stays marked")
     func marksAccumulateInOneDocument() {
         let document = UUID()
