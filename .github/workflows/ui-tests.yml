@@ -197,7 +197,8 @@ jobs:
             build-for-testing -project Gancho.xcodeproj -scheme GanchoiOS \
             -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
             -enableCodeCoverage YES \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- \
+            PROVISIONING_PROFILE_SPECIFIER= AD_HOC_CODE_SIGNING_ALLOWED=YES \
             2>&1 | tee build/ios-ui-build.log
 
       - name: Warm the simulator with an unmeasured UI launch
