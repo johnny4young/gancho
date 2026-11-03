@@ -159,6 +159,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
     /// Recent source apps and aggregate counts for the filter menu.
     public var sourceApps: [ClipSourceApp] = []
+    @ObservationIgnored private var sourceAppsRequest = 0
     /// The snippet whose keyword the query matches exactly — surfaces a
     /// one-keystroke insert banner above the list.
     public var snippetMatch: ClipItem?
@@ -357,12 +358,6 @@ public struct PanelDateGroup: Identifiable, Sendable {
     private var isPaginatedView: Bool {
         !isShowingContext && kindFilter == .all && !pinnedOnly && !hasTokenOnlyFilter
             && ClipListShape.isPaginated(query: query, sourceAppBundleID: selectedSourceAppBundleID)
-    }
-
-    /// Refreshes app choices independently from text search so typing never
-    /// repeats the aggregate query. Call on panel open and after history changes.
-    public func refreshSourceApps() async {
-        sourceApps = await core.sourceApps(limit: 8)
     }
 
     /// Select a row by index. Plain click replaces; Command-click toggles.
@@ -623,6 +618,17 @@ private struct PanelContextModeState {
 }
 
 extension PanelSearchModel {
+    /// Refreshes app choices independently from text search so typing never
+    /// repeats the aggregate query. Call on panel open and after history changes.
+    /// Reads can overlap and answer out of order, so only the newest one lands.
+    public func refreshSourceApps() async {
+        sourceAppsRequest += 1
+        let request = sourceAppsRequest
+        let apps = await core.sourceApps(limit: 8)
+        guard request == sourceAppsRequest else { return }
+        sourceApps = apps
+    }
+
     /// ±2 min around the anchor's first copy.
     public static let contextWindow: TimeInterval = 120
     /// The result the context list centers on; nil outside context mode.

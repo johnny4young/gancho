@@ -10,6 +10,8 @@ import Testing
     var snippet: ClipItem?
     var suspendPages = true
     var suspendFirstPage = false
+    var sourceApps: [ClipSourceApp] = []
+    var holdNextSourceApps: SearchGate?
     private var pages: [CheckedContinuation<Void, Never>?] = []
     private var pageWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
     private var firstPage: CheckedContinuation<Void, Never>?
@@ -59,7 +61,14 @@ import Testing
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
         Array(recent.prefix(limit))
     }
-    func recentSourceApps(limit: Int) async -> [ClipSourceApp] { [] }
+    func recentSourceApps(limit: Int) async -> [ClipSourceApp] {
+        let snapshot = Array(sourceApps.prefix(limit))
+        if let gate = holdNextSourceApps {
+            holdNextSourceApps = nil
+            await gate.hold()
+        }
+        return snapshot
+    }
     func snippet(matchingKeyword keyword: String) async -> ClipItem? { snippet }
     func isDeletionPending(_ id: UUID) -> Bool { false }
 }
@@ -76,6 +85,22 @@ struct PanelRefreshStabilityTests {
         source.recent.insert(ClipItem(preview: "synthetic-incoming"), at: 0)
         await model.refresh()
         #expect(model.selectedItem?.id == selected)
+    }
+
+    @Test func anOlderSourceAppReadCannotReplaceANewerOne() async {
+        let source = SuspendedPanelSource()
+        let model = PanelSearchModel(source: source)
+        let gate = SearchGate()
+        source.holdNextSourceApps = gate
+        let older = Task { await model.refreshSourceApps() }
+        #expect(await gate.waitUntilEntered())
+
+        source.sourceApps = [ClipSourceApp(bundleID: "com.apple.Safari", clipCount: 2)]
+        await model.refreshSourceApps()
+        await gate.release()
+        await older.value
+
+        #expect(model.sourceApps == source.sourceApps)
     }
 
     @Test func oldPageCannotAppendAfterSameSizedRefresh() async {

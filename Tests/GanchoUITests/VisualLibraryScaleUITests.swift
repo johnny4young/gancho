@@ -54,7 +54,7 @@ final class VisualLibraryScaleUITests: XCTestCase {
         let first = cards.matching(
             NSPredicate(format: "label CONTAINS %@", "Synthetic scale image 0")
         ).firstMatch
-        for _ in 0..<8 where !first.isHittable {
+        for _ in 0..<20 where !first.isHittable {
             scroll.scroll(byDeltaX: 0, deltaY: 30_000)
         }
         XCTAssertTrue(first.waitForHittable(timeout: 5))
