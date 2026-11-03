@@ -30,9 +30,9 @@ jobs:
     if: ${{ inputs.scope != 'ios-interaction-stress' && inputs.scope != 'ios-full' }}
     name: ${{ inputs.scope == 'feature-stress' && 'macOS feature stress (10x)' || inputs.scope == 'interaction-stress' && 'macOS interaction stress (10x)' || 'macOS UI tests' }}
     runs-on: macos-26
-    # Ten rounds exceed the full suite's wall-clock allocation. Interaction
-    # timeouts and performance budgets stay unchanged.
-    timeout-minutes: ${{ (inputs.scope == 'interaction-stress' || inputs.scope == 'feature-stress') && 90 || 45 }}
+    # The full suite outgrew 45 minutes, and ten stress rounds need as long.
+    # Interaction timeouts and performance budgets stay unchanged.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
 
@@ -197,7 +197,8 @@ jobs:
             build-for-testing -project Gancho.xcodeproj -scheme GanchoiOS \
             -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
             -enableCodeCoverage YES \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- \
+            PROVISIONING_PROFILE_SPECIFIER= AD_HOC_CODE_SIGNING_ALLOWED=YES \
             2>&1 | tee build/ios-ui-build.log
 
       - name: Warm the simulator with an unmeasured UI launch

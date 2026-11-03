@@ -3,13 +3,10 @@ import Testing
 
 @Suite("Hosted UI scope routing")
 struct UIWorkflowScopeTests {
-    @Test("Repeated suites have separate execution allocation and preserve full platform gates")
+    @Test("The macOS job's allocation fits repeated suites and full platform gates stay")
     func stressAllocation() throws {
         let source = try workflow()
-        #expect(
-            source.contains(
-                "timeout-minutes: ${{ (inputs.scope == 'interaction-stress' || "
-                    + "inputs.scope == 'feature-stress') && 90 || 45 }}"))
+        #expect(source.contains("timeout-minutes: 90"))
         #expect(
             source.contains(
                 "if: ${{ inputs.scope != 'ios-interaction-stress' && inputs.scope != 'ios-full' }}"

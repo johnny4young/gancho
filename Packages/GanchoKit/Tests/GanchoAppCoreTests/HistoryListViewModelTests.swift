@@ -20,6 +20,8 @@ import Testing
     var holdNextRecentBrowse: SearchGate?
     /// When set, the next search waits on the gate before answering.
     var holdNextSearch: SearchGate?
+    /// When set, the next app-menu read snapshots `sourceApps`, then waits.
+    var holdNextSourceApps: SearchGate?
 
     func recentBrowse(offset: Int, limit: Int) async -> [ClipItem] {
         let snapshot = recent
@@ -50,7 +52,12 @@ import Testing
         return .success(await search(query, limit: limit))
     }
     func recentSourceApps(limit: Int) async -> [ClipSourceApp] {
-        Array(sourceApps.prefix(limit))
+        let snapshot = Array(sourceApps.prefix(limit))
+        if let gate = holdNextSourceApps {
+            holdNextSourceApps = nil
+            await gate.hold()
+        }
+        return snapshot
     }
 }
 
@@ -399,6 +406,22 @@ struct HistoryListViewModelTests {
         let model = HistoryListViewModel(source: source)
 
         await model.refreshSourceApps()
+
+        #expect(model.sourceApps == source.sourceApps)
+    }
+
+    @Test func anOlderSourceAppReadCannotReplaceANewerOne() async {
+        let source = FakeSource()
+        let model = HistoryListViewModel(source: source)
+        let gate = SearchGate()
+        source.holdNextSourceApps = gate
+        let older = Task { await model.refreshSourceApps() }
+        #expect(await gate.waitUntilEntered())
+
+        source.sourceApps = [ClipSourceApp(bundleID: "com.apple.mobilesafari", clipCount: 4)]
+        await model.refreshSourceApps()
+        await gate.release()
+        await older.value
 
         #expect(model.sourceApps == source.sourceApps)
     }

@@ -343,6 +343,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   mirror and Homebrew cask metadata with the published v0.10.2 DMG.
   Physical-device acceptance remains pending; the published app, tag and
   checksum are unchanged.
+- The app filter in the panel and in iPhone history keeps the newest list of
+  source apps when two refreshes overlap, instead of sometimes falling back to
+  an older one.
 
 ## [0.10.2] - 2026-10-16
 

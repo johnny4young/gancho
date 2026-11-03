@@ -133,10 +133,10 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
 | Bugs (bug log, Gancho) | 6 | 6 (2 Alta · 1 Media · 3 Baja) | 6 |
 | **Total rows** | 73 | 73 | **73** |
 
-Live sources match the expected numbers exactly. Maybe: GC-V4-22, with owner note "no entiendo la utilidad de esto, pero siento que no es necesario". Skip: GC-V4-20.
+Live sources match the expected numbers exactly. Maybe: none left; the owner dropped GC-V4-22 after its note "no entiendo la utilidad de esto, pero siento que no es necesario". Skip: GC-V4-20, GC-V4-22.
 
 By type: UI 29 · bug 6 · feature 31 · system 7.  
-By status: done 71 · not implemented 1 · pending decision 1.
+By status: done 71 · not implemented 2.
 
 ## Plan table
 
@@ -205,7 +205,7 @@ Type: UI / feature / bug / system. Pick is the Design Picks state. Phase refers 
 | GC-V4-18 | feature | pick | — | iPhoneSurfaces | Text in image on iPhone: regions, per-line copy, secret line held back, Copy all · N, Save text, Translate | ManualImageTextService.swift; ImageTextReading.swift; ManualOCRSession.swift; ClipDetailView.swift:287-306 | OCR stack exists in packages; iOS views + per-line hold-back new | GC-27, GC-V5-2 | Unit: per-line sensitivity; UI seeded; snapshot | 13 | done (Q32/Q56: read on open, fresh pass for the regions, held in memory only, no footer; nothing copied without a tap; a flagged line is held out of Copy all and Save until revealed; Translate hidden for any result with a secret, Mac parity); ManualOCRSessionTests + ImageTextReadingTests + ImageTextUITests + captures |
 | GC-V4-19 | UI | pick | — | iPhoneSurfaces | Keyboard marks the inserted row until the text field changes | KeyboardModel.swift:154-178; KeyboardView.swift:168-287 | Rows + insert exist; inserted state new | GC-V6-8 | Unit: model; device test | 13 | done (Q57: every row typed into the current field keeps a green tint and an `inserted` pill until the field's document changes; an image, which goes to the pasteboard, is not marked); KeyboardInsertedMarksTests + a simulator run of the real keyboard + captures |
 | GC-V4-20 | UI | skip | — | Archive (from Motion) | Panel arrives from the hook under 100 ms | — | Not implemented; current entrance stays | — | — | — | not implemented (SKIP) |
-| GC-V4-22 | UI | maybe | no entiendo la utilidad de esto, pero siento que no es necesario | Motion | Paste press → check → hide → ⌘V (adds ~340 ms per paste) | PeekActionButton.swift:65-67; PanelController.swift:175-178; PasteBackWorkflow.swift:39,:90-96 | Order hide→⌘V exists | GC-V4-24 | — | — | pending decision (MAYBE, not implemented) |
+| GC-V4-22 | UI | skip | no entiendo la utilidad de esto, pero siento que no es necesario | Motion | Paste press → check → hide → ⌘V (adds ~340 ms per paste) | PeekActionButton.swift:65-67; PanelController.swift:175-178; PasteBackWorkflow.swift:39,:90-96 | Order hide→⌘V exists | GC-V4-24 | — | — | not implemented (SKIP, dropped by the owner) |
 | GC-V4-23 | feature | pick | — | Motion | Drop a clip on a board (panel rail chip, Library sidebar): ring + 1.04 scale, + badge, count tick, toast 'Added to <board>' + Undo ⌘Z | PanelView.swift:1009; LibraryView+Sidebar.swift:17-24,:103-124; ClipDragProvider.swift; ClipDragPayload.swift:29-49; AppModel.swift:1818-1836,:1970-1990; ToastPresenter.swift | Drag-out, membership write, Undo toast exist; in-app drag type, drop targets, ⌘Z new | GC-V4-24 | Unit: drop eligibility; UI: drag row onto board-<uuid> → gancho-toast/toast-undo | 7 | done — b3ffecc, 597b999 (Q36: in-app drags only, no refusals; already a member says so; row pulse instead of an AppKit shrink; every assign toast names the board with Undo and ⌘Z); BoardDropTests + BoardDropUITests (rail, Library, ⌘Z, field undo, panel stays put) + snapshots panel-board-drop-target |
 | GC-V4-24 | system | pick | — | Motion | Motion tokens settle/arrive/swap + leave (140 ms ease-in) + press (.96, 80 ms); one Reduce Motion substitution policy; literal durations moved onto tokens | GanchoMotion.swift:5-36; GanchoMotionTests.swift; PanelView.swift:291,:309; PanelResultsView.swift:170; ClipPeek.swift:168; DenylistSettingsSection.swift:178; PeekImageText.swift:38,:41,:281,:395,:499; ClipDetailView.swift:67 (iOS); LibraryView+Sidebar.swift:118; PasteStackStrip.swift:26 | quick/smooth/replace + nil gate exist; leave, press, policy new | — | Unit per token × Reduce Motion; source-scan guard against literal durations | 2 | done — 4efbece, 85c3dac (Q6: 100 ms fade; leave/press are tokens); GanchoMotionTests + DesignTokenGuardTests motion gate |
 | GC-V6-1 | feature | pick | — | Novel | Up next: one predicted clip above the list for the front app; ⌘↩; off by default | PasteBackWorkflow.swift:79; AppModel.swift:1033; GanchoDatabaseMigrator.swift; ReuseController.swift:114; IntelligencePreferences.swift; PanelView.swift:586 | Front app + use counts exist; per-paste table (migration), ranker, slot new | GC-V6-8, GC-25 | Unit: ranker + migration; UI seeded pastes; perf: panel open unchanged | 17 | done (Q58: the switch lives in Intelligence, off by default; local `paste_event` table (v29) written only while Up next is on and outside Private Mode, erased when it is turned off, 30-day window, cascades with the clip, never synced or exported, no secrets or masked kinds; heuristic ranker only, the slot needs two pastes into the front app and hides when it is already the first row, while searching or filtering, and while previews are hidden; ⌘↩ pastes it; no footer hint); PasteEventLogTests + UpNextRankerTests + UpNextUITests (seeded log, ⌘↩, switch-off erase) + captures |
@@ -274,7 +274,7 @@ Run on 2026-10-21 against the text of all 17 Gancho v4 boards plus V4_System_Com
 | GC-36 | Onboarding, Overview | yes |  |
 | GC-37 | Archive, Overview | no | Legacy motion ID → GC-V4-20 (skip). |
 | GC-38 | Motion, Overview | no | Legacy motion ID → GC-V4-21 (shipped, Archive). |
-| GC-39 | Motion, Overview | no | Legacy motion ID → GC-V4-22 (maybe). |
+| GC-39 | Motion, Overview | no | Legacy motion ID → GC-V4-22 (skip). |
 | GC-40 | Archive, Motion, Overview | no | Shipped (iPhone swipe actions + context menu). |
 | GC-41 | Motion, Overview | no | Legacy motion ID → GC-V4-23. |
 | GC-42 | Motion, Overview | no | Legacy motion ID → GC-V4-24. |
@@ -373,7 +373,7 @@ Features from the Novel boards ship behind an off-by-default preference key (the
 | 22 | Agent reads visible (flag) | GC-V6-6 | Medium (cross-process) | None | Content-free payload test; runner tests |
 | 23 | Suggested snippets + placeholders (flag) | GC-V6-7 | Medium | Suggestion state table + use log (migration); placeholder grammar compatibility | Parser + state tests; migration of existing snippets |
 | 24 | iPhone Up next / Control Center (flag) | GC-V6-8 | Medium | Shared App Group fields | Payload tests; iOS UI tests |
-| — | Not implemented | GC-V4-22 (maybe: pending decision), GC-V4-20 (skip) | — | — | — |
+| — | Not implemented | GC-V4-22 (skip), GC-V4-20 (skip) | — | — | — |
 
 Phases 3–13 can start once their blocking questions are answered. Phase 2 must land before 3+, because every later surface uses its tokens. Phase 1 has no blocking question, except Q11 (brand sizes) for GC-V7-1.
 
@@ -455,7 +455,7 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 - **Q24 — RESOLVED 2026-10-23: dropped; most results wins.** GC-08. What does "Older than 30 days" count? The panel has no date filter, and free archiving is 365 days. Is "best" the highest count or a fixed order?
 - **Q25 — RESOLVED 2026-10-23: 15/30/60/120 min or until off, default 1 h; "none read" is a fixed promise.** GC-07. What are the auto-off options and the default? Is "0 read" a real counter or a fixed promise?
 - **Q26 — RESOLVED 2026-10-22: an annotation, not shipped.** GC-05. Is "Shown once. It leaves after your first paste…" UI copy or an annotation?
-- **Q27 GC-12 keys.**
+- **Q27 GC-12 keys — RESOLVED: ⏎ pastes the original and ⇧⏎ the result; esc first closes a result or a pipeline, then hides the panel.**
   - Esc = Discard clashes with esc hiding the panel.
   - ⇧⏎ does not exist today.
 - **Q28 — RESOLVED 2026-10-23: the image's own pixel; a swatch click saves a colour clip.** GC-16.
@@ -464,12 +464,12 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 - **Q29 — RESOLVED 2026-10-23: real ratios (4.7 / 3.5, truncated); Paste into <App> stays primary.** GC-V4-14.
   - The board's contrast numbers are wrong: `#008080` is 4.77 / 3.56, not 4.6 / 3.1.
   - The primary "Paste #008080" contradicts GC-V4-2's "Paste into <App>". Which one?
-- **Q30 GC-11 Transform.**
+- **Q30 GC-11 Transform — RESOLVED: a row opens the pipeline with that step and a live before / after; nothing is pasted or copied without a key.**
   - Does a popover row run immediately, or add a pipeline step?
   - What is the group order?
   - Should ⌃⌘V get a default?
   - Recipes are documented as copy-only. May they paste?
-- **Q31 GC-12 saved prompts.** Saving a prompt as a recipe breaks the deterministic recipe contract. Add a new step kind, or a separate list of saved prompts?
+- **Q31 GC-12 saved prompts — RESOLVED: their own local list that never syncs; recipes stay deterministic.** Saving a prompt as a recipe breaks the deterministic recipe contract. Add a new step kind, or a separate list of saved prompts?
 - **Q32 OCR behaviour — RESOLVED for iPhone 2026-10-30: read on open, no auto-copy, per-line hold-back** (the Mac keeps ⇧⌘C). OCR runs only on ⇧⌘C and auto-copies; the boards show it read on peek open with "Clipboard unchanged". Also, the per-line hold-back is new. Which behaviour?
 - **Q33 — RESOLVED 2026-10-24: the app opens its own menu at the helper's icon.** GC-24. The helper process owns the menu and is content-free. Which approach?
   - The main app shows its own menu at the helper's button.
@@ -549,7 +549,7 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
   - Is it on or off by default?
   - Polling at 250 ms / 1.5 s makes the 600 ms window coarse.
 - **Q60 GC-V6-3 — RESOLVED 2026-11-01: colors, links and codes; a masked code with Forget now, storage unchanged; Copy as rgb() / HSL instead of Add to Colors; off by default, 4 s, hover holds.** "Forget in 60 s" is below the 5-minute minimum for sensitive clips. "Add to Colors" needs a board that doesn't exist.
-- **Q61 GC-10.** Capture ⌘V globally? The hotkey conflicts (Q18).
+- **Q61 GC-10 — RESOLVED: no global ⌘V capture and no default shortcuts.** Capture ⌘V globally? The hotkey conflicts (Q18).
 - **Q62 GC-V6-4 — RESOLVED 2026-11-01: Mac only; text, links, images and Finder files; a zone over the notch, a top-center strip while dragging elsewhere; results saved, copied and confirmed in the HUD; off by default.**
   - Mac only?
   - Accept files dragged from Finder?

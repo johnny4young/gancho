@@ -91,7 +91,8 @@ final class AgentReadsUITests: XCTestCase {
         let row = app.descendants(matching: .any)["mcp-ledger-row"].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 5), "the read reaches an open ledger at once")
         let form = app.scrollViews.containing(.any, identifier: "mcp-ledger-row").firstMatch
-        XCTAssertTrue(row.revealByScrolling(in: form))
+        // Only for the render: on a small display the last row can stay under the Dock.
+        _ = row.revealByScrolling(in: form, deltas: [-400, -400])
         let label = text(of: row)
         for part in ["Claude Desktop", "search_clips", "Favorites · Last 7 days", "3 clips"] {
             XCTAssertTrue(label.contains(part), "\(part) in \(label)")

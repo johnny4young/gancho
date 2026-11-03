@@ -104,11 +104,22 @@ final class ShareSheetUITests: XCTestCase {
         }
         let more = safari.buttons["MoreMenuButton"].firstMatch
         guard more.waitForExistence(timeout: 10) else { throw XCTSkip("no Safari menu") }
-        more.tap()
+        // A share before the page loads carries no URL, and the load closes an open menu.
+        let page = safari.descendants(matching: .any).matching(
+            NSPredicate(format: "label == 'Example Domain'")
+        ).firstMatch
+        guard page.waitForExistence(timeout: 30) else {
+            throw XCTSkip("example.com did not load on this runner")
+        }
         let share = safari.descendants(matching: .any).matching(
             NSPredicate(format: "label == 'Share'")
         ).firstMatch
-        XCTAssertTrue(share.waitForExistence(timeout: 5))
+        // Safari's toolbar can report no hit point for this button and can drop a tap.
+        for _ in 0..<3 where !share.exists && more.exists {
+            more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            _ = share.waitForExistence(timeout: 4)
+        }
+        XCTAssertTrue(share.exists)
         share.tap()
         let target = safari.descendants(matching: .any).matching(
             NSPredicate(format: "label == 'Gancho' OR label == 'Save to Gancho'")

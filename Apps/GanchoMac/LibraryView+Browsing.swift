@@ -62,6 +62,15 @@ extension LibraryView {
                     }
                 }
                 .accessibilityIdentifier("library-clips-scroll")
+                #if DEBUG
+                    // The scope count names the total; the paging tests read what is loaded.
+                    .background {
+                        Color.clear
+                        .accessibilityElement()
+                        .accessibilityIdentifier("library-loaded-count")
+                        .accessibilityLabel(Text(verbatim: "\(clipList.items.count) clips"))
+                    }
+                #endif
             }
         }
     }

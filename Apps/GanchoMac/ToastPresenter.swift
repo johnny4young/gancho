@@ -143,7 +143,13 @@ final class ToastPresenter {
         // A toast with an action (e.g. Undo) needs long enough to read AND reach
         // the button, far longer than a fire-and-forget confirmation. Callers can
         // still override; otherwise actionable toasts get 6s, plain ones 2.4s.
-        let duration = duration ?? (toast.action != nil ? .seconds(6) : .seconds(2.4))
+        var duration = duration ?? (toast.action != nil ? .seconds(6) : .seconds(2.4))
+        #if DEBUG
+            // A slow runner must not outlast the toast a test is still using.
+            if CommandLine.arguments.contains("-hold-toasts-for-ui-test") {
+                duration = .seconds(120)
+            }
+        #endif
         let host = NSHostingView(
             rootView: ToastView(toast: toast, onDismiss: { [weak self] in self?.dismiss() })
                 .frame(width: 360)

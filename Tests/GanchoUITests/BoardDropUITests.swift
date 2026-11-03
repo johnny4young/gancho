@@ -6,17 +6,20 @@ final class BoardDropUITests: XCTestCase {
     private static let nonce = "board-drop-ui-test"
 
     @MainActor
-    private func launch() -> XCUIApplication {
+    private func launch(extraArguments: [String] = []) -> XCUIApplication {
         continueAfterFailure = false
         let app = GanchoUITestApplication()
-        app.launchArguments = [
-            "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
-            "-seed-visual-library", "-seed-sample-boards", "-force-free-tier",
-            "-start-capture-paused", "-suppress-paused-notice-for-ui-test",
-            "-suppress-storage-notice-for-ui-test", "-place-panel-for-ui-test",
-            "-opaque-panel-for-ui-test", "-command-nonce", Self.nonce, "-AppleLanguages", "(en)",
-            "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.drop.\(UUID().uuidString)"
-        ]
+        app.launchArguments =
+            [
+                "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
+                "-seed-visual-library", "-seed-sample-boards", "-force-free-tier",
+                "-start-capture-paused", "-suppress-paused-notice-for-ui-test",
+                "-suppress-storage-notice-for-ui-test", "-place-panel-for-ui-test",
+                "-opaque-panel-for-ui-test", "-command-nonce", Self.nonce, "-AppleLanguages",
+                "(en)",
+                "-ui-test-defaults-suite",
+                "com.johnny4young.gancho.uitests.drop.\(UUID().uuidString)"
+            ] + extraArguments
         app.launch()
         _ = app.wait(for: .runningForeground, timeout: 5)
         return app
@@ -121,7 +124,8 @@ final class BoardDropUITests: XCTestCase {
     /// the toast keeps its own button.
     @MainActor
     func testCommandZUndoesTypingBeforeTheToast() throws {
-        let app = launch()
+        // Typing can outlast the toast's 6 s on a slow runner; ⌘Z must meet it alive.
+        let app = launch(extraArguments: ["-hold-toasts-for-ui-test"])
         defer { app.terminate() }
         let row = codeRow(app)
         XCTAssertTrue(row.waitForExistence(timeout: 15))

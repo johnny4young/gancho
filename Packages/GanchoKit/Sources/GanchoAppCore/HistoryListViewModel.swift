@@ -57,6 +57,7 @@ public typealias HistoryListSource = ClipListSource
         didSet { if selectedSourceAppBundleID != oldValue { requestChanged() } }
     }
     public var sourceApps: [ClipSourceApp] = []
+    @ObservationIgnored private var sourceAppsRequest = 0
     /// Clips related by meaning to the typed query, listed after the results
     /// and never repeating one of them.
     public let meaning = MeaningSearchState()
@@ -117,8 +118,13 @@ public typealias HistoryListSource = ClipListSource
 
     /// Refreshes the app menu independently from text search so type-to-search
     /// does not repeat the aggregate metadata query on every keystroke.
+    /// Reads can overlap and answer out of order, so only the newest one lands.
     public func refreshSourceApps() async {
-        sourceApps = await core.sourceApps(limit: 8)
+        sourceAppsRequest += 1
+        let request = sourceAppsRequest
+        let apps = await core.sourceApps(limit: 8)
+        guard request == sourceAppsRequest else { return }
+        sourceApps = apps
     }
 
     /// Counts searches so an overlapping earlier one can never land after a

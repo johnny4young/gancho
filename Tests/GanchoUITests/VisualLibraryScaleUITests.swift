@@ -24,7 +24,9 @@ final class VisualLibraryScaleUITests: XCTestCase {
         GanchoUITestCommands.post("library", token: nonce)
         let library = app.windows["Library"].firstMatch
         XCTAssertTrue(library.waitForExistence(timeout: 5))
-        let count = library.staticTexts["library-scope-count"]
+        let total = library.staticTexts["library-scope-count"]
+        XCTAssertTrue(waitForCount([2_000], in: total), "The scope count names the whole scope")
+        let count = library.descendants(matching: .any)["library-loaded-count"].firstMatch
         XCTAssertTrue(waitForCount([100], in: count), "Initial loading must remain paged")
         let scroll = library.scrollViews["library-clips-scroll"]
         XCTAssertTrue(scroll.exists)
@@ -38,8 +40,7 @@ final class VisualLibraryScaleUITests: XCTestCase {
             XCTAssertTrue(
                 waitForCount(nextPages, in: count),
                 "Scrolling must advance whole pages without exceeding the fixture count")
-            let value = count.value as? String ?? count.label
-            loadedCount = try XCTUnwrap(Int(value.filter(\.isNumber)))
+            loadedCount = try XCTUnwrap(Int(count.label.filter(\.isNumber)))
         }
         XCTAssertEqual(loadedCount, 2_000)
         let cards = library.buttons.matching(identifier: "library-clip")
@@ -53,7 +54,7 @@ final class VisualLibraryScaleUITests: XCTestCase {
         let first = cards.matching(
             NSPredicate(format: "label CONTAINS %@", "Synthetic scale image 0")
         ).firstMatch
-        for _ in 0..<8 where !first.isHittable {
+        for _ in 0..<20 where !first.isHittable {
             scroll.scroll(byDeltaX: 0, deltaY: 30_000)
         }
         XCTAssertTrue(first.waitForHittable(timeout: 5))

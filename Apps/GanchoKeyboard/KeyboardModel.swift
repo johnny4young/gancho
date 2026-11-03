@@ -209,7 +209,8 @@ final class KeyboardModel: ObservableObject {
     }
 
     /// The host reported its current document; a different one clears the marks.
-    func documentChanged(to document: UUID) {
+    func documentChanged(to document: UUID?) {
+        guard let document else { return }
         inserted.observe(document: document)
     }
 
