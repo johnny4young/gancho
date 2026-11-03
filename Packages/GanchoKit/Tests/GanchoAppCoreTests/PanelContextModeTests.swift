@@ -138,3 +138,32 @@ struct PanelContextModeTests {
         #expect(model.filtered.map(\.id) == [anchor.id])
     }
 }
+
+@MainActor
+@Suite("Panel upward moves")
+struct PanelUpwardMoveTests {
+    @Test("Only an upward keyboard move asks for room above the row")
+    func upwardMoves() async {
+        let source = ContextSource()
+        source.recent = (0..<5).map { ClipItem(preview: "item \($0)") }
+        let model = PanelSearchModel(source: source)
+        await model.refresh()
+        let rows = model.filtered.map(\.id)
+
+        model.moveCursor(to: 3)
+        #expect(model.upwardMoveTarget == nil)
+        model.moveCursor(to: 2)
+        #expect(model.upwardMoveTarget == rows[2])
+        model.moveSelection(by: 1, extending: true)
+        #expect(model.upwardMoveTarget == nil)
+        model.moveSelection(by: -1, extending: true)
+        #expect(model.upwardMoveTarget == rows[2])
+
+        model.select(1)
+        #expect(model.upwardMoveTarget == nil, "a click must not scroll under the pointer")
+        model.moveCursor(to: 0)
+        #expect(model.upwardMoveTarget == rows[0])
+        model.selectedIndex = 4
+        #expect(model.upwardMoveTarget == nil)
+    }
+}

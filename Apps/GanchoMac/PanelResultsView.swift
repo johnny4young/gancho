@@ -33,6 +33,7 @@ struct PanelResultsView<RowContent: View>: View {
     /// The session around one result (Jump to context).
     var isContext = false
     let selectedID: UUID?
+    var upwardMoveTarget: UUID?
     /// List rows, or a grid of cards `columns` wide; the grid reports the
     /// column count it fits so keyboard moves match what is on screen.
     let layout: PanelLayout
@@ -106,7 +107,7 @@ struct PanelResultsView<RowContent: View>: View {
                 }
                 .onChange(of: selectedID) { _, id in
                     guard let id else { return }
-                    proxy.scrollTo(id)
+                    reveal(id, with: proxy)
                 }
                 .onScrollPhaseChange { _, phase in
                     listIsScrolling = phase != .idle
@@ -118,6 +119,22 @@ struct PanelResultsView<RowContent: View>: View {
     }
 
     private var showsSections: Bool { isGroupedView && !isPrivateMode }
+
+    /// A row scrolled to the top edge lands behind the sticky header, so moving
+    /// up reveals the row above it, or the top of the list for the first row.
+    private func reveal(_ id: UUID, with proxy: ScrollViewProxy) {
+        guard showsSections, layout == .list, id == upwardMoveTarget,
+            let index = items.firstIndex(where: { $0.id == id })
+        else {
+            proxy.scrollTo(id)
+            return
+        }
+        if index == 0 {
+            proxy.scrollTo(id, anchor: .bottom)
+        } else {
+            proxy.scrollTo(items[index - 1].id)
+        }
+    }
 
     private var recentHeader: some View {
         HStack {

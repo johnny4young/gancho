@@ -813,6 +813,7 @@ struct PanelView: View {
                     isPrivateMode: model.preferences.isPrivateModePaused,
                     isContext: search.isShowingContext,
                     selectedID: search.selectedItem?.id,
+                    upwardMoveTarget: search.upwardMoveTarget,
                     layout: layout,
                     columns: galleryColumns,
                     onColumnsChange: { galleryColumns = $0 },
@@ -1845,7 +1846,7 @@ struct PanelView: View {
             railFocus = result.state.railFocus
         }
         if search.selectedIndex != result.state.selectedIndex {
-            search.selectedIndex = result.state.selectedIndex
+            search.moveCursor(to: result.state.selectedIndex)
         }
         if search.kindFilter != result.state.kindFilter {
             search.kindFilter = result.state.kindFilter
