@@ -45,6 +45,21 @@ final class DoubleCopyMergeUITests: XCTestCase {
         try keepRender(of: "copy-hud-panel", in: app, named: "Merged HUD")
     }
 
+    /// Most apps copy rich text, so this is the double copy people actually make.
+    @MainActor
+    func testDoubleCopyOfRichTextAppendsToThePreviousClip() throws {
+        continueAfterFailure = false
+        let app = launchMerged(extra: ["-seed-double-copy-rich"])
+        defer { app.terminate() }
+
+        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(rows.count, 1, "the first copy's clip was dropped")
+        let label = rows.firstMatch.label
+        XCTAssertTrue(label.contains("Ana Restrepo"), label)
+        XCTAssertTrue(label.contains("Cra. 43A"), label)
+    }
+
     /// The peek shows each part; a separator chip re-joins them and Split
     /// turns them back into separate clips.
     @MainActor

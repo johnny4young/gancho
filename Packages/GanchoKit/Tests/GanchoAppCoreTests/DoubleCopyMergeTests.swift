@@ -161,6 +161,107 @@ struct DoubleCopyMergeTests {
         #expect(await spy.enqueued.isEmpty)
     }
 
+    private func rtf(_ text: String) throws -> Data {
+        let attributed = NSAttributedString(string: text)
+        return try attributed.data(
+            from: NSRange(location: 0, length: attributed.length),
+            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf])
+    }
+
+    @Test("A rich or HTML copy is seen by its plain companion; without one it never pairs")
+    func observationsUsePlainCompanions() throws {
+        let change = PasteboardCapture.ChangeStamp(count: 1, observedAt: start)
+        let richB = try rtf("B")
+        let observe: (PasteboardCapture.Payload) -> String? = { payload in
+            CopyObservation(PasteboardCapture(payload: payload, change: change))?.text
+        }
+        #expect(observe(.text("B")) == "B")
+        #expect(observe(.richText(rtf: richB, plainText: "B")) == "B")
+        #expect(observe(.html(source: "<b>B</b>", plainText: "B")) == "B")
+        #expect(observe(.richText(rtf: Data(), plainText: nil)) == nil)
+        #expect(observe(.html(source: "<b>B</b>", plainText: nil)) == nil)
+        #expect(observe(.richText(rtf: Data(), plainText: " \n")) == nil)
+        #expect(observe(.fileReferences([URL(fileURLWithPath: "/tmp/a")])) == nil)
+    }
+
+    @Test("A double copy of rich text merges into a rich clip, which becomes plain text")
+    func workflowMergesRichClips() async throws {
+        let store = try makeStore()
+        let spy = MergeSyncSpy()
+        let target = try await store.insert(
+            ClipItem(contentHash: "rich-a"),
+            content: .binary(data: try rtf("Ana"), typeIdentifier: "public.rtf"))
+        let throwaway = try await store.insert(
+            ClipItem(contentHash: "rich-b"),
+            content: .binary(data: try rtf("Cra. 43A"), typeIdentifier: "public.rtf"))
+        let deletion: @Sendable ([UUID]) async -> Void = { ids in
+            for id in ids { try? await store.delete(id: id) }
+        }
+
+        let outcome = await ClipMergeWorkflow().merge(
+            "Cra. 43A", into: target.id, discarding: throwaway.id, store: store,
+            deletion: deletion, engine: spy)
+        guard case .merged(let item, let text, 2) = outcome else {
+            Issue.record("expected a merge, got \(outcome)")
+            return
+        }
+        #expect(text == "Ana\nCra. 43A")
+        #expect(item.parts?.split(text) == ["Ana", "Cra. 43A"])
+        #expect(try await store.content(for: target.id) == .text(text))
+        #expect(try await store.item(id: throwaway.id) == nil)
+        #expect(await spy.enqueued == [target.id])
+        #expect(try await store.removeOrphanedBlobs() == 0, "both RTF blobs are already gone")
+
+        let chained = await ClipMergeWorkflow().merge(
+            "+57 300", into: target.id, discarding: nil, store: store, deletion: deletion,
+            engine: spy)
+        guard case .merged(_, let three, 3) = chained else {
+            Issue.record("expected three parts, got \(chained)")
+            return
+        }
+        #expect(three == "Ana\nCra. 43A\n+57 300")
+    }
+
+    @Test("An RTF blob another clip shares stays; a stale or unreadable rich clip is refused")
+    func richMergeGuards() async throws {
+        let store = try makeStore()
+        let spy = MergeSyncSpy()
+        let shared = try rtf("Ana")
+        let target = try await store.insert(
+            ClipItem(contentHash: "shared-a"),
+            content: .binary(data: shared, typeIdentifier: "public.rtf"))
+        let sibling = try await store.insert(
+            ClipItem(contentHash: "shared-b"),
+            content: .binary(data: shared, typeIdentifier: "public.rtf"))
+        let parts = ClipParts(separator: .newline, lengths: [3, 1])
+
+        #expect(
+            !(try await store.mergeRichClipText(
+                id: target.id, expectingHash: "stale", text: "Ana\nB", parts: parts, kind: .text,
+                movesToTop: true)))
+        #expect(
+            try await store.content(for: target.id)
+                == .binary(data: shared, typeIdentifier: "public.rtf"))
+
+        let merged = await ClipMergeWorkflow().merge(
+            "B", into: target.id, discarding: nil, store: store, deletion: { _ in }, engine: spy)
+        guard case .merged = merged else {
+            Issue.record("expected a merge, got \(merged)")
+            return
+        }
+        #expect(
+            try await store.content(for: sibling.id)
+                == .binary(data: shared, typeIdentifier: "public.rtf"))
+
+        let broken = try await store.insert(
+            ClipItem(contentHash: "broken"),
+            content: .binary(data: Data("not rtf".utf8), typeIdentifier: "public.png"))
+        #expect(
+            await ClipMergeWorkflow().merge(
+                "B", into: broken.id, discarding: nil, store: store, deletion: { _ in },
+                engine: spy) == .refused)
+    }
+
     private func mergedClip(
         _ store: GRDBClipboardStore, _ first: String, _ second: String, spy: MergeSyncSpy
     ) async throws -> ClipItem {

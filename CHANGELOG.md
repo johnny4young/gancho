@@ -75,8 +75,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   never takes focus, and never shows in Private Mode or while the screen is
   shared.
 - Merge double copies, off by default in Settings › Capture: press ⌘C twice
-  on a selection and it is added to the clip before it, on a new line, and
-  the merged text goes back on the clipboard. It never merges into a secret,
+  on a selection in any app and it is added to the clip before it, on a new
+  line, and the merged text goes back on the clipboard. A merged clip is plain
+  text, so it loses any formatting. It never merges into a secret,
   a card or a token, or a snippet, and the boundaries between parts sync
   encrypted. A small HUD and a soft sound, which you can turn off, confirm
   each merge. The peek shows each part, joins them with a newline, a space
