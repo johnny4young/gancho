@@ -249,12 +249,13 @@ appears on the other Mac without any manual refresh, and its footer settles on
 | 7 | Add one of those clips to a second board | B | Both memberships hold on A. Neither board loses the clip. |
 | 8 | Delete a board | A | It disappears on B and **stays gone** after a relaunch. A board that returns as an empty placeholder means the tombstone did not travel. |
 | 9 | Delete a clip | B | It disappears on A and does not come back. |
-| 10 | Copy a secret (an API key or a card number) | A | Converges **masked** on B, expires on its own short lifetime on both, and its content never appears in either app's logs. |
+| 10 | Copy a secret (an API key or a card number) | A | Stays masked on A and **never appears on B**, expires on its own short lifetime on A, and its content never appears in either app's logs. Sync stays healthy. |
 | 11 | Set a short retention window, then wait it out | A | Aged-out clips disappear on both. Pinned clips and board members survive, on both. |
 | 12 | Turn off Wi-Fi, keep working | B | Capture, search, and paste-back keep working offline. The footer explains the pause instead of erroring, and Pro stays active — the licence has a 30-day offline grace. |
 | 13 | Reconnect | B | Everything queued while offline converges to A. Nothing is lost and nothing duplicates. |
 | 14 | Quit and relaunch both | A + B | Both come back to the same history, same boards, same pins. |
-| 15 | **Settings → Pro → Deactivate this Mac** | B | The seat is released. B drops to free and keeps its **encrypted local history**. A is untouched and still Pro. |
+| 15 | Turn on **Merge double copies**, copy some text in Notes, select other text and press ⌘C twice | A | One clip holds both parts on A, and B shows the same text with its parts. The footer settles on **Synced** on both: a rejected record here means `Clip.parts` is missing from Production. |
+| 16 | **Settings → Pro → Deactivate this Mac** | B | The seat is released. B drops to free and keeps its **encrypted local history**. A is untouched and still Pro. |
 
 If sync stalls at any row on a Debug build, `Settings → Pro → Reset & re-pull
 sync` (Debug-only) discards the local `CKSyncEngine` state token and re-pulls.
