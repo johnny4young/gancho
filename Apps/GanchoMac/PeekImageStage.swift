@@ -36,11 +36,20 @@ struct PeekImageStage: View {
                 .clipShape(
                     RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
                 )
-                .overlay(alignment: .topTrailing) { stageControls }
                 // Dragging the preview itself hands the full-resolution image
                 // (not the thumbnail) to the drop target.
                 .clipDragSource(item)
-            dominantColors
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: GanchoTokens.Spacing.xs) {
+                    dominantColors
+                    Spacer(minLength: 0)
+                    stageControls
+                }
+                VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
+                    dominantColors
+                    stageControls
+                }
+            }
         }
     }
 
@@ -56,19 +65,15 @@ struct PeekImageStage: View {
             .accessibilityIdentifier("peek-region-toggle")
             Toggle(isOn: $isPickingColor) {
                 Label("Pick color · I", systemImage: "eyedropper")
+                    .labelStyle(.iconOnly)
             }
             .toggleStyle(.button)
+            .help(Text("Pick color · I"))
             .ganchoInkTint()
             .controlSize(.small)
             .accessibilityIdentifier("peek-pick-color")
         }
         .panelFont(.caption)
-        .padding(GanchoTokens.Spacing.xxs)
-        // The controls sit over arbitrary pixels; a near-opaque backing keeps them legible.
-        .background(
-            .background.opacity(0.92), in: RoundedRectangle(cornerRadius: 9, style: .continuous)
-        )
-        .padding(GanchoTokens.Spacing.xs)
     }
 
     /// A click anywhere on the image saves that pixel; the cursor says so.

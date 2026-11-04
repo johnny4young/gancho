@@ -105,6 +105,26 @@ final class ManualOCRUITests: XCTestCase {
         XCTAssertEqual(peek.scrollBars.count, 0)
     }
 
+    /// The picture stays fully readable and clickable: its controls sit below it.
+    @MainActor
+    func testImageControlsSitBelowEveryRecognizedLine() throws {
+        for (appearance, name) in [("light", "Light"), ("dark", "Dark")] {
+            let app = launchOCR(language: "en", appearance: appearance)
+            defer { app.terminate() }
+            try recognizeSeededImage(in: app)
+            let lastRegion = element("peek-ocr-region-2", in: app)
+            XCTAssertTrue(lastRegion.waitForExistence(timeout: 15))
+            let toggle = element("peek-region-toggle", in: app)
+            let pick = element("peek-pick-color", in: app)
+            XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+            XCTAssertTrue(pick.waitForExistence(timeout: 5))
+            try keepRender(of: "history-panel", in: app, named: "Image stage \(name)")
+            XCTAssertGreaterThanOrEqual(toggle.frame.minY, lastRegion.frame.maxY)
+            XCTAssertGreaterThanOrEqual(pick.frame.minY, lastRegion.frame.maxY)
+            XCTAssertTrue(pick.label.contains("Pick color"), pick.label)
+        }
+    }
+
     @MainActor
     private func launchOCR(
         language: String, appearance: String, extraArguments: [String] = []
