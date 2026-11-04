@@ -9,6 +9,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- On the Mac, the telemetry consent prompt is modal for assistive technologies:
+  the panel behind it is no longer exposed, and no longer intercepts its
+  "Keep disabled" button, until you answer.
 - The source-app filter and `app:` suggestions no longer disappear after an
   interrupted read; the list also refreshes each time the panel opens.
 - An image's Regions and Pick color controls sit below the picture in the peek,
