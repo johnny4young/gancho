@@ -38,7 +38,7 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project fetch-sparkle resolve-dependencies dependency-check build build-signed build-ios install-ios test test-storekit coverage coverage-check test-ui capture-snapshots test-snapshots record-snapshots bench-ui test-ui-ios test-shortcuts-menu test-shortcuts-recorder ui-evidence bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
+.PHONY: help catalog-noise project fetch-sparkle resolve-dependencies dependency-check build build-signed build-ios install-ios test test-storekit coverage coverage-check test-ui capture-snapshots test-snapshots record-snapshots bench-ui test-ui-ios test-shortcuts-menu test-shortcuts-recorder ui-evidence bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -82,7 +82,10 @@ install-ios: project ## Build the iOS app (Debug, team-signed) and install it on
 	xcrun devicectl device install app --device "$$dev" \
 		build/ios/Build/Products/Debug-iphoneos/GanchoiOS.app
 
-test: ## Run package unit tests (Swift Testing)
+catalog-noise: ## Restore String Catalogs changed only by Xcode's rewrite
+	python3 scripts/restore-xcode-catalog-noise.py
+
+test: catalog-noise ## Run package unit tests (Swift Testing)
 	swift test $(SWIFT_PACKAGE_FLAGS) --package-path $(PACKAGE)
 
 test-shortcuts-menu: ## Verify consumed shortcut events in an isolated signed native menu fixture
@@ -91,7 +94,7 @@ test-shortcuts-menu: ## Verify consumed shortcut events in an isolated signed na
 test-shortcuts-recorder: ## Verify shortcut recording and restoration in an isolated signed native fixture
 	SHORTCUT_ACCEPTANCE_SCOPE=recorder bash scripts/test-keyboard-shortcuts-menu.sh
 
-coverage: ## Run package tests with coverage and enforce the production-source floor
+coverage: catalog-noise ## Run package tests with coverage and enforce the production-source floor
 	mkdir -p build
 	set -o pipefail; swift test $(SWIFT_PACKAGE_FLAGS) --package-path $(PACKAGE) --enable-code-coverage \
 		2>&1 | tee build/package-test.log
@@ -184,6 +187,7 @@ format: ## Format Swift sources in place
 
 lint: dependency-check ## Verify formatting, SwiftLint rules, and dependency locks
 	python3 scripts/prepare-hosted-handoff-permissions.py --self-test
+	python3 scripts/restore-xcode-catalog-noise.py --self-test
 	swift format lint --strict --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests Tests \
 		scripts/check-dependency-resolution.swift
 	$(MAKE) swiftlint

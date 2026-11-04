@@ -145,13 +145,6 @@ struct LocalizationTests {
         }
     }
 
-    @Test("Xcode doesn't rewrite the catalogs on build")
-    func compilerExtractionStaysOff() throws {
-        let project = try String(
-            contentsOf: Self.repoRoot.appendingPathComponent("project.yml"), encoding: .utf8)
-        #expect(project.contains("SWIFT_EMIT_LOC_STRINGS: NO"))
-    }
-
     @Test("No hardcoded user-facing prose outside the catalogs")
     func hardcodedSweep() throws {
         // swiftlint:enable function_body_length
