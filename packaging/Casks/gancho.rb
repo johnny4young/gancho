@@ -7,8 +7,8 @@
 # the DMG's SHA-256. See docs/RELEASING.md.
 #
 cask "gancho" do
-  version "0.10.2"
-  sha256 "f8ab4bbed50756b1a7f6524cd2e49ddd8773ee01903fa65e219aaca88fffcef5"
+  version "0.11.0"
+  sha256 "0b3ab93df682e02afbf14f3df4776688f670d609667b005af1f6a574d48bc5fa"
 
   url "https://github.com/johnny4young/gancho/releases/download/v#{version}/Gancho-#{version}.dmg"
   name "Gancho"
