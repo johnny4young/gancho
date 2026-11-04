@@ -38,8 +38,7 @@ struct PaywallView: View {
             // Funnel instrumentation, local counters (telemetry buckets
             // pick these up): paywall_shown by trigger.
             let key = "paywall-shown-\(trigger.rawValue)"
-            UserDefaults.standard.set(
-                UserDefaults.standard.integer(forKey: key) + 1, forKey: key)
+            model.defaults.set(model.defaults.integer(forKey: key) + 1, forKey: key)
         }
     }
 
@@ -233,7 +232,7 @@ final class PaywallWindowController {
         guard
             PaywallGatekeeper.shouldShow(
                 trigger: trigger, tier: model.tier,
-                hasPastedBackOnce: UserDefaults.standard.object(forKey: "first-pasteback-at")
+                hasPastedBackOnce: model.defaults.object(forKey: "first-pasteback-at")
                     != nil)
         else { return }
         let hosting = NSHostingController(

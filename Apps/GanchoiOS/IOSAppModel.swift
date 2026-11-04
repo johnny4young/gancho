@@ -229,7 +229,10 @@ final class IOSAppModel {
             stateStoreURL: SharedStorageLocation.storeDirectory(
                 appGroupID: SharedInbox.appGroupID
             ).appendingPathComponent("sync-state.plist"),
-            hasCloudKitEntitlement: { CloudKitEntitlements.currentTaskAllowsSync() },
+            hasCloudKitEntitlement: {
+                StoreBootstrap.request().allowsCloudSync
+                    && CloudKitEntitlements.currentTaskAllowsSync()
+            },
             makeEngine: Self.syncEngineFactory)
         // Sync status/idle mapping stays here (the views observe `syncStatus`);
         // the controller only drives the engine lifecycle and calls back.

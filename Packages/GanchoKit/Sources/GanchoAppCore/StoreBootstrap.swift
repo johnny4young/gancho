@@ -35,6 +35,9 @@ public enum StoreBootstrap {
         case ephemeral
         /// The user's real store.
         case production
+
+        /// A test store's fixtures must never reach iCloud, even with Pro.
+        public var allowsCloudSync: Bool { self != .throwaway }
     }
 
     /// What a shell needs to open its own store, and nothing more.

@@ -61,8 +61,8 @@ struct WrappedStats: Sendable, Equatable {
             .max { $0.value.count < $1.value.count }?.key.rawValue
         return WrappedStats(
             totalCaptured: total,
-            pastedBack: UserDefaults.standard.object(forKey: "first-pasteback-at") != nil
-                ? max(1, UserDefaults.standard.integer(forKey: "pasteback-count")) : 0,
+            pastedBack: model.defaults.object(forKey: "first-pasteback-at") != nil
+                ? max(1, model.defaults.integer(forKey: "pasteback-count")) : 0,
             topKind: topKind,
             secretsProtected: model.privacyEvents.eventCount(
                 since: Date(timeIntervalSinceNow: -365 * 86_400)))

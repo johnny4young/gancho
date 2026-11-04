@@ -3,7 +3,7 @@
 Gancho exposes the clipboard history to the terminal, to local AI agents, and
 to the editor — all **local, offline, no account, no network**. Every
 integration opens the same on-device store the app uses
-(`~/Library/Application Support/Gancho/`); the macOS app is unsandboxed, so a
+(`~/Library/Application Support/Gancho/`, or `Gancho-Debug/` for a Debug build); the macOS app is unsandboxed, so a
 Homebrew-installed binary reaches the exact same database (GRDB in WAL mode →
 safe concurrent access, app open or closed).
 

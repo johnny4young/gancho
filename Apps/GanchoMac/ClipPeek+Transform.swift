@@ -200,8 +200,8 @@ extension ClipPeek {
             actionResult = nil
             transformPipeline = TransformPipeline(steps: [step])
             if case .dev = step {
-                UserDefaults.standard.set(
-                    UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
+                model.defaults.set(
+                    model.defaults.integer(forKey: "dev-actions-run") + 1,
                     forKey: "dev-actions-run")
             }
         case .smartPaste(let action):

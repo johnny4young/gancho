@@ -132,9 +132,7 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
 
         // Apply the saved appearance override (Auto = follow the system). AppModel
         // also re-applies this when the user changes it in Settings.
-        let savedAppearance =
-            AppearancePreference(rawValue: UserDefaults.standard.string(forKey: "appearance") ?? "")
-            ?? .auto
+        let savedAppearance = GanchoRuntime.model?.appearance ?? .auto
         NSApp.appearance = savedAppearance.nsAppearance
 
         // Belt-and-suspenders for the window-less case: a resident agent should

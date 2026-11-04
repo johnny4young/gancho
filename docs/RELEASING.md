@@ -307,7 +307,11 @@ codesign -d --entitlements :- "Gancho.app/Contents/MacOS/<executable>" | grep ge
 
 The signed DMG requests `com.apple.developer.icloud-container-environment =
 Production`, so a released build talks to the **Production** environment of
-`iCloud.com.johnny4young.gancho`. A Debug build talks to **Development**.
+`iCloud.com.johnny4young.gancho`. A Debug build talks to **Development**, and on
+the Mac it keeps its own store, sync state, Keychain items and preferences in
+`Application Support/Gancho-Debug` and the `.debug` Keychain services, apart from
+the installed app. It shares the Accessibility grant, shortcuts, language,
+menu-bar item visibility and helper, so quit the installed app before running it.
 
 That difference is the whole hazard. In Development, `CKSyncEngine` creates
 record types and fields on the fly the first time a value is written. **In
