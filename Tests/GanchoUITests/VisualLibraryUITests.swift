@@ -26,10 +26,11 @@ final class VisualLibraryUITests: XCTestCase {
         XCTAssertTrue(library.waitForExistence(timeout: 5))
         XCTAssertTrue(app.dialogs["history-panel"].waitForNonExistence(timeout: 5))
         let cards = library.buttons.matching(identifier: "library-clip")
-        // The first card can appear before the rest, so wait for the full set.
+        // The first card can appear before the rest, so wait for the full set. One
+        // query can take seconds on a busy runner, which leaves 5 s only a few samples.
         let allCards = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "count == 4"), object: cards)
-        XCTAssertEqual(XCTWaiter.wait(for: [allCards], timeout: 5), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [allCards], timeout: 15), .completed)
         XCTAssertEqual(
             cards.matching(NSPredicate(format: "label CONTAINS %@", "Hidden fixture title")).count,
             0)

@@ -635,11 +635,12 @@ extension PanelSearchModel {
     /// Refreshes app choices independently from text search so typing never
     /// repeats the aggregate query. Call on panel open and after history changes.
     /// Reads can overlap and answer out of order, so only the newest one lands.
+    /// A cancelled or failed read keeps the list already showing.
     public func refreshSourceApps() async {
         sourceAppsRequest += 1
         let request = sourceAppsRequest
-        let apps = await core.sourceApps(limit: 8)
-        guard request == sourceAppsRequest else { return }
+        guard let apps = try? await core.sourceApps(limit: 8), request == sourceAppsRequest
+        else { return }
         sourceApps = apps
     }
 

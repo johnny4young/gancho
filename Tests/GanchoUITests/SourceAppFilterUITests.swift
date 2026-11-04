@@ -30,7 +30,7 @@ final class SourceAppFilterUITests: XCTestCase {
     @MainActor
     private func selectSafariSourceFilter(in app: XCUIApplication) throws {
         let filter = app.descendants(matching: .any)["source-app-filter"].firstMatch
-        guard filter.waitForExistence(timeout: 10), filter.isHittable else {
+        guard filter.waitForExistence(timeout: 10), filter.waitForHittable(timeout: 5) else {
             throw XCTSkip("source-app filter is not reachable on this runner")
         }
         filter.click()
@@ -113,7 +113,7 @@ final class SourceAppFilterUITests: XCTestCase {
         defer { app.terminate() }
 
         let images = app.buttons["Images"].firstMatch
-        guard images.waitForExistence(timeout: 10), images.isHittable else {
+        guard images.waitForExistence(timeout: 10), images.waitForHittable(timeout: 5) else {
             throw XCTSkip("kind filter pills are not reachable on this runner")
         }
         images.click()

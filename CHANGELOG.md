@@ -9,6 +9,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The source-app filter and `app:` suggestions no longer disappear after an
+  interrupted read; the list also refreshes each time the panel opens.
 - An image's Regions and Pick color controls sit below the picture in the peek,
   so they no longer cover its text or block clicks on it.
 - Development builds on the Mac keep their history, sync state, keys and

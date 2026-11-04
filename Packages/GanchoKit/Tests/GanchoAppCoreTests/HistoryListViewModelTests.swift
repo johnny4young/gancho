@@ -14,6 +14,7 @@ import Testing
     var searchFailure: ClipSearchError?
     var board: [ClipItem] = []
     var sourceApps: [ClipSourceApp] = []
+    var sourceAppsFailure: (any Error)?
     var lastSearchQuery: ClipSearchQuery?
     /// When set, the next recent-page read snapshots `recent`, then waits on
     /// the gate before answering — a query that ran early and answers late.
@@ -51,12 +52,14 @@ import Testing
         if let searchFailure { return .failure(searchFailure) }
         return .success(await search(query, limit: limit))
     }
-    func recentSourceApps(limit: Int) async -> [ClipSourceApp] {
+    func recentSourceApps(limit: Int) async throws -> [ClipSourceApp] {
         let snapshot = Array(sourceApps.prefix(limit))
         if let gate = holdNextSourceApps {
             holdNextSourceApps = nil
             await gate.hold()
         }
+        try Task.checkCancellation()
+        if let sourceAppsFailure { throw sourceAppsFailure }
         return snapshot
     }
 }
@@ -408,6 +411,37 @@ struct HistoryListViewModelTests {
         await model.refreshSourceApps()
 
         #expect(model.sourceApps == source.sourceApps)
+    }
+
+    @Test func aFailedSourceAppReadKeepsTheList() async {
+        let source = FakeSource()
+        let apps = [ClipSourceApp(bundleID: "com.apple.mobilesafari", clipCount: 4)]
+        source.sourceApps = apps
+        let model = HistoryListViewModel(source: source)
+        await model.refreshSourceApps()
+
+        source.sourceAppsFailure = CocoaError(.fileReadUnknown)
+        await model.refreshSourceApps()
+
+        #expect(model.sourceApps == apps)
+    }
+
+    @Test func aCancelledSourceAppReadKeepsTheList() async {
+        let source = FakeSource()
+        let apps = [ClipSourceApp(bundleID: "com.apple.mobilesafari", clipCount: 4)]
+        source.sourceApps = apps
+        let model = HistoryListViewModel(source: source)
+        await model.refreshSourceApps()
+
+        let gate = SearchGate()
+        source.holdNextSourceApps = gate
+        let read = Task { await model.refreshSourceApps() }
+        #expect(await gate.waitUntilEntered())
+        read.cancel()
+        await gate.release()
+        await read.value
+
+        #expect(model.sourceApps == apps)
     }
 
     @Test func anOlderSourceAppReadCannotReplaceANewerOne() async {
