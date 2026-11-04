@@ -11,6 +11,63 @@ Gancho: a local-first, encrypted clipboard history and snippet library for
 Mac (iPhone and iPad apps in the repository, not distributed yet). Free and MIT
 licensed; Pro is a one-time direct purchase. Site: https://gancho.app.
 
+## v0.11.0 — 2026-11-03
+
+A rebuilt panel with paste runs, one Transform list and a visible record whenever a local AI client reads your clips. It is also the first release that needs an Apple Silicon Mac with macOS 26.
+
+![The Gancho panel with search modes, board and kind chips, and a link peek above its action dock](https://gancho.app/assets/v0.11.0-release.png)
+
+### X / Bluesky — 273 characters
+
+Gancho 0.11.0 (macOS): rebuilt panel and peek, paste runs that show "3 of 5", one Transform list, snippets that fill themselves, and a HUD that names any local AI client reading your clips. Now needs Apple Silicon and macOS 26; older Macs stay on 0.10.2. https://gancho.app
+
+### Hacker News
+
+**Title:** `Show HN: Gancho 0.11 – local-first Mac clipboard manager that shows when an AI agent reads it`
+
+**Text:**
+
+Gancho is a clipboard history and snippet library for macOS. History is SQLCipher-encrypted on the Mac, there are no servers of ours, and sync is optional through your own private iCloud database. 0.11 rebuilds the panel, the peek, the Library and Settings, and I raised the floor to do it: Apple Silicon and macOS 26 only. Intel and macOS 15 Macs stay on 0.10.2, and neither Sparkle nor the Homebrew cask offers them this update.
+
+The change I care about most is agent visibility. When a local AI client reads your clips through `gancho mcp`, the menu-bar icon shows a dot and a HUD names the client, what it read and what it was allowed, with a Revoke button. If software you connected is reading your clipboard, that should be something you can see while it happens. "Prepare context for AI…" can also share an image's recognized text, or a reviewed copy of its pixels with the metadata removed.
+
+The rest is about reuse. A paste run checks what already went in, reads "3 of 5", and Skip, Back and Reset move through it, with a small strip that stays visible when the panel is closed. ⌘T holds one list of actions, text transforms, recipes and on-device Smart paste, with a step pipeline that shows the text before and what will paste after. Snippets get `{clipboard}`, `{date}` and `{cursor}` placeholders. Optional shortcuts stay off by default: Up next, Merge double copies, actions after copying, and the Notch shelf.
+
+Two behavior changes to know about. Secrets stop syncing: passwords and keys stay on the device that copied them, and secrets uploaded by earlier versions are deleted from iCloud. Migrations can't be undone, so back up first.
+
+Limits, honestly: the signed two-Mac sync matrix, VoiceOver, screen-OCR permission checks and real iPhone and iPad acceptance are still pending on the released bytes. A clip made with Merge double copies is plain text and loses its formatting. Backups don't include boards or recipes yet. The iPhone and iPad apps are rebuilt in the repo but have no distribution path.
+
+MIT licensed. The DMG and the Homebrew cask ship the same notarized bytes.
+
+### Reddit (r/macapps, r/opensource)
+
+**Title:** `Gancho 0.11.0 — open-source Mac clipboard manager with paste runs and a visible record of AI reads (local-first, encrypted)`
+
+**Text:**
+
+Gancho keeps your clipboard history encrypted on your Mac and never sends what you copy anywhere. 0.11.0 rebuilds the app and adds:
+
+- Search modes (Exact, Fuzzy, Regex, Meaning) with `app:`, `type:`, `board:`, `device:` and `before:` filters you can save.
+- Paste runs that read "3 of 5", with Skip, Back and Reset and a strip that stays visible with the panel closed.
+- One Transform list on ⌘T, with the text before and what will paste after.
+- Snippet placeholders: `{clipboard}`, `{date}` and `{cursor}`.
+- A HUD that names a local AI client when it reads your clips through `gancho mcp`, with Revoke.
+- Optional shortcuts, off by default: Up next, Merge double copies, actions after copying, Notch shelf.
+- Private Mode with a timer, and previews hidden while you share your screen.
+
+Limits: Apple Silicon and macOS 26 only, and older Macs stay on 0.10.2. Secrets no longer sync. Cross-device sync is still unverified on a two-Mac matrix. Free and MIT; Pro is a one-time purchase.
+
+### Platform notes
+
+> Requires Apple Silicon and macOS 26. Intel and macOS 15 Macs stay on 0.10.2. The iPhone and iPad apps aren't distributed by the DMG or the cask.
+
+### Links
+
+- Release: https://github.com/johnny4young/gancho/releases/tag/v0.11.0
+- Site: https://gancho.app
+- `brew tap johnny4young/tap && brew install --cask gancho`
+- Direct download: signed, notarized DMG on the release page (macOS 26+, Apple Silicon)
+
 ## v0.10.2 — 2026-10-16
 
 Clips whose stored image or file was left under an earlier encryption key are repaired, restored from iCloud, or counted and removable in the Privacy Center.
