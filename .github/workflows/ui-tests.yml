@@ -22,7 +22,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ui-tests-${{ github.ref }}-${{ inputs.scope || 'full' }}
+  # Per commit: a second dispatch on a branch must not cancel the run it is compared with.
+  group: ui-tests-${{ github.sha }}-${{ inputs.scope || 'full' }}
   cancel-in-progress: true
 
 jobs:
@@ -33,6 +34,8 @@ jobs:
     # The full suite outgrew 45 minutes, and ten stress rounds need as long.
     # Interaction timeouts and performance budgets stay unchanged.
     timeout-minutes: 90
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v7
 
@@ -43,6 +46,12 @@ jobs:
             sw_vers
             xcodebuild -version
           } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Cache resolved packages
+        uses: actions/cache@v6
+        with:
+          path: build/xcode-packages
+          key: xcode-spm-${{ runner.os }}-${{ hashFiles('Dependencies/Package.resolved') }}
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -95,6 +104,7 @@ jobs:
               ;;
           esac
           xcodebuild -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
             test -project Gancho.xcodeproj -scheme Gancho \
             -destination 'platform=macOS,arch=arm64' \
             "${test_arguments[@]}" \
@@ -149,6 +159,8 @@ jobs:
     name: ${{ inputs.scope == 'feature-stress' && 'iOS feature stress (10x)' || inputs.scope == 'ios-interaction-stress' && 'iOS context interaction stress (10x)' || 'iOS UI tests' }}
     runs-on: macos-26
     timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v7
 
@@ -159,6 +171,12 @@ jobs:
             sw_vers
             xcodebuild -version
           } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Cache resolved packages
+        uses: actions/cache@v6
+        with:
+          path: build/xcode-packages
+          key: xcode-spm-${{ runner.os }}-${{ hashFiles('Dependencies/Package.resolved') }}
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -194,6 +212,7 @@ jobs:
           mkdir -p build
           set -o pipefail
           xcodebuild -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
             build-for-testing -project Gancho.xcodeproj -scheme GanchoiOS \
             -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
             -enableCodeCoverage YES \
@@ -206,7 +225,8 @@ jobs:
         continue-on-error: true
         run: |
           ./scripts/warm-ios-simulator.sh warm "$IOS_SIMULATOR_UDID" build \
-            -disableAutomaticPackageResolution
+            -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages
 
       - name: Stop anything the warm-up left running
         run: ./scripts/warm-ios-simulator.sh stop "$IOS_SIMULATOR_UDID"
@@ -235,6 +255,7 @@ jobs:
               ;;
           esac
           xcodebuild -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
             test-without-building -project Gancho.xcodeproj -scheme GanchoiOS \
             -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
             "${test_arguments[@]}" \
