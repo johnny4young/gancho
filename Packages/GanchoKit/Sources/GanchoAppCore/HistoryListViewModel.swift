@@ -119,11 +119,12 @@ public typealias HistoryListSource = ClipListSource
     /// Refreshes the app menu independently from text search so type-to-search
     /// does not repeat the aggregate metadata query on every keystroke.
     /// Reads can overlap and answer out of order, so only the newest one lands.
+    /// A cancelled or failed read keeps the list already showing.
     public func refreshSourceApps() async {
         sourceAppsRequest += 1
         let request = sourceAppsRequest
-        let apps = await core.sourceApps(limit: 8)
-        guard request == sourceAppsRequest else { return }
+        guard let apps = try? await core.sourceApps(limit: 8), request == sourceAppsRequest
+        else { return }
         sourceApps = apps
     }
 

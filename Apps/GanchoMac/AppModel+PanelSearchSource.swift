@@ -41,12 +41,12 @@ extension AppModel: PanelSearchSource {
         return await .read(from: fullStore, query: query, limit: limit)
     }
 
-    func recentSourceApps(limit: Int) async -> [ClipSourceApp] {
+    func recentSourceApps(limit: Int) async throws -> [ClipSourceApp] {
         guard let fullStore else {
-            let recent = (try? await store.items(offset: 0, limit: 200)) ?? []
+            let recent = try await store.items(offset: 0, limit: 200)
             return ClipSourceAppDigest.from(recent, limit: limit)
         }
-        return (try? await fullStore.recentSourceApps(limit: limit)) ?? []
+        return try await fullStore.recentSourceApps(limit: limit)
     }
 
     func isDeletionPending(_ id: UUID) -> Bool { reuseController.isDeletionPending(id) }

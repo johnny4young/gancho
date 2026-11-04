@@ -252,7 +252,13 @@ struct PanelView: View {
                 DispatchQueue.main.async { model.panel.notePanelDidAppear() }
                 let refreshesStore = storeRefreshDeferred
                 storeRefreshDeferred = false
-                if refreshesStore { Task { await search.refreshAfterStoreChange() } }
+                Task {
+                    if refreshesStore {
+                        await search.refreshAfterStoreChange()
+                    } else {
+                        await search.refreshSourceApps()
+                    }
+                }
                 // An unsaved inline edit survives a trip to another app.
                 guard !peekIsEditingInline else { return }
                 railFocus = nil
@@ -334,6 +340,23 @@ struct PanelView: View {
             }
             .task { await model.refreshBoards() }
             .task { await refreshDeviceNames() }
+            // Up here, not in the toolbar: its ViewThatFits remounts a variant when
+            // the fit changes, which would cancel a refresh in flight.
+            .task {
+                let changes = model.storeChanges.subscribe()
+                // A capture already moves `newest`, so it would recount twice.
+                for await batch in StoreChangeCoalescer().batches(of: changes)
+                where batch != [.captured] {
+                    storeRevision &+= 1
+                    // A hidden panel catches up when it next opens.
+                    guard model.panel.isVisible else {
+                        storeRefreshDeferred = true
+                        continue
+                    }
+                    await search.refreshAfterStoreChange()
+                    model.refreshUpNext()
+                }
+            }
             .task(id: alternativesKey) { await probeAlternatives() }
             .onDisappear {
                 search.cancelMeaningSearch()
@@ -1143,21 +1166,6 @@ struct PanelView: View {
                 let counts = await model.scopeCounts()
                 guard !Task.isCancelled else { return }
                 scopeCounts = counts
-            }
-            .task {
-                let changes = model.storeChanges.subscribe()
-                // A capture already moves `newest`, so it would recount twice.
-                for await batch in StoreChangeCoalescer().batches(of: changes)
-                where batch != [.captured] {
-                    storeRevision &+= 1
-                    // A hidden panel catches up when it next opens.
-                    guard model.panel.isVisible else {
-                        storeRefreshDeferred = true
-                        continue
-                    }
-                    await search.refreshAfterStoreChange()
-                    model.refreshUpNext()
-                }
             }
             .onChange(of: railFocus) { _, focused in
                 guard case .boards(let index) = focused else { return }

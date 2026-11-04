@@ -25,8 +25,9 @@ import GanchoKit
     /// Ranked full-text search (durable stores only; [] otherwise).
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem]
     func searchOutcome(_ query: ClipSearchQuery, limit: Int) async -> ClipListSearchOutcome
-    /// Content-free source-app options for the filter menu.
-    func recentSourceApps(limit: Int) async -> [ClipSourceApp]
+    /// Content-free source-app options for the filter menu. Throws when the read
+    /// fails or is cancelled, so neither passes for "no apps".
+    func recentSourceApps(limit: Int) async throws -> [ClipSourceApp]
 }
 
 /// Where the two shells genuinely differ, and nowhere else.
@@ -225,8 +226,8 @@ public enum ClipListShape {
         return ClipListPage(items: items, reachedEnd: items.count < Self.pageSize)
     }
 
-    public func sourceApps(limit: Int) async -> [ClipSourceApp] {
-        await source.recentSourceApps(limit: limit)
+    public func sourceApps(limit: Int) async throws -> [ClipSourceApp] {
+        try await source.recentSourceApps(limit: limit)
     }
 
     /// Pinned-first then capture time, so the date buckets stay contiguous.

@@ -44,12 +44,12 @@ import GanchoKit
         await .read(from: full, query: query, limit: limit)
     }
 
-    func recentSourceApps(limit: Int) async -> [ClipSourceApp] {
+    func recentSourceApps(limit: Int) async throws -> [ClipSourceApp] {
         guard let full else {
-            let recent = (try? await store.items(offset: 0, limit: 200)) ?? []
+            let recent = try await store.items(offset: 0, limit: 200)
             return ClipSourceAppDigest.from(recent, limit: limit)
         }
-        return (try? await full.recentSourceApps(limit: limit)) ?? []
+        return try await full.recentSourceApps(limit: limit)
     }
 
 }

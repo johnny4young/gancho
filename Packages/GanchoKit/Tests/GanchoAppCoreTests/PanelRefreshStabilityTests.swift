@@ -11,6 +11,7 @@ import Testing
     var suspendPages = true
     var suspendFirstPage = false
     var sourceApps: [ClipSourceApp] = []
+    var sourceAppsFailure: (any Error)?
     var holdNextSourceApps: SearchGate?
     private var pages: [CheckedContinuation<Void, Never>?] = []
     private var pageWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
@@ -61,12 +62,14 @@ import Testing
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
         Array(recent.prefix(limit))
     }
-    func recentSourceApps(limit: Int) async -> [ClipSourceApp] {
+    func recentSourceApps(limit: Int) async throws -> [ClipSourceApp] {
         let snapshot = Array(sourceApps.prefix(limit))
         if let gate = holdNextSourceApps {
             holdNextSourceApps = nil
             await gate.hold()
         }
+        try Task.checkCancellation()
+        if let sourceAppsFailure { throw sourceAppsFailure }
         return snapshot
     }
     func snippet(matchingKeyword keyword: String) async -> ClipItem? { snippet }
@@ -85,6 +88,38 @@ struct PanelRefreshStabilityTests {
         source.recent.insert(ClipItem(preview: "synthetic-incoming"), at: 0)
         await model.refresh()
         #expect(model.selectedItem?.id == selected)
+    }
+
+    @Test func aFailedSourceAppReadKeepsTheList() async {
+        let source = SuspendedPanelSource()
+        let apps = [ClipSourceApp(bundleID: "com.apple.Safari", clipCount: 2)]
+        source.sourceApps = apps
+        let model = PanelSearchModel(source: source)
+        await model.refreshSourceApps()
+
+        source.sourceAppsFailure = CocoaError(.fileReadUnknown)
+        await model.refreshSourceApps()
+
+        #expect(model.sourceApps == apps)
+    }
+
+    @Test func aCancelledStoreRefreshKeepsTheSourceApps() async {
+        let source = SuspendedPanelSource()
+        source.suspendPages = false
+        let apps = [ClipSourceApp(bundleID: "com.apple.Safari", clipCount: 2)]
+        source.sourceApps = apps
+        let model = PanelSearchModel(source: source)
+        await model.refreshSourceApps()
+
+        let gate = SearchGate()
+        source.holdNextSourceApps = gate
+        let refresh = Task { await model.refreshAfterStoreChange() }
+        #expect(await gate.waitUntilEntered())
+        refresh.cancel()
+        await gate.release()
+        await refresh.value
+
+        #expect(model.sourceApps == apps)
     }
 
     @Test func anOlderSourceAppReadCannotReplaceANewerOne() async {
