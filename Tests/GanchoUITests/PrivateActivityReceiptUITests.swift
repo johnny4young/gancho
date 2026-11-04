@@ -39,9 +39,11 @@ final class PrivateActivityReceiptUITests: XCTestCase {
         let clear = app.buttons["clear-private-receipt-button"].firstMatch
         XCTAssertTrue(clear.waitForExistence(timeout: 3))
         app.activate()
-        guard clear.isHittable else {
-            throw XCTSkip("Another desktop window obscured the receipt clear action")
-        }
+        try SynthesizedInput.requireForeground(app)
+        // The action sits below the fold of the Privacy Center's form.
+        let form = app.windows["Privacy Center"].scrollViews
+            .containing(.any, identifier: "clear-private-receipt-button").firstMatch
+        XCTAssertTrue(clear.revealByScrolling(in: form))
         clear.click()
         let confirmation = app.windows["Privacy Center"].sheets.firstMatch
         XCTAssertTrue(confirmation.waitForExistence(timeout: 3))

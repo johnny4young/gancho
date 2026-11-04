@@ -20,10 +20,11 @@ final class TelemetryConsentUITests: XCTestCase {
 
         app.activate()
         try SynthesizedInput.requireForeground(app)
-        guard keepDisabled.isHittable else {
-            throw XCTSkip("telemetry consent prompt is obscured on this runner")
+        // Accessibility's hit test misses this button, yet a click at its center lands.
+        guard keepDisabled.isCenterOnDisplay else {
+            throw XCTSkip("telemetry consent prompt is off screen on this runner")
         }
-        keepDisabled.click()
-        XCTAssertFalse(prompt.waitForExistence(timeout: 1))
+        keepDisabled.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        XCTAssertTrue(prompt.waitForNonExistence(timeout: 5))
     }
 }

@@ -19,6 +19,12 @@ final class PanelPrewarmedOpenUITests: XCTestCase {
         app.launch()
         defer { app.terminate() }
         XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 10))
+        // Before the panel opens: activating after would give Settings the key and
+        // close it, since this launch keeps the panel's real focus behavior.
+        app.activate()
+        guard app.wait(for: .runningForeground, timeout: 5) else {
+            throw XCTSkip("Gancho did not reach the foreground")
+        }
 
         GanchoUITestCommands.post("openPanel", token: token)
         let panel = app.descendants(matching: .any)["history-panel"].firstMatch
