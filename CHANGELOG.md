@@ -9,6 +9,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An image's Regions and Pick color controls sit below the picture in the peek,
+  so they no longer cover its text or block clicks on it.
 - Development builds on the Mac keep their history, sync state, keys and
   preferences apart from the installed app, and UI test stores never sync.
 - Align post-release documentation, the bilingual website, the Sparkle feed
