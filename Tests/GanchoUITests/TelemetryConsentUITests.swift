@@ -20,7 +20,7 @@ final class TelemetryConsentUITests: XCTestCase {
 
         app.activate()
         try SynthesizedInput.requireForeground(app)
-        guard keepDisabled.isHittable else {
+        guard keepDisabled.waitForHittable(timeout: 5) else {
             throw XCTSkip("telemetry consent prompt is obscured on this runner")
         }
         keepDisabled.click()

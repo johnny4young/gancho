@@ -39,7 +39,7 @@ final class PrivateActivityReceiptUITests: XCTestCase {
         let clear = app.buttons["clear-private-receipt-button"].firstMatch
         XCTAssertTrue(clear.waitForExistence(timeout: 3))
         app.activate()
-        guard clear.isHittable else {
+        guard clear.waitForHittable(timeout: 5) else {
             throw XCTSkip("Another desktop window obscured the receipt clear action")
         }
         clear.click()
