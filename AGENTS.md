@@ -21,7 +21,8 @@
 - **Prose:** all project documentation is English unless the maintainer
   explicitly asks for another language. Chat may be Spanish, but docs, local
   planning files, code comments, commits, and PRs stay English by default.
-  User-facing strings live in the String Catalogs with English + Spanish;
+  User-facing strings live in the String Catalogs with English + Spanish. Xcode
+  doesn't extract them (`SWIFT_EMIT_LOC_STRINGS: NO`), so add new keys by hand;
   `LocalizationTests` fails the build on a missing translation.
 - **No left accent bars**, on any platform (SwiftUI, AppKit, UIKit, the
   website) or in mockups: never mark selection, status or kind with a thin
