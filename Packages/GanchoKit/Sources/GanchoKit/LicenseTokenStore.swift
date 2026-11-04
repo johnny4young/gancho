@@ -20,11 +20,14 @@ public protocol LicenseTokenStore: Sendable {
 public struct KeychainLicenseTokenStore: LicenseTokenStore {
     public enum Failure: Error, Sendable, Equatable { case keychain(OSStatus) }
 
+    public static let defaultService = MacBuildIsolation.keychainService(
+        "com.johnny4young.gancho.license")
+
     private let service: String
     private let account: String
 
     public init(
-        service: String = "com.johnny4young.gancho.license",
+        service: String = KeychainLicenseTokenStore.defaultService,
         account: String = "license-token"
     ) {
         self.service = service

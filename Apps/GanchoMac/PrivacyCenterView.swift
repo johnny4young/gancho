@@ -275,7 +275,7 @@ struct PrivacyCenterView: View {
                         // Internal usage counter, kept out of release builds.
                         LabeledContent(
                             "Developer actions run",
-                            value: "\(UserDefaults.standard.integer(forKey: "dev-actions-run"))")
+                            value: "\(model.defaults.integer(forKey: "dev-actions-run"))")
                     }
                 #endif
             }

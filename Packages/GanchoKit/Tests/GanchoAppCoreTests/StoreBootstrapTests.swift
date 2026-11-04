@@ -22,6 +22,13 @@ struct StoreBootstrapTests {
             throwawayDirectoryPrefix: "bootstrap-test-store")
     }
 
+    @Test("Only a throwaway store is kept out of iCloud")
+    func throwawayNeverSyncs() {
+        #expect(!StoreBootstrap.Request.throwaway.allowsCloudSync)
+        #expect(StoreBootstrap.Request.ephemeral.allowsCloudSync)
+        #expect(StoreBootstrap.Request.production.allowsCloudSync)
+    }
+
     @Test("A plain launch asks for the user's real store")
     func plainLaunchIsProduction() {
         #expect(StoreBootstrap.request(arguments: []) == .production)

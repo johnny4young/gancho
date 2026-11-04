@@ -25,12 +25,14 @@ public enum SharedStorageLocation {
             "Gancho", isDirectory: true)
     }
 
-    /// The macOS app's store directory. The Mac app is NOT sandboxed, so this
-    /// resolves to the user's real `~/Library/Application Support/Gancho` —
-    /// which a Homebrew-installed `gancho` CLI (also unsandboxed) opens as the
-    /// SAME database. Single source of truth shared by the app and the CLI so
-    /// the two never drift onto different files.
+    /// The macOS app's store directory. The Mac app is NOT sandboxed, so a
+    /// release build resolves to the user's real
+    /// `~/Library/Application Support/Gancho` — which a Homebrew-installed
+    /// `gancho` CLI (also unsandboxed) opens as the SAME database. Single source
+    /// of truth shared by the app and the CLI so the two never drift onto
+    /// different files. A Debug build resolves to its own folder.
     public static var macAppStoreDirectory: URL {
-        URL.applicationSupportDirectory.appendingPathComponent("Gancho", isDirectory: true)
+        URL.applicationSupportDirectory.appendingPathComponent(
+            MacBuildIsolation.storeFolderName(), isDirectory: true)
     }
 }

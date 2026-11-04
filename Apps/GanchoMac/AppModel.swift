@@ -420,10 +420,11 @@ final class AppModel {
             })
         self.syncController = SyncController(
             store: grdb,
-            stateStoreURL: URL.applicationSupportDirectory
-                .appendingPathComponent("Gancho", isDirectory: true)
-                .appendingPathComponent("sync-state.plist"),
-            hasCloudKitEntitlement: { CloudKitEntitlements.currentTaskAllowsSync() },
+            // Beside the store, so a test store's reset can't remove a real state file.
+            stateStoreURL: mcpConfigDirectory.appendingPathComponent("sync-state.plist"),
+            hasCloudKitEntitlement: {
+                storeRequest.allowsCloudSync && CloudKitEntitlements.currentTaskAllowsSync()
+            },
             makeEngine: Self.syncEngineFactory)
         let resolvedStore = self.store
         self.thumbnails = ClipThumbnailStore(imageData: { id in

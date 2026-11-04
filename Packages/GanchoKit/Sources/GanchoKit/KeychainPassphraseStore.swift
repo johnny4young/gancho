@@ -184,13 +184,16 @@ public struct KeychainPassphraseStore: Sendable {
     private let accessGroup: String?
     private let operations: any PassphraseKeychainOperations
 
+    public static let defaultService = MacBuildIsolation.keychainService(
+        "com.johnny4young.gancho.database-key")
+
     /// - Parameters:
     ///   - service: keychain item service; defaults to the database-key service.
     ///   - account: keychain item account; defaults to the single store key.
     ///   - accessGroup: shared keychain access group for iOS DB-reading
     ///     extensions. `nil` on macOS and in tests.
     public init(
-        service: String = "com.johnny4young.gancho.database-key",
+        service: String = KeychainPassphraseStore.defaultService,
         account: String = "gancho-sqlite",
         accessGroup: String? = nil
     ) {
@@ -200,7 +203,7 @@ public struct KeychainPassphraseStore: Sendable {
     }
 
     init(
-        service: String = "com.johnny4young.gancho.database-key",
+        service: String = KeychainPassphraseStore.defaultService,
         account: String = "gancho-sqlite", accessGroup: String? = nil,
         operations: any PassphraseKeychainOperations
     ) {

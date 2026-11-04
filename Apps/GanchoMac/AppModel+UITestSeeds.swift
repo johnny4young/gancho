@@ -190,7 +190,7 @@ extension AppModel {
         #if DEBUG
             guard let suiteName = uiTestDefaultsSuiteName(),
                 let defaults = UserDefaults(suiteName: suiteName)
-            else { return .standard }
+            else { return MacBuildIsolation.launchDefaults() }
             if !CommandLine.arguments.contains("-preserve-ui-test-defaults") {
                 defaults.removePersistentDomain(forName: suiteName)
             }

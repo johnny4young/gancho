@@ -9,6 +9,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Development builds on the Mac keep their history, sync state, keys and
+  preferences apart from the installed app, and UI test stores never sync.
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.11.0 DMG.
   Physical-device acceptance remains pending; the published app, tag and
