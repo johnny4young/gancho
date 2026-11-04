@@ -27,6 +27,9 @@ options:
 # Project-wide build settings.
 settings:
   base:
+    # Xcode's compiler extraction rewrites the catalogs on every IDE build, and
+    # Xcode 27 proposes keys that never match at runtime. LocalizationTests owns this.
+    SWIFT_EMIT_LOC_STRINGS: NO
     MARKETING_VERSION: "0.11.0"
     CURRENT_PROJECT_VERSION: "22"
     # Swift 6 language mode + "approachable concurrency": app modules default to

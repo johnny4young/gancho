@@ -145,6 +145,13 @@ struct LocalizationTests {
         }
     }
 
+    @Test("Xcode doesn't rewrite the catalogs on build")
+    func compilerExtractionStaysOff() throws {
+        let project = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("project.yml"), encoding: .utf8)
+        #expect(project.contains("SWIFT_EMIT_LOC_STRINGS: NO"))
+    }
+
     @Test("No hardcoded user-facing prose outside the catalogs")
     func hardcodedSweep() throws {
         // swiftlint:enable function_body_length
@@ -209,7 +216,13 @@ struct LocalizationTests {
             (#"(?:->|:)\s*LocalizedStringKey\??\s*\{"#, "{", "}"),
             (#":\s*\[LocalizedStringKey\]\s*=\s*\["#, "[", "]")
         ]
-        let literalRegexes = try literalPatterns.map { try NSRegularExpression(pattern: $0) }
+        // A comment can sit between the parenthesis and its literal, such as a
+        // lint suppression above a long string.
+        let literalRegexes = try literalPatterns.map {
+            try NSRegularExpression(
+                pattern: $0.replacingOccurrences(
+                    of: #"\s*(?=")"#, with: #"\s*(?://[^\n]*\n\s*)*(?=")"#))
+        }
         let keyBodyRegexes = try keyBodyPatterns.map {
             (regex: try NSRegularExpression(pattern: $0.pattern), open: $0.open, close: $0.close)
         }
