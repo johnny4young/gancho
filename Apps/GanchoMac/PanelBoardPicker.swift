@@ -118,6 +118,7 @@ struct PanelBoardPicker: View {
             fieldFocused = true
         }
         .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier("board-picker")
     }
 
