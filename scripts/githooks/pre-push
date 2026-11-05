@@ -11,6 +11,10 @@ set -e
 
 cd "$(git rev-parse --show-toplevel)"
 
+# Git exports these to hooks. A tool that creates a temporary repository would
+# otherwise act on this one, and `git init` can mark it bare.
+unset $(git rev-parse --local-env-vars)
+
 if ! command -v swift >/dev/null 2>&1; then
     echo "pre-push: no Swift toolchain found — skipping lint+tests (CI still enforces them)."
     exit 0
