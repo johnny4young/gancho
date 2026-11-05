@@ -24,6 +24,8 @@ final class PasteStackRunUITests: XCTestCase {
 
         // Pasting hides the panel, as it does for a real paste; reopen it.
         app.buttons["paste-stack-next"].firstMatch.click()
+        let panel = app.descendants(matching: .any)["history-panel"].firstMatch
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
         GanchoUITestCommands.post("openPanel", token: nonce)
         XCTAssertTrue(strip.waitForExistence(timeout: 5))
         XCTAssertTrue(strip.label.contains("2 of 2"), strip.label)
