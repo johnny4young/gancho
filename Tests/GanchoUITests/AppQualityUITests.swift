@@ -57,6 +57,9 @@ final class AppQualityUITests: XCTestCase {
         app.typeKey("b", modifierFlags: .command)
         let picker = app.descendants(matching: .any)["board-picker"].firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        XCTAssertFalse(
+            app.textFields["search-field"].firstMatch.exists,
+            "the picker hides the panel behind it from assistive technologies")
         try keepRender(of: "history-panel", in: app, named: "panel-board-picker")
         let board = picker.buttons["board-picker-board-row"].firstMatch
         XCTAssertTrue(

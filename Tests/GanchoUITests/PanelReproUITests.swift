@@ -151,8 +151,8 @@ final class PanelReproUITests: XCTestCase {
         XCTAssertTrue(boardFilter.waitForExistence(timeout: 3))
         boardFilter.click()
         boardFilter.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(search.exists, "closing the board picker must keep the panel open")
         XCTAssertTrue(boardFilter.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(search.exists, "closing the board picker must keep the panel open")
         addToBoard.click()
         XCTAssertTrue(
             assignedBoard.waitForExistence(timeout: 5),
