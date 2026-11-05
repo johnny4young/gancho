@@ -178,8 +178,7 @@ final class WelcomeWindowController {
 
     func show(model: AppModel) {
         if let window, window.isVisible {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate()
+            window.bringToFront()
             return
         }
         // A fresh view each time it opens, so a reopened welcome starts at the promise.
@@ -200,8 +199,7 @@ final class WelcomeWindowController {
         }
         window?.setContentSize(NSSize(width: 520, height: 420))
         window?.center()
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        window?.bringToFront()
     }
 
     func close() {

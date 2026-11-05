@@ -24,8 +24,6 @@ final class SettingsWindowController {
             window = created
         }
 
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
-        _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+        window?.bringToFront()
     }
 }

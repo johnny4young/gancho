@@ -395,7 +395,6 @@ final class PrivacyCenterWindowController {
             created.sizeToFitContentAndCenter()
             window = created
         }
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        window?.bringToFront()
     }
 }

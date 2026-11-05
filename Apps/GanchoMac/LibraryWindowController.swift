@@ -42,8 +42,7 @@ final class LibraryWindowController {
             #endif
             window = created
         }
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        window?.bringToFront()
         // The window is cached, so the view's `.task` runs once; presenting is
         // the retry the failed-load message promises.
         model.reloadSavedFilters()
