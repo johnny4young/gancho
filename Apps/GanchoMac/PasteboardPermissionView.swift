@@ -104,7 +104,6 @@ final class PasteboardPermissionWindowController {
             created.sizeToFitContentAndCenter()
             window = created
         }
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        window?.bringToFront()
     }
 }

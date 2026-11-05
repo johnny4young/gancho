@@ -9,6 +9,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- On the Mac, Settings, Library, Privacy Center, Welcome and the clipboard access
+  window open on top of other apps and take the keyboard, instead of behind the
+  app you were using.
 - On the Mac, the telemetry consent prompt is modal for assistive technologies:
   the panel behind it is no longer exposed, and no longer intercepts its
   "Keep disabled" button, until you answer.
