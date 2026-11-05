@@ -5,6 +5,7 @@ Building in the Xcode 27 IDE reformats a catalog, changes extraction states and
 adds untranslated keys, which fails LocalizationTests. No build setting stops it.
 """
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -74,6 +75,11 @@ def check_staged(root):
 
 
 def self_test():
+    # An inherited GIT_DIR would point the temporary repository below at a real one.
+    local = subprocess.run(["git", "rev-parse", "--local-env-vars"], capture_output=True, text=True)
+    for name in local.stdout.split():
+        os.environ.pop(name, None)
+
     entry = {"localizations": {"es": {"stringUnit": {"value": "Copiar"}}}}
     head = {"sourceLanguage": "en", "version": "1.1", "strings": {"Copy": entry}}
 
