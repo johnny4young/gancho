@@ -2,6 +2,7 @@
 # Offline integration tests for fetch-sparkle.sh. Only curl is replaced; the
 # production script hashes, extracts, installs, and reuses real fixture archives.
 set -euo pipefail
+unset $(git rev-parse --local-env-vars)
 root="$(cd "$(dirname "$0")/.." && pwd)"
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/gancho-sparkle-test.XXXXXX")"
 trap 'rm -rf "$tmp"' EXIT

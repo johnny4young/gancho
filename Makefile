@@ -188,6 +188,7 @@ format: ## Format Swift sources in place
 lint: dependency-check ## Verify formatting, SwiftLint rules, and dependency locks
 	python3 scripts/prepare-hosted-handoff-permissions.py --self-test
 	python3 scripts/restore-xcode-catalog-noise.py --self-test
+	./scripts/test-hook-git-environment.sh
 	swift format lint --strict --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests Tests \
 		scripts/check-dependency-resolution.swift
 	$(MAKE) swiftlint
