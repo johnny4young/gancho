@@ -25,6 +25,20 @@ final class BoardDropUITests: XCTestCase {
         return app
     }
 
+    /// The launch hook shows the panel twice and each show places it, so an
+    /// early frame can change with no input at all.
+    @MainActor
+    private func settledFrame(of panel: XCUIElement) -> CGRect {
+        var frame = panel.frame
+        for _ in 0..<5 {
+            _ = XCTWaiter().wait(for: [XCTestExpectation(description: "panel settles")], timeout: 1)
+            let next = panel.frame
+            if next == frame { break }
+            frame = next
+        }
+        return frame
+    }
+
     @MainActor
     private func rows(_ app: XCUIApplication) -> XCUIElementQuery {
         app.descendants(matching: .any).matching(identifier: "clip-row")
@@ -229,7 +243,7 @@ final class BoardDropUITests: XCTestCase {
         let row = codeRow(app)
         XCTAssertTrue(row.waitForExistence(timeout: 15))
         try SynthesizedInput.requireForeground(app)
-        let before = panel.frame
+        let before = settledFrame(of: panel)
         let start = row.coordinate(withNormalizedOffset: CGVector(dx: 0.18, dy: 0.5))
         start.press(
             forDuration: 1.0, thenDragTo: start.withOffset(CGVector(dx: 120, dy: 140)),
