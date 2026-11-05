@@ -604,6 +604,7 @@ struct PanelView: View {
             .ganchoSurface(radius: GanchoTokens.Radius.lg)
             .ganchoElevation(.overlay, cornerRadius: GanchoTokens.Radius.lg)
             .accessibilityElement(children: .contain)
+            .accessibilityAddTraits(.isModal)
             .accessibilityIdentifier("telemetry-consent-prompt")
             .transition(
                 GanchoMotion.travel(

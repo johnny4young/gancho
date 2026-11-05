@@ -24,6 +24,8 @@ final class PasteStackRunUITests: XCTestCase {
 
         // Pasting hides the panel, as it does for a real paste; reopen it.
         app.buttons["paste-stack-next"].firstMatch.click()
+        let panel = app.descendants(matching: .any)["history-panel"].firstMatch
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
         GanchoUITestCommands.post("openPanel", token: nonce)
         XCTAssertTrue(strip.waitForExistence(timeout: 5))
         XCTAssertTrue(strip.label.contains("2 of 2"), strip.label)
@@ -90,8 +92,9 @@ final class PasteStackRunUITests: XCTestCase {
             "-seed-visual-library", "-seed-paste-stack", "-force-free-tier",
             "-start-capture-paused", "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
             "-ui-test-paste-sink", "pasted", "-command-nonce", nonce,
-            "-suppress-storage-notice-for-ui-test", "-AppleLanguages", "(en)",
-            "-panel-content-width", "720", "-panel-content-height", "460",
+            "-suppress-storage-notice-for-ui-test", "-telemetry-consent", "disabled",
+            "-AppleLanguages", "(en)", "-panel-content-width", "720",
+            "-panel-content-height", "460",
             "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.stack.\(UUID().uuidString)"
         ]

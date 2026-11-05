@@ -20,11 +20,15 @@ final class TelemetryConsentUITests: XCTestCase {
 
         app.activate()
         try SynthesizedInput.requireForeground(app)
-        // Accessibility's hit test misses this button, yet a click at its center lands.
+        // The prompt is modal, so Accessibility reaches nothing behind it until it closes.
+        let search = app.textFields["search-field"].firstMatch
+        XCTAssertFalse(search.exists)
         guard keepDisabled.isCenterOnDisplay else {
             throw XCTSkip("telemetry consent prompt is off screen on this runner")
         }
-        keepDisabled.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        XCTAssertTrue(keepDisabled.waitForHittable(timeout: 5))
+        keepDisabled.click()
         XCTAssertTrue(prompt.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
     }
 }
