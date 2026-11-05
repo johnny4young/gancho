@@ -90,8 +90,9 @@ final class PasteStackRunUITests: XCTestCase {
             "-seed-visual-library", "-seed-paste-stack", "-force-free-tier",
             "-start-capture-paused", "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
             "-ui-test-paste-sink", "pasted", "-command-nonce", nonce,
-            "-suppress-storage-notice-for-ui-test", "-AppleLanguages", "(en)",
-            "-panel-content-width", "720", "-panel-content-height", "460",
+            "-suppress-storage-notice-for-ui-test", "-telemetry-consent", "disabled",
+            "-AppleLanguages", "(en)", "-panel-content-width", "720",
+            "-panel-content-height", "460",
             "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.stack.\(UUID().uuidString)"
         ]
