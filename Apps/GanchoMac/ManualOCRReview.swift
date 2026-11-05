@@ -161,8 +161,7 @@ struct ManualOCRReview: View {
         // delegate, so closing the orphan later would cancel the live session and
         // nil out the reference to the window still on screen. Reuse instead.
         if let window {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate()
+            window.bringToFront()
             return
         }
         self.model = model
@@ -181,8 +180,7 @@ struct ManualOCRReview: View {
         created.center()
         created.delegate = self
         window = created
-        created.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        created.bringToFront()
     }
 
     func close() { window?.close() }

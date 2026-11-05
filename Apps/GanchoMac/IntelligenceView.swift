@@ -265,7 +265,6 @@ final class IntelligenceWindowController {
             created.sizeToFitContentAndCenter()
             window = created
         }
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        window?.bringToFront()
     }
 }

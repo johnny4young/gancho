@@ -243,7 +243,6 @@ final class PaywallWindowController {
         created.isReleasedWhenClosed = false
         created.sizeToFitContentAndCenter()
         window = created
-        created.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        created.bringToFront()
     }
 }
