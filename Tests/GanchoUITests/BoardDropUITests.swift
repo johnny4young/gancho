@@ -25,20 +25,6 @@ final class BoardDropUITests: XCTestCase {
         return app
     }
 
-    /// The launch hook shows the panel twice and each show places it, so an
-    /// early frame can change with no input at all.
-    @MainActor
-    private func settledFrame(of panel: XCUIElement) -> CGRect {
-        var frame = panel.frame
-        for _ in 0..<5 {
-            _ = XCTWaiter().wait(for: [XCTestExpectation(description: "panel settles")], timeout: 1)
-            let next = panel.frame
-            if next == frame { break }
-            frame = next
-        }
-        return frame
-    }
-
     @MainActor
     private func rows(_ app: XCUIApplication) -> XCUIElementQuery {
         app.descendants(matching: .any).matching(identifier: "clip-row")
@@ -243,7 +229,7 @@ final class BoardDropUITests: XCTestCase {
         let row = codeRow(app)
         XCTAssertTrue(row.waitForExistence(timeout: 15))
         try SynthesizedInput.requireForeground(app)
-        let before = settledFrame(of: panel)
+        let before = panel.frame
         let start = row.coordinate(withNormalizedOffset: CGVector(dx: 0.18, dy: 0.5))
         start.press(
             forDuration: 1.0, thenDragTo: start.withOffset(CGVector(dx: 120, dy: 140)),
@@ -255,5 +241,20 @@ final class BoardDropUITests: XCTestCase {
             forDuration: 0.3, thenDragTo: strip.withOffset(CGVector(dx: 60, dy: 40)),
             withVelocity: .default, thenHoldForDuration: 0.3)
         XCTAssertNotEqual(panel.frame.origin, before.origin, "the top strip moves the panel")
+    }
+
+    /// The launch hook orders the panel front a second time; nothing may move
+    /// it, or a test that reads the frame early drags at the wrong place.
+    @MainActor
+    func testLaunchLeavesThePanelWhereItFirstAppears() {
+        let app = launch()
+        defer { app.terminate() }
+        let panel = app.descendants(matching: .any).matching(identifier: "history-panel")
+            .firstMatch
+        XCTAssertTrue(panel.waitForExistence(timeout: 15))
+        let first = panel.frame
+        _ = XCTWaiter().wait(for: [XCTestExpectation(description: "launch settles")], timeout: 3)
+        XCTAssertTrue(codeRow(app).exists)
+        XCTAssertEqual(panel.frame, first, "the launch hook moved the panel after showing it")
     }
 }
