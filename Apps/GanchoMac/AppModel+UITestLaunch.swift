@@ -25,10 +25,13 @@ extension AppModel {
 
     /// UI-test hook: deterministic panel access without the global hotkey.
     ///
-    /// The panel opens from `didFinishLaunching` and again a beat later, because
-    /// the first show can land before the app is frontmost, with a one-second
-    /// fallback for a runner that never posts the notification. Every path waits
-    /// for every requested seed first, so the panel renders a known list.
+    /// The panel opens from `didFinishLaunching` and is ordered front again a
+    /// beat later, because the first show can land before the app is frontmost,
+    /// with a one-second fallback for a runner that never posts the notification.
+    /// The second pass never places the panel again: its size settles after the
+    /// first placement, so placing it twice moved it under a test's pointer.
+    /// Every path waits for every requested seed first, so the panel renders a
+    /// known list.
     func showPanelOnLaunchForUITest(afterSeeds seeds: [Task<Void, Never>]) {
         NSApplication.shared.setActivationPolicy(.regular)
         uiTestPanelObserver = NotificationCenter.default.addObserver(
@@ -45,7 +48,7 @@ extension AppModel {
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
                 try? await Task.sleep(for: .milliseconds(250))
                 guard panel.isVisible, !uiTestLaunchPresentationIsSuppressed else { return }
-                panel.show(model: self)
+                panel.bringShownPanelToFront()
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
             }
         }
