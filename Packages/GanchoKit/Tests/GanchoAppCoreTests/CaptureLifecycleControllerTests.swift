@@ -8,9 +8,14 @@
     @MainActor
     private final class CaptureMonitorSpy: CaptureMonitoring {
         var preferences: CapturePreferences
-        var status: MonitorStatus = .stopped
+        var status: MonitorStatus = .stopped {
+            didSet { if status != oldValue { onStateChange?() } }
+        }
         var pausedForScreenShare = false
-        var isIgnoringNextCopy = false
+        var isIgnoringNextCopy = false {
+            didSet { if isIgnoringNextCopy != oldValue { onStateChange?() } }
+        }
+        var onStateChange: (() -> Void)?
         private(set) var startCount = 0
         private(set) var stopCount = 0
         private(set) var ignoreCount = 0
@@ -43,6 +48,9 @@
         var privateModeEngagedCount = 0
         var now = Date(timeIntervalSince1970: 1_000_000)
         var privateModeDuration: TimeInterval? = 3_600
+        /// The running-app observer the controller registered, if it holds one.
+        var runningApplicationsChanged: (@MainActor @Sendable () -> Void)?
+        weak var runningApplicationsToken: NSObject?
     }
 
     @Suite("Capture lifecycle controller — macOS monitor ownership")
@@ -51,7 +59,9 @@
         private func makeController(
             monitor: CaptureMonitorSpy,
             recorder: CaptureLifecycleRecorder = CaptureLifecycleRecorder(),
-            autoPauseOnScreenShare: Bool = true
+            autoPauseOnScreenShare: Bool = true,
+            now: (@MainActor () -> Date)? = nil,
+            firstScreenShareCheckDelay: Duration = .seconds(3)
         ) -> CaptureLifecycleController {
             CaptureLifecycleController(
                 monitor: monitor,
@@ -61,8 +71,15 @@
                 onPreferencesChanged: { recorder.savedPreferences.append($0) },
                 onPrivateModeEngaged: { recorder.privateModeEngagedCount += 1 },
                 onAutoPauseChanged: { recorder.savedAutoPauseValues.append($0) },
-                now: { recorder.now },
-                privateModeDuration: { recorder.privateModeDuration })
+                now: now ?? { recorder.now },
+                privateModeDuration: { recorder.privateModeDuration },
+                observeRunningApplications: { handler in
+                    let token = NSObject()
+                    recorder.runningApplicationsChanged = handler
+                    recorder.runningApplicationsToken = token
+                    return token
+                },
+                firstScreenShareCheckDelay: firstScreenShareCheckDelay)
         }
 
         @Test("Turning Private Mode on stamps its start and deadline; off clears them")
@@ -94,11 +111,11 @@
             controller.togglePrivateMode()
             #expect(controller.preferences.privateModeEndsAt == nil)
             recorder.now = recorder.now.addingTimeInterval(86_400 * 30)
-            controller.refreshStatus()
+            controller.expirePrivateModeIfDue()
             #expect(controller.preferences.isPrivateModePaused)
         }
 
-        @Test("The status timer ends Private Mode at its deadline, not before")
+        @Test("Private Mode ends at its deadline, not before")
         func privateModeAutoOff() {
             let monitor = CaptureMonitorSpy()
             let recorder = CaptureLifecycleRecorder()
@@ -106,11 +123,11 @@
             controller.togglePrivateMode()
 
             recorder.now = recorder.now.addingTimeInterval(3_599)
-            controller.refreshStatus()
+            controller.expirePrivateModeIfDue()
             #expect(controller.preferences.isPrivateModePaused)
 
             recorder.now = recorder.now.addingTimeInterval(1)
-            controller.refreshStatus()
+            controller.expirePrivateModeIfDue()
             #expect(!controller.preferences.isPrivateModePaused)
             #expect(!monitor.preferences.isPrivateModePaused)
             #expect(controller.preferences.privateModeEndsAt == nil)
@@ -190,15 +207,15 @@
             controller.deactivate()
         }
 
-        @Test("A status timer turn mirrors an external monitor transition")
-        func statusRefreshMirrorsMonitor() {
+        @Test("A monitor transition reaches the controller as it happens")
+        func statusMirrorsMonitorTransitions() {
             let monitor = CaptureMonitorSpy()
             let controller = makeController(monitor: monitor)
+
             monitor.status = .deniedByPrivacySettings
-
-            controller.refreshStatus()
-
             #expect(controller.status == .deniedByPrivacySettings)
+            monitor.status = .pausedByScreenLock
+            #expect(controller.status == .pausedByScreenLock)
         }
 
         @Test("Capture toggle preserves start-stop behavior")
@@ -310,8 +327,91 @@
             #expect(monitor.ignoreCount == 1)
             #expect(controller.ignoresNextCopy, "the menu-bar badge shows the armed skip")
             monitor.isIgnoringNextCopy = false
-            controller.refreshStatus()
-            #expect(!controller.ignoresNextCopy, "a consumed skip clears on the next turn")
+            #expect(!controller.ignoresNextCopy, "a consumed skip clears as it is consumed")
+        }
+
+        @Test("A running-app change pauses capture for a share and resumes when it ends")
+        func runningAppChangesDriveTheSharePause() {
+            let monitor = CaptureMonitorSpy()
+            let recorder = CaptureLifecycleRecorder()
+            let controller = makeController(monitor: monitor, recorder: recorder)
+            controller.activate()
+            defer { controller.deactivate() }
+
+            recorder.sharingApp = "Zoom"
+            recorder.runningApplicationsChanged?()
+            #expect(monitor.pausedForScreenShare)
+            #expect(controller.sharingAppName == "Zoom")
+
+            recorder.sharingApp = nil
+            recorder.runningApplicationsChanged?()
+            #expect(!monitor.pausedForScreenShare)
+            #expect(controller.sharingAppName == nil)
+        }
+
+        @Test("A share already running at launch is caught after the launch delay")
+        func shareRunningAtLaunchIsCaught() async throws {
+            let monitor = CaptureMonitorSpy()
+            let recorder = CaptureLifecycleRecorder()
+            recorder.sharingApp = "Zoom"
+            let controller = makeController(
+                monitor: monitor, recorder: recorder,
+                firstScreenShareCheckDelay: .milliseconds(50))
+            controller.activate()
+            defer { controller.deactivate() }
+            #expect(!monitor.pausedForScreenShare, "launch timing is preserved")
+
+            for _ in 0..<100 where !monitor.pausedForScreenShare {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            #expect(monitor.pausedForScreenShare)
+            #expect(controller.sharingAppName == "Zoom")
+        }
+
+        @Test("Turning auto-pause on or off applies at once while capture is active")
+        func autoPauseToggleAppliesAtOnce() {
+            let monitor = CaptureMonitorSpy()
+            let recorder = CaptureLifecycleRecorder()
+            let controller = makeController(
+                monitor: monitor, recorder: recorder, autoPauseOnScreenShare: false)
+            controller.activate()
+            defer { controller.deactivate() }
+            recorder.sharingApp = "Zoom"
+
+            controller.autoPauseOnScreenShare = true
+            #expect(monitor.pausedForScreenShare)
+            controller.autoPauseOnScreenShare = false
+            #expect(!monitor.pausedForScreenShare)
+        }
+
+        @Test("Private Mode ends on its wall-clock deadline with no other event")
+        func privateModeDeadlineFiresOnItsOwn() async throws {
+            let monitor = CaptureMonitorSpy()
+            let recorder = CaptureLifecycleRecorder()
+            recorder.privateModeDuration = 0.2
+            let controller = makeController(monitor: monitor, recorder: recorder, now: { Date() })
+            controller.activate()
+            defer { controller.deactivate() }
+            controller.togglePrivateMode()
+            #expect(controller.preferences.isPrivateModePaused)
+
+            for _ in 0..<100 where controller.preferences.isPrivateModePaused {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            #expect(!controller.preferences.isPrivateModePaused)
+            #expect(!monitor.preferences.isPrivateModePaused)
+        }
+
+        @Test("Deactivating stops following running apps")
+        func deactivationReleasesTheObserver() {
+            let monitor = CaptureMonitorSpy()
+            let recorder = CaptureLifecycleRecorder()
+            let controller = makeController(monitor: monitor, recorder: recorder)
+
+            controller.activate()
+            #expect(recorder.runningApplicationsToken != nil)
+            controller.deactivate()
+            #expect(recorder.runningApplicationsToken == nil)
         }
     }
 #endif

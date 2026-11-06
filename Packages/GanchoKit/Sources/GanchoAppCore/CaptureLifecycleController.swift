@@ -12,6 +12,8 @@
         var status: MonitorStatus { get }
         var pausedForScreenShare: Bool { get set }
         var isIgnoringNextCopy: Bool { get }
+        /// Called whenever `status` or `isIgnoringNextCopy` changes.
+        var onStateChange: (() -> Void)? { get set }
 
         func start()
         func stop()
@@ -58,11 +60,15 @@
                 if preferences.isPrivateModePaused, !oldValue.isPrivateModePaused {
                     onPrivateModeEngaged()
                 }
+                armPrivateModeDeadline()
             }
         }
 
         public var autoPauseOnScreenShare: Bool {
-            didSet { onAutoPauseChanged(autoPauseOnScreenShare) }
+            didSet {
+                onAutoPauseChanged(autoPauseOnScreenShare)
+                if isActive { refreshScreenSharePause() }
+            }
         }
 
         @ObservationIgnored private let monitor: any CaptureMonitoring
@@ -78,8 +84,13 @@
         @ObservationIgnored private let now: @MainActor () -> Date
         /// How long a new Private Mode lasts; nil keeps it on until turned off.
         @ObservationIgnored private let privateModeDuration: @MainActor () -> TimeInterval?
-        @ObservationIgnored private var statusTimer: Timer?
-        @ObservationIgnored private var screenShareTimer: Timer?
+        @ObservationIgnored private let observeRunningApplications:
+            @MainActor (@escaping @MainActor @Sendable () -> Void) -> AnyObject
+        @ObservationIgnored private let firstScreenShareCheckDelay: Duration
+        @ObservationIgnored private var isActive = false
+        @ObservationIgnored private var runningApplicationsObservation: AnyObject?
+        @ObservationIgnored private var firstScreenShareCheck: Task<Void, Never>?
+        @ObservationIgnored private var privateModeDeadline: DispatchSourceTimer?
 
         public init(
             monitor: any CaptureMonitoring,
@@ -90,7 +101,11 @@
             onPrivateModeEngaged: @escaping @MainActor () -> Void = {},
             onAutoPauseChanged: @escaping @MainActor (Bool) -> Void = { _ in },
             now: @escaping @MainActor () -> Date = { Date() },
-            privateModeDuration: @escaping @MainActor () -> TimeInterval? = { 3_600 }
+            privateModeDuration: @escaping @MainActor () -> TimeInterval? = { 3_600 },
+            observeRunningApplications:
+                @escaping @MainActor (@escaping @MainActor @Sendable () -> Void) -> AnyObject =
+                ScreenShareDetector.observeRunningApplications,
+            firstScreenShareCheckDelay: Duration = .seconds(3)
         ) {
             self.monitor = monitor
             self.preferences = preferences
@@ -101,32 +116,41 @@
             self.onAutoPauseChanged = onAutoPauseChanged
             self.now = now
             self.privateModeDuration = privateModeDuration
+            self.observeRunningApplications = observeRunningApplications
+            self.firstScreenShareCheckDelay = firstScreenShareCheckDelay
             status = monitor.status
             monitor.preferences = preferences
+            // Reached from inside the monitor's turn, so it only mirrors.
+            monitor.onStateChange = { [weak self] in self?.mirrorMonitor() }
         }
 
-        /// Starts capture and the same lightweight status/screen-share timers
-        /// formerly scheduled by `AppModel`. Screen-share detection intentionally
-        /// waits for its first three-second tick, preserving launch timing.
+        /// Starts capture and follows it by events instead of timers: monitor
+        /// transitions, running-app changes, and one wall-clock timer for the
+        /// Private Mode deadline. The first screen-share check still waits
+        /// three seconds, preserving launch timing; a share that starts after
+        /// that is caught by the app change that starts it.
         public func activate() {
-            invalidateTimers()
+            stopFollowing()
+            isActive = true
             // A deadline that passed while the app was closed ends Private Mode
             // before the first capture turn.
             expirePrivateModeIfDue()
             monitor.start()
             refreshStatus()
-            statusTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) {
-                [weak self] _ in
-                Task { @MainActor in self?.refreshStatus() }
+            armPrivateModeDeadline()
+            runningApplicationsObservation = observeRunningApplications { [weak self] in
+                self?.refreshScreenSharePause()
             }
-            screenShareTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) {
-                [weak self] _ in
-                Task { @MainActor in self?.refreshScreenSharePause() }
+            let delay = firstScreenShareCheckDelay
+            firstScreenShareCheck = Task { [weak self] in
+                try? await Task.sleep(for: delay)
+                guard !Task.isCancelled else { return }
+                self?.refreshScreenSharePause()
             }
         }
 
         public func deactivate() {
-            invalidateTimers()
+            stopFollowing()
             monitor.stop()
             refreshStatus()
         }
@@ -177,8 +201,7 @@
             expirePrivateModeIfDue()
         }
 
-        /// Turns Private Mode off once its deadline passes. Runs on the status
-        /// timer, so it fires within half a second of the deadline.
+        /// Turns Private Mode off once its deadline passes.
         func expirePrivateModeIfDue() {
             guard preferences.isPrivateModePaused, let end = preferences.privateModeEndsAt,
                 now() >= end
@@ -199,10 +222,12 @@
             return stamped
         }
 
-        /// Internal so headless tests can drive the timer turn without waiting
-        /// on a wall clock; production reaches it only through the timer.
         func refreshStatus() {
             expirePrivateModeIfDue()
+            mirrorMonitor()
+        }
+
+        private func mirrorMonitor() {
             let current = monitor.status
             if status != current { status = current }
             let ignoring = monitor.isIgnoringNextCopy
@@ -220,11 +245,37 @@
             }
         }
 
-        private func invalidateTimers() {
-            statusTimer?.invalidate()
-            statusTimer = nil
-            screenShareTimer?.invalidate()
-            screenShareTimer = nil
+        /// Wall-clock time keeps counting while the Mac sleeps, so a deadline
+        /// that passed during sleep fires on wake.
+        private func armPrivateModeDeadline() {
+            privateModeDeadline?.cancel()
+            privateModeDeadline = nil
+            guard isActive, preferences.isPrivateModePaused,
+                let end = preferences.privateModeEndsAt
+            else { return }
+            let timer = DispatchSource.makeTimerSource(queue: .main)
+            timer.schedule(
+                wallDeadline: .now() + max(0, end.timeIntervalSince(now())),
+                leeway: .milliseconds(100))
+            timer.setEventHandler { [weak self] in
+                MainActor.assumeIsolated {
+                    self?.expirePrivateModeIfDue()
+                    // Ending Private Mode disarms through `preferences`; an early
+                    // wake re-arms for the rest.
+                    self?.armPrivateModeDeadline()
+                }
+            }
+            timer.resume()
+            privateModeDeadline = timer
+        }
+
+        private func stopFollowing() {
+            isActive = false
+            privateModeDeadline?.cancel()
+            privateModeDeadline = nil
+            runningApplicationsObservation = nil
+            firstScreenShareCheck?.cancel()
+            firstScreenShareCheck = nil
         }
     }
 #endif
