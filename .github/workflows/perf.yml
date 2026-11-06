@@ -2,8 +2,9 @@
 # and purge, plus the on-device AI budgets (embedding scan, tier-0 classifier)
 # that must not sit in the pre-push path. Weekly + manual — the seeding and the
 # wall-clock measuring both belong here rather than in the
-# <10-minute PR loop; perf drift is slow, so weekly catches regressions while
-# keeping the macOS (x10) spend down. Run on demand with workflow_dispatch.
+# <10-minute PR loop; perf drift is slow, so weekly catches regressions without
+# holding one of the account's five shared macOS runners on every pull request.
+# Run on demand with workflow_dispatch.
 name: Performance
 
 on:
