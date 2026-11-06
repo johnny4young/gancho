@@ -34,11 +34,18 @@ jobs:
             echo "report<<EOF"
             cat canary.txt
             echo "EOF"
+            echo "status=$status"
           } >> "$GITHUB_OUTPUT"
+          # An advanced upstream is the usual week: the issue reports it and
+          # the run stays green. A broken pin or a script error still fails.
+          if [ "$status" -eq 3 ]; then
+            echo "::warning title=Upstream advanced::See the upstream dependency canary issue."
+            exit 0
+          fi
           exit "$status"
 
       - name: Open or update the drift issue
-        if: failure()
+        if: steps.canary.outputs.status == '3'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPORT: ${{ steps.canary.outputs.report }}
