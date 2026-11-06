@@ -303,6 +303,28 @@ struct DatabaseMigrationTests {
             let header = try Data(contentsOf: databaseURL).prefix(16)
             #expect(header != Data("SQLite format 3\u{0}".utf8))
         }
+
+        /// The weekly upgrade-launch benchmark seeds 100k rows this way; a small
+        /// seed here breaks the pull request that adds a clip column instead.
+        @Test("An encrypted store seeded before the prefix index upgrades on open")
+        func encryptedPrePrefixSeedUpgrades() async throws {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+                "encrypted-seed-\(UUID().uuidString)", isDirectory: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let passphrase = String(repeating: "0123456789abcdef", count: 4)
+
+            let seeded = try await LegacySchemaSeed.seedEncryptedStore(
+                at: directory, passphrase: passphrase,
+                upTo: GanchoDatabaseMigrator.Identifier.frecencyBoardsInsights.rawValue,
+                fixtures: ClipFixtures.make(count: 50))
+            #expect(seeded?.contains("prefix") == false)
+
+            let store = try GRDBClipboardStore(directory: directory, passphrase: passphrase)
+            #expect(try await !store.search(ClipSearchQuery(text: "deploy")).isEmpty)
+            #expect(
+                try await LegacySchemaSeed.ftsDefinition(in: store.writer)?.contains("prefix")
+                    == true)
+        }
     #endif
 
     private func makeStore() throws -> (GRDBClipboardStore, URL) {
