@@ -337,6 +337,29 @@
             #expect(captures.map(\.textRepresentation) == ["after unlock"])
         }
 
+        @Test("Status and the one-shot skip report each change once, not every turn")
+        func stateChangesAreReportedOnce() {
+            let pasteboard = FakePasteboard()
+            let activity = FakeActivity()
+            let monitor = makeMonitor(pasteboard: pasteboard, activity: activity)
+            var reported: [String] = []
+            monitor.onStateChange = {
+                reported.append("\(monitor.status)\(monitor.isIgnoringNextCopy ? " skip" : "")")
+            }
+
+            activity.set(locked: true)
+            for _ in 0..<3 { _ = monitor.tick() }
+            activity.set(locked: false)
+            for _ in 0..<3 { _ = monitor.tick() }
+            #expect(reported == ["pausedByScreenLock", "running"])
+
+            monitor.ignoreNextCopy()
+            pasteboard.write(.text("skipped"), types: ["public.utf8-plain-text"])
+            _ = monitor.tick()
+            _ = monitor.tick()
+            #expect(reported == ["pausedByScreenLock", "running", "running skip", "running"])
+        }
+
         @Test("Sustained churn neither drops deliveries nor accumulates state")
         func sustainedChurn() async {
             let pasteboard = FakePasteboard()
