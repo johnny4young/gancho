@@ -131,10 +131,11 @@ extension AppModel {
         )
         alert.addButton(withTitle: String(localized: "Continue"))
         alert.addButton(withTitle: String(localized: "Cancel"))
-        // This runs while another app is active, and the system can refuse a plain
-        // `activate()` for a menu-bar agent: the alert shows on top, but Return and
-        // Escape keep going to that app while `runModal` blocks Gancho.
-        NSApp.activate(ignoringOtherApps: true)
+        // This runs while another app is active. Activating alone leaves that app
+        // with Return and Escape while `runModal` blocks Gancho; the alert has to
+        // be on screen first.
+        alert.layout()
+        alert.window.bringToFront()
         return alert.runModal() == .alertFirstButtonReturn
     }
 }
