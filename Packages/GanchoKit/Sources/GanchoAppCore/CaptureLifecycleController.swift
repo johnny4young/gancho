@@ -87,9 +87,11 @@
         @ObservationIgnored private let observeRunningApplications:
             @MainActor (@escaping @MainActor @Sendable () -> Void) -> AnyObject
         @ObservationIgnored private let firstScreenShareCheckDelay: Duration
+        @ObservationIgnored private let screenShareRecheckDelays: [Duration]
         @ObservationIgnored private var isActive = false
         @ObservationIgnored private var runningApplicationsObservation: AnyObject?
         @ObservationIgnored private var firstScreenShareCheck: Task<Void, Never>?
+        @ObservationIgnored private var screenShareRecheck: Task<Void, Never>?
         @ObservationIgnored private var privateModeDeadline: DispatchSourceTimer?
 
         public init(
@@ -105,7 +107,8 @@
             observeRunningApplications:
                 @escaping @MainActor (@escaping @MainActor @Sendable () -> Void) -> AnyObject =
                 ScreenShareDetector.observeRunningApplications,
-            firstScreenShareCheckDelay: Duration = .seconds(3)
+            firstScreenShareCheckDelay: Duration = .seconds(3),
+            screenShareRecheckDelays: [Duration] = [.seconds(1), .seconds(2)]
         ) {
             self.monitor = monitor
             self.preferences = preferences
@@ -118,6 +121,7 @@
             self.privateModeDuration = privateModeDuration
             self.observeRunningApplications = observeRunningApplications
             self.firstScreenShareCheckDelay = firstScreenShareCheckDelay
+            self.screenShareRecheckDelays = screenShareRecheckDelays
             status = monitor.status
             monitor.preferences = preferences
             // Reached from inside the monitor's turn, so it only mirrors.
@@ -142,6 +146,7 @@
                 // A change delivered after `deactivate()` is stale.
                 guard let self, isActive else { return }
                 refreshScreenSharePause()
+                recheckScreenShareAfterChange()
             }
             let delay = firstScreenShareCheckDelay
             firstScreenShareCheck = Task { @MainActor [weak self] in
@@ -271,6 +276,21 @@
             privateModeDeadline = timer
         }
 
+        /// A helper's name can reach the running-app list a moment after the
+        /// change that announced it, so a change is checked again one and three
+        /// seconds later, the bound the old three-second poll gave.
+        private func recheckScreenShareAfterChange() {
+            screenShareRecheck?.cancel()
+            let delays = screenShareRecheckDelays
+            screenShareRecheck = Task { @MainActor [weak self] in
+                for delay in delays {
+                    try? await Task.sleep(for: delay)
+                    guard !Task.isCancelled, let self, isActive else { return }
+                    refreshScreenSharePause()
+                }
+            }
+        }
+
         private func stopFollowing() {
             isActive = false
             privateModeDeadline?.cancel()
@@ -278,6 +298,8 @@
             runningApplicationsObservation = nil
             firstScreenShareCheck?.cancel()
             firstScreenShareCheck = nil
+            screenShareRecheck?.cancel()
+            screenShareRecheck = nil
         }
     }
 #endif

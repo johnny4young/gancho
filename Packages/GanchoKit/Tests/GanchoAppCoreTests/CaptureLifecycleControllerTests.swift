@@ -61,7 +61,8 @@
             recorder: CaptureLifecycleRecorder = CaptureLifecycleRecorder(),
             autoPauseOnScreenShare: Bool = true,
             now: (@MainActor () -> Date)? = nil,
-            firstScreenShareCheckDelay: Duration = .seconds(3)
+            firstScreenShareCheckDelay: Duration = .seconds(3),
+            screenShareRecheckDelays: [Duration] = [.seconds(1), .seconds(2)]
         ) -> CaptureLifecycleController {
             CaptureLifecycleController(
                 monitor: monitor,
@@ -79,7 +80,8 @@
                     recorder.runningApplicationsToken = token
                     return token
                 },
-                firstScreenShareCheckDelay: firstScreenShareCheckDelay)
+                firstScreenShareCheckDelay: firstScreenShareCheckDelay,
+                screenShareRecheckDelays: screenShareRecheckDelays)
         }
 
         @Test("Turning Private Mode on stamps its start and deadline; off clears them")
@@ -347,6 +349,25 @@
             recorder.runningApplicationsChanged?()
             #expect(!monitor.pausedForScreenShare)
             #expect(controller.sharingAppName == nil)
+        }
+
+        @Test("A share helper named a moment after its launch is still caught")
+        func lateNamedHelperIsCaught() async throws {
+            let monitor = CaptureMonitorSpy()
+            let recorder = CaptureLifecycleRecorder()
+            let controller = makeController(
+                monitor: monitor, recorder: recorder, firstScreenShareCheckDelay: .seconds(60),
+                screenShareRecheckDelays: [.milliseconds(20), .milliseconds(20)])
+            controller.activate()
+            defer { controller.deactivate() }
+
+            recorder.runningApplicationsChanged?()
+            #expect(!monitor.pausedForScreenShare)
+            recorder.sharingApp = "Zoom"
+            for _ in 0..<250 where !monitor.pausedForScreenShare {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            #expect(monitor.pausedForScreenShare, "no app changed again, yet the share is caught")
         }
 
         @Test("A share already running at launch is caught after the launch delay")
