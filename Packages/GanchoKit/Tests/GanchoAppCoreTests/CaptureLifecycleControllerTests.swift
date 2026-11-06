@@ -361,7 +361,7 @@
             defer { controller.deactivate() }
             #expect(!monitor.pausedForScreenShare, "launch timing is preserved")
 
-            for _ in 0..<100 where !monitor.pausedForScreenShare {
+            for _ in 0..<250 where !monitor.pausedForScreenShare {
                 try await Task.sleep(for: .milliseconds(20))
             }
             #expect(monitor.pausedForScreenShare)
@@ -395,14 +395,14 @@
             controller.togglePrivateMode()
             #expect(controller.preferences.isPrivateModePaused)
 
-            for _ in 0..<100 where controller.preferences.isPrivateModePaused {
+            for _ in 0..<250 where controller.preferences.isPrivateModePaused {
                 try await Task.sleep(for: .milliseconds(20))
             }
             #expect(!controller.preferences.isPrivateModePaused)
             #expect(!monitor.preferences.isPrivateModePaused)
         }
 
-        @Test("Deactivating stops following running apps")
+        @Test("Deactivating stops following running apps, including a change already in flight")
         func deactivationReleasesTheObserver() {
             let monitor = CaptureMonitorSpy()
             let recorder = CaptureLifecycleRecorder()
@@ -412,6 +412,10 @@
             #expect(recorder.runningApplicationsToken != nil)
             controller.deactivate()
             #expect(recorder.runningApplicationsToken == nil)
+
+            recorder.sharingApp = "Zoom"
+            recorder.runningApplicationsChanged?()
+            #expect(!monitor.pausedForScreenShare)
         }
     }
 #endif

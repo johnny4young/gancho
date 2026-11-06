@@ -139,10 +139,12 @@
             refreshStatus()
             armPrivateModeDeadline()
             runningApplicationsObservation = observeRunningApplications { [weak self] in
-                self?.refreshScreenSharePause()
+                // A change delivered after `deactivate()` is stale.
+                guard let self, isActive else { return }
+                refreshScreenSharePause()
             }
             let delay = firstScreenShareCheckDelay
-            firstScreenShareCheck = Task { [weak self] in
+            firstScreenShareCheck = Task { @MainActor [weak self] in
                 try? await Task.sleep(for: delay)
                 guard !Task.isCancelled else { return }
                 self?.refreshScreenSharePause()
