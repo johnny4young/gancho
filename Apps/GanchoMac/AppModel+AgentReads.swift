@@ -129,7 +129,7 @@ extension AppModel {
             else { return }
             Task {
                 try? await Task.sleep(for: .seconds(1))
-                // A simulated share is picked up on the next 3 s poll; read during it.
+                // A simulated share is picked up three seconds after launch; read during it.
                 if CommandLine.arguments.contains("-simulate-screen-share") {
                     for _ in 0..<20 where sharingAppName == nil {
                         try? await Task.sleep(for: .milliseconds(500))

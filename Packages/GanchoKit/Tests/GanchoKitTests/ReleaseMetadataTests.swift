@@ -270,53 +270,72 @@ struct ReleaseMetadataTests {
         #expect(site.contains("v\(marketingVersion)"))
     }
 
+    private static func upstreamPinLines() throws -> [String] {
+        try String(
+            contentsOf: repositoryRoot.appendingPathComponent("scripts/upstream-pins.env"),
+            encoding: .utf8
+        )
+        .split(separator: "\n")
+        .map(String.init)
+        .filter { !$0.hasPrefix("#") && $0.contains("=") }
+    }
+
+    /// Runs the canary offline: `latest` replaces the releases API and `pins`, when
+    /// given, replaces scripts/upstream-pins.env.
+    private static func runCanary(
+        latest: [String], pins: [String]? = nil
+    ) throws -> (status: Int32, output: String) {
+        func fixture(_ lines: [String]) throws -> URL {
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("canary-\(UUID().uuidString).env")
+            try lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+            return url
+        }
+        let latestURL = try fixture(latest)
+        let pinsURL = try pins.map(fixture)
+        defer {
+            try? FileManager.default.removeItem(at: latestURL)
+            if let pinsURL { try? FileManager.default.removeItem(at: pinsURL) }
+        }
+        let process = Process()
+        process.executableURL = repositoryRoot.appendingPathComponent(
+            "scripts/check-upstream-deps.sh")
+        process.arguments =
+            ["--latest", latestURL.path] + (pinsURL.map { ["--pins", $0.path] } ?? [])
+        process.currentDirectoryURL = repositoryRoot
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        try process.run()
+        process.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return (process.terminationStatus, String(bytes: data, encoding: .utf8) ?? "")
+    }
+
     /// The upstream canary must (a) pass when the latest releases match the
-    /// pins and (b) DETECT a deliberately advanced upstream — both proven
-    /// offline via fixture files built from the real pins, no source edits.
+    /// pins and (b) DETECT a deliberately advanced upstream with its own exit
+    /// code — both proven offline via fixture files built from the real pins,
+    /// no source edits.
     @Test func upstreamCanaryDetectsAdvancedUpstreams() throws {
-        let pinsURL = Self.repositoryRoot.appendingPathComponent("scripts/upstream-pins.env")
-        let pinLines = try String(contentsOf: pinsURL, encoding: .utf8)
-            .split(separator: "\n")
-            .map(String.init)
-            .filter { !$0.hasPrefix("#") && $0.contains("=") }
+        let pinLines = try Self.upstreamPinLines()
         #expect(pinLines.count == 5, "the canary tracks exactly five upstreams")
 
-        func runCanary(latest: [String]) throws -> (status: Int32, output: String) {
-            let fixture = FileManager.default.temporaryDirectory
-                .appendingPathComponent("canary-\(UUID().uuidString).env")
-            try latest.joined(separator: "\n").write(
-                to: fixture, atomically: true, encoding: .utf8)
-            defer { try? FileManager.default.removeItem(at: fixture) }
-            let process = Process()
-            process.executableURL = Self.repositoryRoot
-                .appendingPathComponent("scripts/check-upstream-deps.sh")
-            process.arguments = ["--latest", fixture.path]
-            process.currentDirectoryURL = Self.repositoryRoot
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = pipe
-            try process.run()
-            process.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            return (process.terminationStatus, String(bytes: data, encoding: .utf8) ?? "")
-        }
-
-        let current = try runCanary(latest: pinLines)
+        let current = try Self.runCanary(latest: pinLines)
         #expect(current.status == 0, Comment(rawValue: current.output))
 
         let advanced = pinLines.map {
             $0.hasPrefix("GRDB=") ? "GRDB=99.0.0" : $0
         }
-        let stale = try runCanary(latest: advanced)
-        #expect(stale.status == 1, "an advanced upstream must fail the canary")
+        let stale = try Self.runCanary(latest: advanced)
+        #expect(stale.status == 3, "an advanced upstream must report with its own exit code")
         #expect(stale.output.contains("UPSTREAM ADVANCED: GRDB"), Comment(rawValue: stale.output))
 
         let advancedShortcuts = pinLines.map {
             $0.hasPrefix("KEYBOARDSHORTCUTS=") ? "KEYBOARDSHORTCUTS=99.0.0" : $0
         }
-        let staleShortcuts = try runCanary(latest: advancedShortcuts)
+        let staleShortcuts = try Self.runCanary(latest: advancedShortcuts)
         #expect(
-            staleShortcuts.status == 1,
+            staleShortcuts.status == 3,
             "a held shortcut dependency must still report newer releases")
         #expect(
             staleShortcuts.output.contains("UPSTREAM ADVANCED: KEYBOARDSHORTCUTS"),
@@ -327,10 +346,28 @@ struct ReleaseMetadataTests {
         let behind = pinLines.map {
             $0.hasPrefix("GRDB=") ? "GRDB=1.0.0" : $0
         }
-        let pinnedAhead = try runCanary(latest: behind)
+        let pinnedAhead = try Self.runCanary(latest: behind)
         #expect(pinnedAhead.status == 0, Comment(rawValue: pinnedAhead.output))
         #expect(
             pinnedAhead.output.contains("pinned ahead"), Comment(rawValue: pinnedAhead.output))
+    }
+
+    /// The weekly run reports an advanced upstream and stays green; a pin that
+    /// disagrees with what the repo builds is a defect here and must stay red.
+    @Test func upstreamCanaryWorkflowReportsOnlyAnAdvancedUpstream() throws {
+        let pinLines = try Self.upstreamPinLines()
+        let advanced = try Self.runCanary(
+            latest: pinLines.map { $0.hasPrefix("GRDB=") ? "GRDB=99.0.0" : $0 })
+        let brokenPins = pinLines.map { $0.hasPrefix("SPARKLE=") ? "SPARKLE=0.0.1" : $0 }
+        let broken = try Self.runCanary(latest: brokenPins, pins: brokenPins)
+        #expect(broken.status == 1, Comment(rawValue: broken.output))
+        #expect(broken.output.contains("pin drift: SPARKLE"), Comment(rawValue: broken.output))
+        #expect(advanced.status != broken.status)
+
+        let workflow = try Self.text(".github/workflows/upstream-canary.yml")
+        #expect(workflow.contains("if [ \"$status\" -eq \(advanced.status) ]; then"))
+        #expect(workflow.contains("if: steps.canary.outputs.status == '\(advanced.status)'"))
+        #expect(!workflow.contains("if: failure()"), "a broken pin must not open a drift issue")
     }
 
     /// Dependabot may never touch the encrypted-store fork: the automation's
