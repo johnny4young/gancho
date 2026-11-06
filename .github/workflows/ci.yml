@@ -25,7 +25,7 @@ jobs:
   # Ubuntu decides whether the macOS app jobs run, so docs-only changes do not
   # queue behind the account's few concurrent macOS runners. A skipped required
   # job counts as passing. Pull requests build the apps and run the macOS UI
-  # regressions; the slow iOS simulator job runs after the merge to main.
+  # regressions; the slow iOS simulator job runs on the weekly schedule.
   changes:
     name: Detect app changes
     runs-on: ubuntu-latest
@@ -69,9 +69,9 @@ jobs:
     # The source uses macOS/iOS 26 APIs and keeps iOS at 26, while Swift 6.2
     # needs an Xcode 26 runner; macos-latest still cannot build this stack.
     runs-on: macos-26
-    # Bounded so a hung xcodebuild or a stalled toolchain cannot burn the
-    # 6-hour default at the 10x macOS billing rate. Generous vs the ~4 min
-    # this job takes, so normal variance never trips it.
+    # Bounded so a hung xcodebuild or a stalled toolchain cannot hold one of
+    # the account's five shared macOS runners for the 6-hour default. Generous
+    # vs the ~4 min this job takes, so normal variance never trips it.
     timeout-minutes: 40
     # Pin the stable toolchain so weekly runner-image updates cannot silently
     # change the compiler or SDK used by required validation.
@@ -313,12 +313,11 @@ jobs:
           retention-days: 14
 
   # About 14 minutes of simulator boot, a cold build and a warm-up for one
-  # check, while the iOS app is not distributed yet: it runs after the merge
-  # and on the schedule instead of gating pull requests.
+  # check, while the iOS app is not distributed yet: it runs weekly and by hand,
+  # not on every merge. The Wednesday UI suite runs the whole iOS target too.
   ios-ui:
     name: iOS suggestion accessibility and toolbar
-    needs: changes
-    if: github.event_name != 'pull_request' && needs.changes.outputs.app == 'true'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: macos-26
     timeout-minutes: 30
     env:
