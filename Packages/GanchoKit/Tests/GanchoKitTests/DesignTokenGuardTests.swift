@@ -70,7 +70,7 @@ struct DesignTokenGuardTests {
         }
     }
 
-    private static func matches(
+    static func matches(
         of pattern: String,
         in root: URL = LocalizationTests.repoRoot.appendingPathComponent("Apps"),
         excluding skipped: [String] = []

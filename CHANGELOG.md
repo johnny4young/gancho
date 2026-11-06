@@ -11,7 +11,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - On the Mac, Settings, Library, Privacy Center, Welcome and the clipboard access
   window open on top of other apps and take the keyboard, instead of behind the
-  app you were using.
+  app you were using. So do Gancho Pro and the recognized-text review, opened
+  from a notice while you work in another app.
 - On the Mac, the telemetry consent prompt is modal for assistive technologies:
   the panel behind it is no longer exposed, and no longer intercepts its
   "Keep disabled" button, until you answer.
