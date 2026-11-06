@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Upstream dependency canary: reports when GRDB, SQLCipher, Sparkle, Sauce, or
 # KeyboardShortcuts publishes a release newer than the pins in
-# scripts/upstream-pins.env — WITHOUT touching any source. Exit 1 means "an
-# upstream advanced; open the runbook (docs/DEPENDENCIES.md)".
+# scripts/upstream-pins.env — WITHOUT touching any source. Exit 3 means "an
+# upstream advanced; open the runbook (docs/DEPENDENCIES.md)". Exit 1 is a
+# broken pin in this repo, which the weekly workflow must not mistake for news.
 #
 # Live mode (CI cron) queries the GitHub releases API. Test mode injects the
 # "latest" versions from a fixture file instead, so the detection logic is
@@ -90,7 +91,7 @@ report() {
 	fi
 	if version_gt "$latest" "$pinned"; then
 		echo "✗ UPSTREAM ADVANCED: $name pinned $pinned, latest $latest — see docs/DEPENDENCIES.md"
-		status=1
+		status=3
 	elif [ "$latest" != "$pinned" ]; then
 		# A pin AHEAD of the latest release (pre-release, fork tag, rollback)
 		# is deliberate state, not drift — report it without failing.

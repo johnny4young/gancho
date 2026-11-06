@@ -159,6 +159,14 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
+    /// Orders a panel that is already showing front and key again, without
+    /// placing or refreshing it.
+    func bringShownPanelToFront() {
+        guard let panel, panel.isVisible else { return }
+        panel.makeKeyAndOrderFront(nil)
+        panel.orderFrontRegardless()
+    }
+
     /// Called from `PanelView.onAppear` when the panel's content first renders.
     /// Ends the request→first-frame interval and, under `-measure-panel`,
     /// prints the wall-clock latency so a warm run collects an SLO baseline.

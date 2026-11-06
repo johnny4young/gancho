@@ -17,6 +17,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Exporting an archive no longer holds every exported file in memory while it
+  checks the export against its manifest.
 - On the Mac, Settings, Library, Privacy Center, Welcome and the clipboard access
   window open on top of other apps and take the keyboard, instead of behind the
   app you were using. So do Gancho Pro and the recognized-text review, opened
