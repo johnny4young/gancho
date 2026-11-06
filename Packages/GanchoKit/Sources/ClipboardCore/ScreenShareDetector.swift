@@ -43,5 +43,17 @@
         public func sharingAppName() -> String? {
             runningProcessNames().lazy.compactMap { Self.shareHelpers[$0] }.first
         }
+
+        /// Calls `onChange` whenever `NSWorkspace.runningApplications`, the list
+        /// `sharingAppName()` reads, gains or loses an app. Observing stops when
+        /// the returned token is released. Nonisolated, so the observer itself
+        /// never asserts which thread KVO calls it on.
+        public static func observeRunningApplications(
+            _ onChange: @escaping @MainActor @Sendable () -> Void
+        ) -> AnyObject {
+            NSWorkspace.shared.observe(\.runningApplications) { _, _ in
+                Task { @MainActor in onChange() }
+            }
+        }
     }
 #endif

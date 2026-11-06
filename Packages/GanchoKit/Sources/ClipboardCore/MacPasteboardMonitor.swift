@@ -71,7 +71,13 @@
             }
         }
 
-        public private(set) var status: MonitorStatus = .stopped
+        /// Fires when `status` or `isIgnoringNextCopy` changes, so an owner can
+        /// mirror them without polling.
+        public var onStateChange: (() -> Void)?
+
+        public private(set) var status: MonitorStatus = .stopped {
+            didSet { if status != oldValue { onStateChange?() } }
+        }
 
         /// Set by the app layer while a screen share is detected. Pauses
         /// capture exactly like private mode (including the no-backfill
@@ -93,7 +99,9 @@
         /// resuming discards whatever happened to the pasteboard meanwhile.
         private var wasPaused = false
         /// Armed by `ignoreNextCopy()`; consumed by the next change.
-        private var ignoreNextChange = false
+        private var ignoreNextChange = false {
+            didSet { if ignoreNextChange != oldValue { onStateChange?() } }
+        }
         /// When the last change was seen; drives the post-change poll burst.
         private var lastChangeSeenAt: ContinuousClock.Instant?
 
