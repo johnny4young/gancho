@@ -168,13 +168,23 @@ public enum GanchoArchive {
         }
     }
 
-    private static func fileDigest(_ file: URL) throws -> String {
+    /// Each read returns an autoreleased buffer, so every chunk drains its own
+    /// pool: a synchronous loop never reaches the caller's drain and would
+    /// otherwise hold the whole file in memory.
+    static func fileDigest(_ file: URL) throws -> String {
         let handle = try FileHandle(forReadingFrom: file)
         defer { try? handle.close() }
         var hasher = SHA256()
-        while let bytes = try handle.read(upToCount: 64 << 10), !bytes.isEmpty {
+        while true {
             try Task.checkCancellation()
-            hasher.update(data: bytes)
+            let reachedEnd = try autoreleasepool { () throws -> Bool in
+                guard let bytes = try handle.read(upToCount: 64 << 10), !bytes.isEmpty else {
+                    return true
+                }
+                hasher.update(data: bytes)
+                return false
+            }
+            if reachedEnd { break }
         }
         return hex(hasher.finalize())
     }
