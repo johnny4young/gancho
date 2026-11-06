@@ -28,6 +28,44 @@ struct UIWorkflowScopeTests {
         }
     }
 
+    @Test("Three full-suite shards run every macOS UI test class exactly once")
+    func shardsCoverEveryClassOnce() throws {
+        let root = LocalizationTests.repoRoot
+        var sharded: [String] = []
+        for shard in 1...3 {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+            process.arguments = [
+                root.appendingPathComponent("scripts/ui_test_shard.py").path, "\(shard)/3"
+            ]
+            let output = Pipe()
+            process.standardOutput = output
+            try process.run()
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            #expect(process.terminationStatus == 0)
+            let lines = try #require(String(bytes: data, encoding: .utf8)).split(separator: "\n")
+            #expect(!lines.isEmpty, "shard \(shard) is empty")
+            sharded += lines.map { String($0.dropFirst("-only-testing:GanchoUITests/".count)) }
+        }
+
+        let declaration = try NSRegularExpression(
+            pattern: #"^(?:final )?class (\w+)\s*:\s*\w*XCTestCase"#, options: .anchorsMatchLines)
+        var classes: Set<String> = []
+        let tests = root.appendingPathComponent("Tests/GanchoUITests")
+        let files = try #require(
+            FileManager.default.enumerator(at: tests, includingPropertiesForKeys: nil))
+        for case let url as URL in files where url.pathExtension == "swift" {
+            let text = try String(contentsOf: url, encoding: .utf8)
+            for match in declaration.matches(in: text, range: NSRange(text.startIndex..., in: text))
+            {
+                classes.insert((text as NSString).substring(with: match.range(at: 1)))
+            }
+        }
+        #expect(sharded.count == Set(sharded).count, "a class runs in two shards")
+        #expect(Set(sharded) == classes)
+    }
+
     private func workflow() throws -> String {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
