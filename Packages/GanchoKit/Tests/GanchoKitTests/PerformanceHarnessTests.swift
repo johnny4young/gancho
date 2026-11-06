@@ -163,41 +163,12 @@ struct PerformanceHarnessTests {
             // which a v1-only table rejects — so seed with an INSERT that names
             // v1 columns only. Test-side on purpose: production never inserts
             // into a half-migrated store.
-            try await seedAtV1(store, fixtures: fixtures)
+            try await LegacySchemaSeed.insertTextBatch(fixtures, into: store)
         } else {
             try await store.importBatch(fixtures)
         }
         print("perf: seeded \(Self.scale) clips in \(ContinuousClock.now - start)")
         return store
-    }
-
-    /// Bulk insert naming ONLY the v1 columns. `ClipRow` does the field mapping
-    /// (kind rawValue, tags JSON) so the stored format matches production; the
-    /// raw SQL just narrows the column list to what the v1 schema has.
-    private func seedAtV1(
-        _ store: GRDBClipboardStore,
-        fixtures: [(item: ClipItem, content: ClipContent?)]
-    ) async throws {
-        try await store.writer.write { db in
-            for entry in fixtures {
-                var row = ClipRow(item: entry.item)
-                if case .text(let text)? = entry.content { row.contentText = text }
-                try db.execute(
-                    sql: """
-                        INSERT INTO clip
-                          (id, createdAt, updatedAt, lastUsedAt, kind, title, preview,
-                           contentHash, sourceAppBundleID, sourceDeviceName, isPinned,
-                           isSensitive, expiresAt, tags, contentText)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                    arguments: [
-                        row.id, row.createdAt, row.updatedAt, row.lastUsedAt, row.kind,
-                        row.title, row.preview, row.contentHash, row.sourceAppBundleID,
-                        row.sourceDeviceName, row.isPinned, row.isSensitive,
-                        row.expiresAt, row.tags, row.contentText
-                    ])
-            }
-        }
     }
 
     /// Deterministically varies query order so one favorable sequence cannot
@@ -776,9 +747,16 @@ struct EncryptedStorePerformanceTests {
             let passphrase = try KeychainPassphraseStore.generateKey()
 
             let seedStart = ContinuousClock.now
-            try await seedEncryptedStore(
+            let seededDefinition = try await LegacySchemaSeed.seedEncryptedStore(
                 at: directory, passphrase: passphrase,
-                upTo: GanchoDatabaseMigrator.Identifier.frecencyBoardsInsights.rawValue)
+                upTo: GanchoDatabaseMigrator.Identifier.frecencyBoardsInsights.rawValue,
+                fixtures: ClipFixtures.make(count: Self.scale))
+            // Prove the seed really stopped short of v18. Without this the test
+            // could be timing an already-migrated open — a fast, meaningless
+            // number that looks like a pass.
+            #expect(
+                seededDefinition?.contains("prefix") != true,
+                "the seed was supposed to stop at v17, before the prefix rebuild")
             print(
                 "perf: launch seeded \(Self.scale) encrypted clips at v17 in "
                     + "\(ContinuousClock.now - seedStart)")
@@ -796,54 +774,14 @@ struct EncryptedStorePerformanceTests {
             // skipped the work this test exists to time.
             #expect(try await !store.search(ClipSearchQuery(text: "deploy")).isEmpty)
             #expect(
-                try await ftsDefinition(in: store.writer)?.contains("prefix") == true,
+                try await LegacySchemaSeed.ftsDefinition(in: store.writer)?.contains("prefix")
+                    == true,
                 "the measured open did not rebuild the FTS index with prefix support")
             #expect(
                 elapsed < Self.launchOpenBudget,
                 "launch open+migrate \(elapsed) blew the \(Self.launchOpenBudget) budget")
         }
 
-        /// Seeds an encrypted on-disk store stopped at `migration`, mirroring the
-        /// production pool configuration so the measured open meets the same
-        /// file, page size, and journal mode it will meet in the app.
-        private func seedEncryptedStore(
-            at directory: URL, passphrase: String, upTo migration: String
-        ) async throws {
-            try FileManager.default.createDirectory(
-                at: directory, withIntermediateDirectories: true)
-            var configuration = Configuration()
-            configuration.maximumReaderCount = 8
-            configuration.prepareDatabase { db in try db.usePassphrase(passphrase) }
-            let pool = try DatabasePool(
-                path: directory.appendingPathComponent("gancho.sqlite").path,
-                configuration: configuration)
-            let store = GRDBClipboardStore(
-                writer: pool,
-                blobs: BlobStore(
-                    directory: directory.appendingPathComponent("blobs"),
-                    encryptionKeyData: BlobStore.encryptionKeyData(for: passphrase)))
-            try store.migrate(upTo: migration)
-            try await store.importBatch(ClipFixtures.make(count: Self.scale))
-            // Prove the seed really stopped short of v18. Without this the test
-            // could be timing an already-migrated open — a fast, meaningless
-            // number that looks like a pass.
-            let seededDefinition = try await ftsDefinition(in: pool)
-            #expect(
-                seededDefinition?.contains("prefix") != true,
-                "the seed was supposed to stop at v17, before the prefix rebuild")
-            // Close every connection before the measured reopen, so the timing
-            // is a cold open rather than a second handle on a warm pool.
-            try pool.close()
-        }
-
-        /// The stored `CREATE VIRTUAL TABLE` text for the FTS index, which
-        /// carries the `prefix=` option only after v18 rebuilds it.
-        private func ftsDefinition(in reader: some DatabaseReader) async throws -> String? {
-            try await reader.read { db in
-                try String.fetchOne(
-                    db, sql: "SELECT sql FROM sqlite_master WHERE name = 'clip_fts'")
-            }
-        }
     #endif
     #if SQLITE_HAS_CODEC
         /// Paging where reading a column actually costs something.
