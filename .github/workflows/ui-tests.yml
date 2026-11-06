@@ -29,7 +29,12 @@ concurrency:
 jobs:
   macos-ui:
     if: ${{ inputs.scope != 'ios-interaction-stress' && inputs.scope != 'ios-full' }}
-    name: ${{ inputs.scope == 'feature-stress' && 'macOS feature stress (10x)' || inputs.scope == 'interaction-stress' && 'macOS interaction stress (10x)' || 'macOS UI tests' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Three runners at most, so a full run never takes every macOS slot of the account.
+        shard: ${{ fromJSON((inputs.scope || 'full') == 'full' && '[1,2,3]' || '[1]') }}
+    name: ${{ inputs.scope == 'feature-stress' && 'macOS feature stress (10x)' || inputs.scope == 'interaction-stress' && 'macOS interaction stress (10x)' || format('macOS UI tests ({0}/3)', matrix.shard) }}
     runs-on: macos-26
     # The full suite outgrew 45 minutes, and ten stress rounds need as long.
     # Interaction timeouts and performance budgets stay unchanged.
@@ -74,6 +79,7 @@ jobs:
           # signing; all in-process menu-bar behavior still runs ad-hoc in CI.
           TEST_RUNNER_GANCHO_UI_ADHOC_SIGNING: "1"
           GANCHO_UI_SCOPE: ${{ inputs.scope || 'full' }}
+          GANCHO_UI_SHARD: ${{ matrix.shard }}
         run: |
           mkdir -p build
           set -o pipefail
@@ -103,6 +109,10 @@ jobs:
               exit 2
               ;;
           esac
+          # A full run splits by measured class time; the switch above stays the closed list.
+          if [[ "$GANCHO_UI_SCOPE" == "full" ]]; then
+            read -r -a test_arguments <<< "$(python3 scripts/ui_test_shard.py "$GANCHO_UI_SHARD/3" | tr '\n' ' ')"
+          fi
           xcodebuild -disableAutomaticPackageResolution \
             -clonedSourcePackagesDirPath build/xcode-packages \
             test -project Gancho.xcodeproj -scheme Gancho \
@@ -145,7 +155,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: macos-ui-${{ github.run_id }}-${{ github.run_attempt }}
+          name: macos-ui-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             build/macos-ui.xcresult
             build/macos-ui.log
