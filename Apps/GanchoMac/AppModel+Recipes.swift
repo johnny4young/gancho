@@ -67,7 +67,7 @@ extension AppModel {
             }
             registeredRecipeShortcuts.insert(recipe.id)
             let id = recipe.id
-            releaseShortcuts.onRelease(.recipe(id)) { [weak self] in
+            releaseShortcuts.onPaste(.recipe(id)) { [weak self] in
                 self?.runRecipeShortcut(id)
             }
         }
