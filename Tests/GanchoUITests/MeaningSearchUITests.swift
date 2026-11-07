@@ -31,12 +31,13 @@ final class MeaningSearchUITests: XCTestCase {
         try typeTextReliably("syntheticnomatch", into: query, in: app)
         let noResults = app.descendants(matching: .any)["panel-empty-noresults"].firstMatch
         XCTAssertTrue(noResults.appears(within: 5))
+        XCTAssertTrue(meaning.waitForHittable(timeout: 5))
         meaning.click()
+        let status = app.descendants(matching: .any)["meaning-search-status"].firstMatch
         XCTAssertTrue(
             rows.firstMatch.appears(within: 5),
             "Meaning lists the related clips; query \(query.value ?? "nil"), selected "
-                + "\(meaning.isSelected), status "
-                + "\(app.descendants(matching: .any)["meaning-search-status"].firstMatch.label)")
+                + "\(meaning.isSelected), status \(status.exists), no results \(noResults.exists)")
         XCTAssertTrue(
             app.descendants(matching: .any)["meaning-search-status"].firstMatch.exists)
         try keepRender(

@@ -95,7 +95,7 @@ final class SourceAppFilterUITests: XCTestCase {
         XCTAssertTrue(
             clearFilters.appears(within: 3),
             "the actionable child must remain exposed to accessibility")
-        XCTAssertTrue(clearFilters.isHittable)
+        XCTAssertTrue(clearFilters.waitForHittable(timeout: 3))
         clearFilters.click()
 
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
@@ -103,7 +103,8 @@ final class SourceAppFilterUITests: XCTestCase {
             clipRow(containing: "Xcode source sample", in: app).appears(within: 5),
             "clearing the source filter must preserve the query and reveal its matching row; "
                 + "query \(field.value ?? "nil"), rows \(rows.count), no results "
-                + "\(emptyState.exists), first row \(rows.firstMatch.exists ? rows.firstMatch.label : "-")"
+                + "\(emptyState.exists), clear button \(clearFilters.exists), filter "
+                + "\(app.descendants(matching: .any)["source-app-filter"].firstMatch.value ?? "nil")"
         )
     }
 
@@ -136,7 +137,7 @@ final class SourceAppFilterUITests: XCTestCase {
         XCTAssertTrue(
             clearFilters.appears(within: 3),
             "the filter-only empty state must offer a way back")
-        XCTAssertTrue(clearFilters.isHittable)
+        XCTAssertTrue(clearFilters.waitForHittable(timeout: 3))
         clearFilters.click()
 
         XCTAssertTrue(
