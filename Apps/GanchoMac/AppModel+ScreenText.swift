@@ -131,11 +131,11 @@ extension AppModel {
         )
         alert.addButton(withTitle: String(localized: "Continue"))
         alert.addButton(withTitle: String(localized: "Cancel"))
-        // Gancho is a menu-bar agent with no Dock tile, and this path runs
-        // while another app is frontmost. Without activating first, a modal
-        // alert can open BEHIND that app: the main run loop is wedged in
-        // `runModal` and the user has nothing to click and no icon to find.
-        NSApp.activate()
+        // This runs while another app is active. Activating alone leaves that app
+        // with Return and Escape while `runModal` blocks Gancho; the alert has to
+        // be on screen first.
+        alert.layout()
+        alert.window.bringToFront()
         return alert.runModal() == .alertFirstButtonReturn
     }
 }

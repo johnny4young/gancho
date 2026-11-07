@@ -33,6 +33,30 @@ final class WindowsOpenInFrontUITests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testScreenCapturePurposeAlertTakesTheKeyboard() throws {
+        continueAfterFailure = false
+        let app = GanchoUITestApplication()
+        app.launchArguments = [
+            "-use-in-process-status-item", "-use-temp-durable-store", "-start-capture-paused",
+            "-force-free-tier", "-screen-ocr-purpose-for-ui-test", "-has-seen-welcome", "YES",
+            "-telemetry-consent", "disabled",
+            "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.front.\(UUID())",
+            "-command-nonce", Self.nonce, "-AppleLanguages", "(en)"
+        ]
+        app.launch()
+        defer { app.terminate() }
+        let finder = XCUIApplication(bundleIdentifier: "com.apple.finder")
+        finder.activate()
+        XCTAssertTrue(finder.wait(for: .runningForeground, timeout: 10))
+
+        GanchoUITestCommands.post("copyScreenText", token: Self.nonce)
+        let alert = app.staticTexts["Copy screen text privately"].firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            app.wait(for: .runningForeground, timeout: 5), "the alert takes the keyboard")
+    }
+
     /// The window server's order: no pixels are captured.
     @MainActor
     private func frontWindowOwner() -> String? {
