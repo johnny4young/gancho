@@ -28,7 +28,7 @@ final class MenuBarUITests: XCTestCase {
     @MainActor
     private func statusItem(_ app: XCUIApplication) throws -> XCUIElement {
         let item = app.statusItems.firstMatch
-        guard item.appears(within: 8), item.isHittable else {
+        guard item.waitForHittable(timeout: 8) else {
             throw XCTSkip("status item not hittable on this display/Space")
         }
         return item

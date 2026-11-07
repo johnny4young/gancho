@@ -14,7 +14,7 @@ final class ClipTitleEditingUITests: XCTestCase {
         app.activate()
 
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        guard row.appears(within: 10), row.isHittable else {
+        guard row.waitForHittable(timeout: 10) else {
             throw XCTSkip("seeded panel row is not reachable on this runner")
         }
         try SynthesizedInput.requireForeground(app)

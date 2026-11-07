@@ -17,7 +17,7 @@ final class SourceAppFilterUITests: XCTestCase {
         }
 
         let filter = app.descendants(matching: .any)["history-filter-menu"].firstMatch
-        guard filter.appears(within: 8), filter.isHittable else {
+        guard filter.waitForHittable(timeout: 8) else {
             throw XCTSkip("history filter menu is not reachable on this runner")
         }
         filter.tap()

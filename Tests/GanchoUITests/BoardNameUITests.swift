@@ -171,9 +171,11 @@ final class BoardNameUITests: XCTestCase {
         rows.firstMatch.rightClick()
         let add = app.menuItems[language == "en" ? "Add to board" : "Añadir a un tablero"]
             .firstMatch
-        XCTAssertTrue(add.appears(within: 3))
+        XCTAssertTrue(add.waitForHittable(timeout: 3))
         add.hover()
-        app.menuItems[language == "en" ? "New board…" : "Nuevo tablero…"].firstMatch.click()
+        let newBoard = app.menuItems[language == "en" ? "New board…" : "Nuevo tablero…"].firstMatch
+        XCTAssertTrue(newBoard.waitForHittable(timeout: 3))
+        newBoard.click()
         try rejectEmptyDrafts(app, language: language)
         try typeTextReliably("Clip café", into: prompt(app), in: app)
         app.typeKey(.return, modifierFlags: [])

@@ -45,7 +45,7 @@ final class ScreenOCRUITests: XCTestCase {
         defer { app.terminate() }
         let statusItem = app.statusItems.firstMatch
         XCTAssertTrue(statusItem.appears(within: 5))
-        guard statusItem.isHittable else {
+        guard statusItem.waitForHittable(timeout: 5) else {
             throw XCTSkip("status item is not hittable on this display/Space")
         }
         try SynthesizedInput.requireForeground(app)
@@ -192,7 +192,7 @@ final class ScreenOCRUITests: XCTestCase {
 
         let statusItem = app.statusItems.firstMatch
         XCTAssertTrue(statusItem.appears(within: 5))
-        guard statusItem.isHittable else {
+        guard statusItem.waitForHittable(timeout: 5) else {
             throw XCTSkip("status item is not hittable on this display/Space")
         }
         try SynthesizedInput.requireForeground(app)

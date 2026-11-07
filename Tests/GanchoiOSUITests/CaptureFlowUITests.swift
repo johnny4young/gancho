@@ -92,13 +92,13 @@ final class CaptureFlowUITests: XCTestCase {
             throw XCTSkip("capture screen not exposed to the UI runner in this environment")
         }
         let board = app.buttons["Seed board 1"].firstMatch
-        guard board.appears(within: 8), board.isHittable else {
+        guard board.waitForHittable(timeout: 8) else {
             throw XCTSkip("seeded board chip is not reachable on this runner")
         }
 
         try openAppearanceEditor(for: board, in: app)
         let blue = app.buttons["board-color-2E70D1"].firstMatch
-        guard blue.appears(within: 4), blue.isHittable else {
+        guard blue.waitForHittable(timeout: 4) else {
             throw XCTSkip("board color controls are not reachable on this runner")
         }
         blue.tap()
@@ -136,7 +136,7 @@ final class CaptureFlowUITests: XCTestCase {
     ) throws {
         board.press(forDuration: 1)
         let customize = app.buttons["Customize board…"].firstMatch
-        guard customize.appears(within: 4), customize.isHittable else {
+        guard customize.waitForHittable(timeout: 4) else {
             throw XCTSkip("board appearance context action is not reachable on this runner")
         }
         customize.tap()

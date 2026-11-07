@@ -131,7 +131,7 @@ final class PanelProvenanceUITests: XCTestCase {
         let stage = app.descendants(matching: .any)["panel-first-run-stage"].firstMatch
         XCTAssertTrue(stage.appears(within: 15))
         let importer = app.buttons["panel-empty-import-button"].firstMatch
-        XCTAssertTrue(importer.exists)
+        XCTAssertTrue(importer.appears(within: 5))
         importer.click()
         XCTAssertTrue(
             app.descendants(matching: .any)["migration-import-sheet"].firstMatch

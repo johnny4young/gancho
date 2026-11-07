@@ -20,7 +20,7 @@ final class MenuBarShortcutUITests: XCTestCase {
         _ = app.wait(for: .runningForeground, timeout: 5)
 
         let statusItem = app.statusItems.firstMatch
-        guard statusItem.appears(within: 5), statusItem.isHittable else {
+        guard statusItem.waitForHittable(timeout: 5) else {
             throw XCTSkip("status item not hittable on this display/Space")
         }
         statusItem.click()
@@ -44,7 +44,7 @@ final class MenuBarShortcutUITests: XCTestCase {
         _ = app.wait(for: .runningForeground, timeout: 5)
 
         let statusItem = app.statusItems.firstMatch
-        guard statusItem.appears(within: 5), statusItem.isHittable else {
+        guard statusItem.waitForHittable(timeout: 5) else {
             throw XCTSkip("status item not hittable on this display/Space")
         }
         XCTAssertTrue(registration(of: statusItem).hasPrefix("global-shortcut-enabled"))

@@ -98,9 +98,13 @@ final class SourceAppFilterUITests: XCTestCase {
         XCTAssertTrue(clearFilters.isHittable)
         clearFilters.click()
 
+        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         XCTAssertTrue(
             clipRow(containing: "Xcode source sample", in: app).appears(within: 5),
-            "clearing the source filter must preserve the query and reveal its matching row")
+            "clearing the source filter must preserve the query and reveal its matching row; "
+                + "query \(field.value ?? "nil"), rows \(rows.count), no results "
+                + "\(emptyState.exists), first row \(rows.firstMatch.exists ? rows.firstMatch.label : "-")"
+        )
     }
 
     /// A filter alone can empty the list, with no query typed at all. That

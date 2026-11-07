@@ -232,7 +232,7 @@ final class RefactorFlowUITests: XCTestCase {
         try openAppearanceEditor(for: board, in: app)
 
         let teal = app.buttons["board-color-17999E"].firstMatch
-        guard teal.appears(within: 3), teal.isHittable else {
+        guard teal.waitForHittable(timeout: 3) else {
             throw XCTSkip("board color controls are not reachable on this runner")
         }
         teal.click()
@@ -242,7 +242,7 @@ final class RefactorFlowUITests: XCTestCase {
 
         let save = app.buttons["board-appearance-save"].firstMatch
         XCTAssertTrue(save.appears(within: 2))
-        guard save.isHittable else {
+        guard save.waitForHittable(timeout: 2) else {
             throw XCTSkip("board appearance save action is not hittable on this runner")
         }
         save.click()
@@ -265,7 +265,7 @@ final class RefactorFlowUITests: XCTestCase {
         for attempt in 0..<3 {
             board.rightClick()
             let customize = app.menuItems["Customize board…"].firstMatch
-            if customize.appears(within: 3), customize.isHittable {
+            if customize.waitForHittable(timeout: 3) {
                 customize.click()
                 if app.buttons["board-color-automatic"].firstMatch.appears(within: 4) {
                     return

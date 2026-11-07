@@ -206,10 +206,10 @@ final class BoardDropUITests: XCTestCase {
 
         row.rightClick()
         let menu = app.menuItems["Add to board"].firstMatch
-        XCTAssertTrue(menu.appears(within: 3))
+        XCTAssertTrue(menu.waitForHittable(timeout: 3))
         menu.hover()
         let target = app.menuItems["Seed board 2"].firstMatch
-        XCTAssertTrue(target.appears(within: 3))
+        XCTAssertTrue(target.waitForHittable(timeout: 3))
         target.click()
         assertToast("Already in Seed board 2", in: app)
         XCTAssertFalse(app.buttons["toast-undo"].firstMatch.exists)

@@ -33,7 +33,10 @@ final class MeaningSearchUITests: XCTestCase {
         XCTAssertTrue(noResults.appears(within: 5))
         meaning.click()
         XCTAssertTrue(
-            rows.firstMatch.appears(within: 5), "Meaning lists the related clips")
+            rows.firstMatch.appears(within: 5),
+            "Meaning lists the related clips; query \(query.value ?? "nil"), selected "
+                + "\(meaning.isSelected), status "
+                + "\(app.descendants(matching: .any)["meaning-search-status"].firstMatch.label)")
         XCTAssertTrue(
             app.descendants(matching: .any)["meaning-search-status"].firstMatch.exists)
         try keepRender(
