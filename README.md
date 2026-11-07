@@ -17,14 +17,16 @@
 ![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
 
 **Status: public v0.11.0; in active development toward 1.0.**
-**Source version: v0.11.0.** The published direct download requires an Apple
-Silicon Mac with macOS 26 (build 22); Macs on Intel or macOS 15 keep v0.10.2.
-Local history and manual OCR are Free; Pro activation through Lemon Squeezy is
-included.
+**Source version: v0.11.1 (unreleased).** The published v0.11.0 direct download
+requires an Apple Silicon Mac with macOS 26 (build 22); Macs on Intel or macOS 15
+keep v0.10.2. Local history and manual OCR are Free; Pro activation through Lemon
+Squeezy is included. The v0.11.1 source opens Gancho's windows in front of the
+app you're using, with the keyboard, and wakes up less often while idle; it is
+not yet a published build. See its [release notes](docs/releases/v0.11.1.md).
 
-![The Gancho panel with search modes, board and kind chips, and a link peek above its action dock](site/assets/v0.11.0-release.png)
+![The Gancho panel with search modes, board and kind chips, and a link peek above its action dock](site/assets/v0.11.1-release.png)
 
-*v0.11.0 with synthetic fixtures.*
+*v0.11.1 candidate with synthetic fixtures; this is not evidence of a published release.*
 
 [Download v0.11.0](https://github.com/johnny4young/gancho/releases/tag/v0.11.0)
 for a rebuilt panel, peek, Library and Settings, paste runs, one Transform list,
