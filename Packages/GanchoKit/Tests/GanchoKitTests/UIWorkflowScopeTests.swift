@@ -28,6 +28,21 @@ struct UIWorkflowScopeTests {
         }
     }
 
+    @Test("A failed or timed-out weekly run opens one issue; dispatched runs never do")
+    func scheduledFailureOpensAnIssue() throws {
+        let parts = try workflow().components(separatedBy: "\n  report-scheduled-failure:\n")
+        let job = try #require(parts.dropFirst().first, "no report job")
+        #expect(job.contains("needs: [macos-ui, ios-ui]"))
+        #expect(job.contains("always() && github.event_name == 'schedule'"))
+        for platform in ["macos-ui", "ios-ui"] {
+            #expect(
+                job.contains(
+                    #"contains(fromJSON('["failure","cancelled"]'), needs.\#(platform).result)"#))
+        }
+        #expect(job.contains("issues: write"))
+        #expect(!parts[0].contains("issues: write"), "only the report job may write issues")
+    }
+
     private func workflow() throws -> String {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
