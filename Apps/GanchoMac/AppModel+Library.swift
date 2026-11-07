@@ -43,9 +43,10 @@ extension AppModel {
     }
 
     func countLibraryClips(_ request: LibraryListRequest) async throws -> Int {
-        guard let fullStore, let browse = Self.browseQuery(request) else {
-            throw CancellationError()
+        guard let fullStore else {
+            return try await request.fallbackCount { try await store.items(offset: 0, limit: .max) }
         }
+        guard let browse = Self.browseQuery(request) else { throw CancellationError() }
         return try await fullStore.libraryCount(browse)
     }
 
