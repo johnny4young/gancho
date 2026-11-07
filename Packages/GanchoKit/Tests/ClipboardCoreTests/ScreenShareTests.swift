@@ -56,5 +56,44 @@
             #expect(captures.isEmpty, "share-time copies must never backfill")
             #expect(monitor.status == .running)
         }
+
+        @Test("A share that starts and ends between two turns never backfills")
+        func shareBetweenTurnsNoBackfill() async {
+            let pasteboard = FakePasteboard()
+            let monitor = MacPasteboardMonitor(
+                reader: pasteboard, activity: FakeActivity(), frontmostApp: { nil })
+            var captures: [PasteboardCapture] = []
+            monitor.onCapture = { captures.append($0) }
+            _ = monitor.tick()
+
+            monitor.pausedForScreenShare = true
+            pasteboard.write(.text("visible to the meeting"), types: ["public.utf8-plain-text"])
+            monitor.pausedForScreenShare = false
+            _ = monitor.tick()
+            await monitor.drainPendingRead()
+
+            #expect(captures.isEmpty, "share-time copies must never backfill")
+            #expect(pasteboard.readCalls == 0)
+        }
+
+        @Test("Leaving Private Mode during a share keeps the share's resync")
+        func privateModeOffDuringShareNoBackfill() async {
+            let pasteboard = FakePasteboard()
+            let monitor = MacPasteboardMonitor(
+                reader: pasteboard, activity: FakeActivity(), frontmostApp: { nil })
+            var captures: [PasteboardCapture] = []
+            monitor.onCapture = { captures.append($0) }
+            _ = monitor.tick()
+
+            monitor.preferences.isPrivateModePaused = true
+            monitor.pausedForScreenShare = true
+            monitor.preferences.isPrivateModePaused = false
+            pasteboard.write(.text("visible to the meeting"), types: ["public.utf8-plain-text"])
+            monitor.pausedForScreenShare = false
+            _ = monitor.tick()
+            await monitor.drainPendingRead()
+
+            #expect(captures.isEmpty, "share-time copies must never backfill")
+        }
     }
 #endif

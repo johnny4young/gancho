@@ -307,7 +307,7 @@ final class AppModel {
     }
 
     @ObservationIgnored var copyMerger = DoubleCopyMerger()
-    @ObservationIgnored var lastIngest: Task<Void, Never>?
+    @ObservationIgnored let captureSaves: CaptureSaveQueue
 
     /// The panel's Up next slot; nil hides it.
     var upNextSlot: UpNextSlot?
@@ -524,6 +524,7 @@ final class AppModel {
             accessPolicy: pasteboardAccessPolicy,
             preferences: loadedPreferences)
         monitor = resolvedMonitor
+        captureSaves = CaptureSaveQueue(pausesStarted: { resolvedMonitor.pausesStarted })
         let screenShareDetector = ScreenShareDetector()
         let manualOCR = ManualOCRSession()
         let screenTextWorkflow = ScreenTextWorkflow()
@@ -831,17 +832,13 @@ final class AppModel {
         // model (the origin device decides, the rest receive via sync).
         guard !capture.isFromUniversalClipboard else { return nil }
         // Merging decides from the previous capture's clip, so captures land in order.
-        let previous = preferences.mergeDoubleCopies ? lastIngest : nil
-        let task = Task {
-            await previous?.value
-            if await mergeDoubleCopyIfNeeded(capture) { return }
-            guard let outcome = await saveCapture(capture) else { return }
-            noteIngestedForMerge(capture, outcome: outcome)
-            offerCopyActions(for: outcome, capture: capture)
-            enrich(outcome)
+        return captureSaves.enqueue(afterPrevious: preferences.mergeDoubleCopies) {
+            if await self.mergeDoubleCopyIfNeeded(capture) { return }
+            guard let outcome = await self.saveCapture(capture) else { return }
+            self.noteIngestedForMerge(capture, outcome: outcome)
+            self.offerCopyActions(for: outcome, capture: capture)
+            self.enrich(outcome)
         }
-        lastIngest = task
-        return task
     }
 
     /// Stores one capture through the coordinator and refreshes the history;

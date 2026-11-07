@@ -7,6 +7,14 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- On the Mac, a copy Gancho was still reading when a screen share started, or
+  when you turned on Private Mode, is no longer saved to history.
+- On the Mac, a copy made during a short screen share that ended before Gancho
+  checked the clipboard again is no longer saved, and a copy still waiting to
+  be saved when a share starts or you turn on Private Mode is dropped.
+
 ## [0.11.1] - 2026-11-07
 
 ### Changed
@@ -24,8 +32,6 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- On the Mac, a copy Gancho was still reading when a screen share started, or
-  when you turned on Private Mode, is no longer saved to history.
 - When history can't be saved to disk, the Library still shows how many clips a
   view holds, and the panel's All clips chip shows its count.
 - Exporting an archive no longer holds every exported file in memory while it
