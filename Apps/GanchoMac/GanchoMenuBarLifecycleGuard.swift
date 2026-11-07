@@ -1,67 +1,78 @@
 import AppKit
+import ClipboardCore
+import GanchoAppCore
 
 /// Couples the clipboard-history process to its menu-bar affordance.
 ///
 /// The external helper and the in-process fallback are deliberately different
 /// processes/implementations, but they share one lifetime rule: if the active
 /// status-item owner disappears, Gancho terminates instead of continuing as an
-/// unreachable background history recorder.
+/// unreachable background history recorder. Events that can take the
+/// affordance away trigger the check; a slow check at rest covers the rest.
 @MainActor
-final class GanchoMenuBarLifecycleGuard: NSObject {
-    private enum Owner {
-        case none
-        case externalHelper
-        case inProcessStatusItem
-    }
-
+final class GanchoMenuBarLifecycleGuard {
+    private var watchdog: MenuBarAffordanceWatchdog?
     private weak var statusItemController: StatusItemController?
-    private var owner = Owner.none
-    private var watchdog: Timer?
+    private var runningApplicationsObservation: AnyObject?
+    private var observers: [(NotificationCenter, any NSObjectProtocol)] = []
 
     func monitorExternalHelper() {
-        statusItemController = nil
-        owner = .externalHelper
-        startWatchdog()
+        stop()
+        // The list `isHelperRunning()` reads, so a helper exit is always announced.
+        runningApplicationsObservation = ScreenShareDetector.observeRunningApplications {
+            [weak self] in self?.watchdog?.affordanceMayHaveChanged()
+        }
+        startWatchdog { GanchoMenuBarHelperLauncher.isHelperRunning() }
     }
 
     func monitorInProcessStatusItem(_ controller: StatusItemController) {
+        stop()
         statusItemController = controller
-        owner = .inProcessStatusItem
-        startWatchdog()
+        controller.onAffordanceChange = { [weak self] in
+            self?.watchdog?.affordanceMayHaveChanged()
+        }
+        observeMenuBarRebuilds()
+        startWatchdog { [weak controller] in controller?.hasVisibleAffordance == true }
     }
 
     func stop() {
-        watchdog?.invalidate()
+        watchdog?.stop()
         watchdog = nil
+        runningApplicationsObservation = nil
+        statusItemController?.onAffordanceChange = nil
         statusItemController = nil
-        owner = .none
+        for (center, observer) in observers { center.removeObserver(observer) }
+        observers = []
     }
 
-    private func startWatchdog() {
-        watchdog?.invalidate()
-        let watchdog = Timer(
-            timeInterval: 0.75,
-            target: self,
-            selector: #selector(verifyAffordance),
-            userInfo: nil,
-            repeats: true)
+    private func startWatchdog(isPresent: @escaping @MainActor () -> Bool) {
+        let watchdog = MenuBarAffordanceWatchdog(
+            isPresent: isPresent,
+            onLost: { [weak self] in
+                self?.stop()
+                NSApplication.shared.terminate(nil)
+            })
         self.watchdog = watchdog
-        RunLoop.main.add(watchdog, forMode: .common)
+        watchdog.start()
     }
 
-    @objc private func verifyAffordance() {
-        let isPresent =
-            switch owner {
-            case .none:
-                true
-            case .externalHelper:
-                GanchoMenuBarHelperLauncher.isHelperRunning()
-            case .inProcessStatusItem:
-                statusItemController?.hasVisibleAffordance == true
+    /// Changes that can come with the menu bar being rebuilt. Occlusion is
+    /// for any app window, so the status item's own window may post it too.
+    private func observeMenuBarRebuilds() {
+        let app = NotificationCenter.default
+        let workspace = NSWorkspace.shared.notificationCenter
+        let events = [
+            (app, NSApplication.didChangeScreenParametersNotification),
+            (app, NSWindow.didChangeOcclusionStateNotification),
+            (workspace, NSWorkspace.activeSpaceDidChangeNotification),
+            (workspace, NSWorkspace.screensDidWakeNotification)
+        ]
+        for (center, name) in events {
+            let observer = center.addObserver(forName: name, object: nil, queue: .main) {
+                [weak self] _ in
+                MainActor.assumeIsolated { self?.watchdog?.affordanceMayHaveChanged() }
             }
-
-        guard !isPresent else { return }
-        stop()
-        NSApplication.shared.terminate(nil)
+            observers.append((center, observer))
+        }
     }
 }

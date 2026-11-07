@@ -1,5 +1,6 @@
 import AppKit
 import ClipboardCore
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import Observation
@@ -32,6 +33,10 @@ final class StatusItemController: NSObject {
     private weak var model: AppModel?
     private var statusItem: NSStatusItem?
     private var menu: MenuBarMenu?
+    private var visibilityObservation: NSKeyValueObservation?
+
+    /// Called when either input of `hasVisibleAffordance` may have changed.
+    var onAffordanceChange: (() -> Void)?
 
     /// Whether the in-process fallback item is currently painting.
     var isAttached: Bool { statusItem != nil }
@@ -48,8 +53,10 @@ final class StatusItemController: NSObject {
     /// confirmed running so the two never paint a duplicate icon.
     func detach() {
         guard let statusItem else { return }
+        visibilityObservation = nil
         NSStatusBar.system.removeStatusItem(statusItem)
         self.statusItem = nil
+        onAffordanceChange?()
     }
 
     func attach(model: AppModel, menu: MenuBarMenu) {
@@ -76,6 +83,26 @@ final class StatusItemController: NSObject {
         // setup; later presentation refreshes must never mask a real removal.
         item.isVisible = true
         observeStatus()
+        observeAffordance(of: item)
+    }
+
+    /// `isVisible` is key-value observable; the button losing its window
+    /// reaches only a view inside it.
+    private func observeAffordance(of item: NSStatusItem) {
+        visibilityObservation = Self.observeVisibility(of: item) { [weak self] in
+            self?.onAffordanceChange?()
+        }
+        item.button?.addSubview(
+            WindowChangeSentinel { [weak self] in self?.onAffordanceChange?() })
+    }
+
+    /// Nonisolated, so the observer never asserts which thread KVO calls it on.
+    nonisolated private static func observeVisibility(
+        of item: NSStatusItem, _ onChange: @escaping @MainActor @Sendable () -> Void
+    ) -> NSKeyValueObservation {
+        item.observe(\.isVisible) { _, _ in
+            Task { @MainActor in onChange() }
+        }
     }
 
     private func repairHiddenStatusItemVisibilityDefaults() {

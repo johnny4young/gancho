@@ -16,6 +16,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   three seconds later, and changing the screen-share setting applies at once.
 - On the Mac, the menu-bar icon's capture state, badge and panel shortcut update
   when they change instead of being rechecked every second.
+- On the Mac, Gancho checks that its menu-bar icon is still there when something
+  could have removed it, and every 5 seconds otherwise, instead of every
+  0.75 seconds.
 
 ### Fixed
 
