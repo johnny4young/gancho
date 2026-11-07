@@ -65,3 +65,13 @@ extension GRDBClipboardStore: ScopeCountProviding {
         }
     }
 }
+
+extension InMemoryClipboardStore: ScopeCountProviding {
+    /// Counts the rows the fallback lists. Boards live only in the durable store.
+    public func scopeCounts(excluding excluded: Set<UUID>) async throws -> ScopeCountSnapshot {
+        let visible = try await items(offset: 0, limit: .max).filter { !excluded.contains($0.id) }
+        return ScopeCountSnapshot(
+            total: visible.count, boards: [:],
+            kinds: Dictionary(grouping: visible, by: \.kind).mapValues(\.count))
+    }
+}

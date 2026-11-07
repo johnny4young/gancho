@@ -22,6 +22,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- When history can't be saved to disk, the Library still shows how many clips a
+  view holds, and the panel's All clips chip shows its count.
 - Exporting an archive no longer holds every exported file in memory while it
   checks the export against its manifest.
 - On the Mac, Settings, Library, Privacy Center, Welcome and the clipboard access

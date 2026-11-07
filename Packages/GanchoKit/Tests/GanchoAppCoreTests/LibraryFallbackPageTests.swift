@@ -104,6 +104,24 @@ struct LibraryFallbackPageTests {
         #expect(result.map(\.id) == [0, 1].map { snapshot[$0].id })
     }
 
+    @Test("The fallback total counts what its pages list")
+    func totalMatchesPages() async {
+        var snapshot = rows(120, preview: "Invoice") + rows(30, kind: .url, olderThan: 120)
+        snapshot[0].expiresAt = Self.start
+        snapshot[125].isPinned = true
+        let requests: [(LibraryListRequest, Int)] = [
+            (LibraryListRequest(scope: .allClips), 149),
+            (LibraryListRequest(scope: .allClips, kind: .links), 30),
+            (LibraryListRequest(scope: .pinned), 1),
+            (LibraryListRequest(scope: .allClips, text: "invoice"), 119),
+            (LibraryListRequest(scope: .board(UUID())), 0)
+        ]
+        for (request, expected) in requests {
+            let total = await request.fallbackCount(now: Self.start) { snapshot }
+            #expect(total == expected)
+        }
+    }
+
     @MainActor private final class MainActorRows {
         var rows: [ClipItem] = []
     }
