@@ -7,6 +7,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-07
+
 ### Changed
 
 - On the Mac, Gancho wakes up about 40% less often while it sits idle in the
