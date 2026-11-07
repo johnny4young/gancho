@@ -9,6 +9,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- On the Mac, a copy Gancho was still reading when a screen share started, or
+  when you turned on Private Mode, is no longer saved to history.
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.11.1 DMG.
   Physical-device acceptance remains pending; the published app, tag and
@@ -31,8 +33,6 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- On the Mac, a copy Gancho was still reading when a screen share started, or
-  when you turned on Private Mode, is no longer saved to history.
 - When history can't be saved to disk, the Library still shows how many clips a
   view holds, and the panel's All clips chip shows its count.
 - Exporting an archive no longer holds every exported file in memory while it
