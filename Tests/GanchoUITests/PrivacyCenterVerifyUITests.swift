@@ -15,14 +15,14 @@ final class PrivacyCenterVerifyUITests: XCTestCase {
         defer { app.terminate() }
         app.activate()
         let verify = app.buttons["privacy-verify-encryption"].firstMatch
-        XCTAssertTrue(verify.waitForExistence(timeout: 10))
+        XCTAssertTrue(verify.appears(within: 10))
         let receipt = app.descendants(matching: .any)["private-receipt-section"].firstMatch
-        XCTAssertTrue(receipt.waitForExistence(timeout: 5))
+        XCTAssertTrue(receipt.appears(within: 5))
         XCTAssertLessThan(verify.frame.minY, receipt.frame.minY, "Verify sits above the receipt")
 
         verify.click()
         let result = app.descendants(matching: .any)["privacy-verify-result"].firstMatch
-        XCTAssertTrue(result.waitForExistence(timeout: 5))
+        XCTAssertTrue(result.appears(within: 5))
         let passed = XCTNSPredicateExpectation(
             predicate: NSPredicate(
                 format: "label BEGINSWITH %@ OR value BEGINSWITH %@", "Verified", "Verified"),

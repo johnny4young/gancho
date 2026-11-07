@@ -34,28 +34,28 @@ final class SearchTokensUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         let field = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        XCTAssertTrue(field.appears(within: 15))
         XCTAssertTrue(waitForRows(3, in: app))
 
         try typeTextReliably("app:xc", into: field, in: app)
         let popover = app.descendants(matching: .any)["search-token-popover"].firstMatch
-        XCTAssertTrue(popover.waitForExistence(timeout: 5))
+        XCTAssertTrue(popover.appears(within: 5))
         field.typeKey(.tab, modifierFlags: [])
         let appChip = app.descendants(matching: .any)["search-token-chip-app"].firstMatch
-        XCTAssertTrue(appChip.waitForExistence(timeout: 5))
+        XCTAssertTrue(appChip.appears(within: 5))
         XCTAssertEqual(field.value as? String ?? "", "")
         XCTAssertTrue(waitForRows(1, in: app), "app: keeps only that app's clips")
 
         field.typeText("type:links ")
         XCTAssertTrue(
-            app.descendants(matching: .any)["search-token-chip-type"].firstMatch.waitForExistence(
-                timeout: 5))
+            app.descendants(matching: .any)["search-token-chip-type"].firstMatch.appears(
+                within: 5))
         XCTAssertTrue(waitForRows(0, in: app), "no Xcode clip is a link")
 
         app.buttons["search-token-remove-type"].firstMatch.click()
         XCTAssertTrue(waitForRows(1, in: app), "× removes its filter")
         app.buttons["search-token-remove-app"].firstMatch.click()
-        XCTAssertTrue(appChip.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(appChip.waitForNonexistence(timeout: 5))
         XCTAssertTrue(waitForRows(3, in: app))
     }
 
@@ -64,9 +64,9 @@ final class SearchTokensUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         let field = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        XCTAssertTrue(field.appears(within: 15))
         let exact = app.buttons["search-mode-exact"].firstMatch
-        XCTAssertTrue(exact.waitForExistence(timeout: 5))
+        XCTAssertTrue(exact.appears(within: 5))
         exact.click()
         XCTAssertTrue(exact.isSelected)
 
@@ -79,7 +79,7 @@ final class SearchTokensUITests: XCTestCase {
 
         field.typeKey("s", modifierFlags: [.command, .shift])
         XCTAssertTrue(
-            app.textFields["filter-name-field"].firstMatch.waitForExistence(timeout: 5),
+            app.textFields["filter-name-field"].firstMatch.appears(within: 5),
             "⇧⌘S opens the saved-filter sheet")
     }
 
@@ -88,13 +88,13 @@ final class SearchTokensUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         let field = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        XCTAssertTrue(field.appears(within: 15))
         app.buttons["search-mode-exact"].firstMatch.click()
         try typeTextReliably("source alp", into: field, in: app)
         XCTAssertTrue(waitForRows(0, in: app), "an exact phrase needs whole words")
 
         let fuzzy = app.buttons["no-results-alt-fuzzy"].firstMatch
-        XCTAssertTrue(fuzzy.waitForExistence(timeout: 5))
+        XCTAssertTrue(fuzzy.appears(within: 5))
         XCTAssertTrue(fuzzy.isSelected, "the most results is highlighted")
         XCTAssertTrue(app.buttons["no-results-alt-regex"].firstMatch.exists)
         XCTAssertTrue(

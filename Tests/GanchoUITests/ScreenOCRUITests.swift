@@ -9,13 +9,13 @@ final class ScreenOCRUITests: XCTestCase {
             nonce: nonce, permissionArgument: "-screen-ocr-sensitive-result-for-ui-test")
         defer { app.terminate() }
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(rows.firstMatch.appears(within: 15))
         GanchoUITestCommands.post("copyScreenText", token: nonce)
         let review = app.buttons["ocr-review"].firstMatch
-        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        XCTAssertTrue(review.appears(within: 5))
         review.click()
         let reveal = app.buttons["ocr-review-reveal"].firstMatch
-        XCTAssertTrue(reveal.waitForExistence(timeout: 5))
+        XCTAssertTrue(reveal.appears(within: 5))
         let editor = app.textViews["ocr-review-text"].firstMatch
         XCTAssertFalse(editor.exists, "Masked text must not enter the accessibility tree")
         XCTAssertFalse(app.buttons["ocr-review-copy"].exists)
@@ -24,7 +24,7 @@ final class ScreenOCRUITests: XCTestCase {
             of: "Review recognized text", in: app,
             named: "Screen OCR — sensitive review before reveal")
         reveal.click()
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.appears(within: 5))
         XCTAssertEqual(editor.value as? String, "card 4242 4242 4242 4242")
         XCTAssertTrue(app.buttons["ocr-review-copy"].isEnabled)
         XCTAssertTrue(app.buttons["ocr-review-save"].isEnabled)
@@ -34,7 +34,7 @@ final class ScreenOCRUITests: XCTestCase {
         app.buttons["ocr-review-close"].click()
         // The toast may have dismissed the transient panel before Review opened.
         GanchoUITestCommands.post("openPanel", token: nonce)
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(rows.firstMatch.appears(within: 5))
         XCTAssertEqual(rows.count, 1, "Reviewing a secret must not save it")
     }
 
@@ -44,16 +44,16 @@ final class ScreenOCRUITests: XCTestCase {
             nonce: UUID().uuidString, permissionArgument: "-screen-ocr-denied-for-ui-test")
         defer { app.terminate() }
         let statusItem = app.statusItems.firstMatch
-        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
-        guard statusItem.isHittable else {
+        XCTAssertTrue(statusItem.appears(within: 5))
+        guard statusItem.waitForHittable(timeout: 5) else {
             throw XCTSkip("status item is not hittable on this display/Space")
         }
         try SynthesizedInput.requireForeground(app)
         statusItem.click()
         let command = app.menuItems["Copy text from screen"].firstMatch
-        XCTAssertTrue(command.waitForExistence(timeout: 3))
+        XCTAssertTrue(command.appears(within: 3))
         command.click()
-        XCTAssertTrue(app.buttons["Open Settings"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Open Settings"].firstMatch.appears(within: 5))
         XCTAssertFalse(app.descendants(matching: .any)["screen-ocr-selector"].exists)
     }
 
@@ -63,17 +63,17 @@ final class ScreenOCRUITests: XCTestCase {
         let app = launchApp(nonce: nonce, permissionArgument: "-screen-ocr-denied-for-ui-test")
         defer { app.terminate() }
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         GanchoUITestCommands.post("copyScreenText", token: nonce)
-        XCTAssertTrue(app.buttons["Open Settings"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Open Settings"].firstMatch.appears(within: 5))
         try SynthesizedInput.requireForeground(app)
         row.rightClick()
         let extract = app.menuItems["image-copy-text"].firstMatch
-        XCTAssertTrue(extract.waitForExistence(timeout: 3))
+        XCTAssertTrue(extract.appears(within: 3))
         extract.click()
         let line = app.descendants(matching: .any).matching(identifier: "peek-ocr-line-0")
             .firstMatch
-        XCTAssertTrue(line.waitForExistence(timeout: 15))
+        XCTAssertTrue(line.appears(within: 15))
         XCTAssertFalse(app.descendants(matching: .any)["screen-ocr-selector"].exists)
     }
 
@@ -83,12 +83,12 @@ final class ScreenOCRUITests: XCTestCase {
         let app = launchApp(nonce: nonce, permissionArgument: "-screen-ocr-purpose-for-ui-test")
         defer { app.terminate() }
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(rows.firstMatch.appears(within: 15))
         GanchoUITestCommands.post("copyScreenText", token: nonce)
         let explanation = app.staticTexts["Copy screen text privately"].firstMatch
-        XCTAssertTrue(explanation.waitForExistence(timeout: 5))
+        XCTAssertTrue(explanation.appears(within: 5))
         let cancel = app.buttons["Cancel"].firstMatch
-        XCTAssertTrue(cancel.waitForExistence(timeout: 3))
+        XCTAssertTrue(cancel.appears(within: 3))
         try SynthesizedInput.requireForeground(app)
         cancel.click()
         XCTAssertTrue(explanation.waitForNonexistence(timeout: 5))
@@ -104,13 +104,13 @@ final class ScreenOCRUITests: XCTestCase {
         let app = launchApp(nonce: nonce, permissionArgument: "-screen-ocr-selector-for-ui-test")
         defer { app.terminate() }
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(rows.firstMatch.appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         let selectors = app.descendants(matching: .any).matching(identifier: "screen-ocr-selector")
         for cancelWithEscape in [true, false, true] {
             GanchoUITestCommands.post("copyScreenText", token: nonce)
             let selector = selectors.firstMatch
-            XCTAssertTrue(selector.waitForExistence(timeout: 5))
+            XCTAssertTrue(selector.appears(within: 5))
             try SynthesizedInput.requireForeground(app)
             if cancelWithEscape {
                 app.typeKey(.escape, modifierFlags: [])
@@ -119,7 +119,7 @@ final class ScreenOCRUITests: XCTestCase {
             }
             XCTAssertTrue(selector.waitForNonexistence(timeout: 5))
             XCTAssertFalse(app.buttons["ocr-review"].firstMatch.exists)
-            XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
+            XCTAssertTrue(rows.firstMatch.appears(within: 5))
             XCTAssertEqual(rows.count, 1)
         }
     }
@@ -130,17 +130,17 @@ final class ScreenOCRUITests: XCTestCase {
         let app = launchApp(nonce: nonce, permissionArgument: "-screen-ocr-selector-for-ui-test")
         defer { app.terminate() }
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         let selector = app.descendants(matching: .any)["screen-ocr-selector"].firstMatch
         GanchoUITestCommands.post("copyScreenText", token: nonce)
-        XCTAssertTrue(selector.waitForExistence(timeout: 5))
+        XCTAssertTrue(selector.appears(within: 5))
         GanchoUITestCommands.post("togglePrivateMode", token: nonce)
         XCTAssertTrue(selector.waitForNonexistence(timeout: 5))
         GanchoUITestCommands.post("togglePrivateMode", token: nonce)
-        XCTAssertFalse(selector.waitForExistence(timeout: 1))
+        XCTAssertFalse(selector.appears(within: 1))
         XCTAssertFalse(app.buttons["ocr-review"].firstMatch.exists)
         GanchoUITestCommands.post("copyScreenText", token: nonce)
-        XCTAssertTrue(selector.waitForExistence(timeout: 5))
+        XCTAssertTrue(selector.appears(within: 5))
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(selector.waitForNonexistence(timeout: 5))
@@ -154,19 +154,19 @@ final class ScreenOCRUITests: XCTestCase {
         let app = launchApp(nonce: nonce, permissionArgument: "-screen-ocr-selector-for-ui-test")
         defer { app.terminate() }
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         let selector = app.descendants(matching: .any)["screen-ocr-selector"].firstMatch
 
         // The selector disappearing is the checkpoint that Private Mode landed,
         // so the refusal below cannot race the toggle.
         GanchoUITestCommands.post("copyScreenText", token: nonce)
-        XCTAssertTrue(selector.waitForExistence(timeout: 5))
+        XCTAssertTrue(selector.appears(within: 5))
         GanchoUITestCommands.post("togglePrivateMode", token: nonce)
         XCTAssertTrue(selector.waitForNonexistence(timeout: 5))
 
         GanchoUITestCommands.post("copyScreenText", token: nonce)
         let toast = app.descendants(matching: .any)["gancho-toast"].firstMatch
-        XCTAssertTrue(toast.waitForExistence(timeout: 5))
+        XCTAssertTrue(toast.appears(within: 5))
         XCTAssertTrue(
             app.staticTexts["Private Mode is on. Turn it off to copy text from the screen."]
                 .exists)
@@ -183,22 +183,22 @@ final class ScreenOCRUITests: XCTestCase {
         let app = launchApp(nonce: nonce, permissionArgument: "-screen-ocr-selector-for-ui-test")
         defer { app.terminate() }
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         let selector = app.descendants(matching: .any)["screen-ocr-selector"].firstMatch
         GanchoUITestCommands.post("copyScreenText", token: nonce)
-        XCTAssertTrue(selector.waitForExistence(timeout: 5))
+        XCTAssertTrue(selector.appears(within: 5))
         GanchoUITestCommands.post("togglePrivateMode", token: nonce)
         XCTAssertTrue(selector.waitForNonexistence(timeout: 5))
 
         let statusItem = app.statusItems.firstMatch
-        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
-        guard statusItem.isHittable else {
+        XCTAssertTrue(statusItem.appears(within: 5))
+        guard statusItem.waitForHittable(timeout: 5) else {
             throw XCTSkip("status item is not hittable on this display/Space")
         }
         try SynthesizedInput.requireForeground(app)
         statusItem.click()
         let command = app.menuItems["Copy text from screen"].firstMatch
-        XCTAssertTrue(command.waitForExistence(timeout: 3))
+        XCTAssertTrue(command.appears(within: 3))
         XCTAssertFalse(command.isEnabled, "An item that cannot act must not stay clickable")
         app.typeKey(.escape, modifierFlags: [])
     }

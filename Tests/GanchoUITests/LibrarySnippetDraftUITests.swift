@@ -31,13 +31,13 @@ final class LibrarySnippetDraftUITests: XCTestCase {
             appearance: appearance)
         library.staticTexts["Seed greeting"].firstMatch.click()
         let editor = library.textViews["snippet-editor"].firstMatch
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.appears(within: 5))
         let original = try XCTUnwrap(editor.value as? String)
         try typeTextReliably(original + " synthetic recovered draft", into: editor, in: app)
         XCTAssertTrue(waitForValue(of: editor, containing: "synthetic recovered draft"))
         library.buttons["snippet-delete-source-button"].firstMatch.click()
         XCTAssertTrue(
-            library.buttons["snippet-recover-button"].firstMatch.waitForExistence(timeout: 5))
+            library.buttons["snippet-recover-button"].firstMatch.appears(within: 5))
         XCTAssertTrue(waitForValue(of: editor, containing: "synthetic recovered draft"))
         XCTAssertFalse(library.buttons["snippet-save"].firstMatch.isEnabled)
         try keepRender(
@@ -46,13 +46,13 @@ final class LibrarySnippetDraftUITests: XCTestCase {
 
         library.staticTexts["Seed sign-off"].firstMatch.click()
         let cancel = app.buttons["snippet-resolution-cancel-button"].firstMatch
-        XCTAssertTrue(cancel.waitForExistence(timeout: 5))
+        XCTAssertTrue(cancel.appears(within: 5))
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(waitForValue(of: editor, containing: "synthetic recovered draft"))
 
         library.buttons["snippet-recover-button"].firstMatch.click()
-        XCTAssertTrue(library.staticTexts["Seed greeting"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(library.staticTexts["Seed greeting"].firstMatch.appears(within: 5))
         XCTAssertTrue(
             waitForValue(
                 of: library.textViews["snippet-editor"].firstMatch,
@@ -77,13 +77,13 @@ final class LibrarySnippetDraftUITests: XCTestCase {
         let library = try openLibrary(app, extraArguments: ["-ui-test-snippet-deletion"])
         library.staticTexts["Seed greeting"].firstMatch.click()
         let editor = library.textViews["snippet-editor"].firstMatch
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.appears(within: 5))
         editor.click()
         XCTAssertTrue(waitForKeyboardFocus(editor))
         editor.typeText("modified ")
         library.buttons["snippet-delete-source-button"].firstMatch.click()
         let discard = library.buttons["snippet-discard-button"].firstMatch
-        XCTAssertTrue(discard.waitForExistence(timeout: 5))
+        XCTAssertTrue(discard.appears(within: 5))
         discard.click()
         XCTAssertFalse(library.staticTexts["Seed greeting"].firstMatch.exists)
         library.staticTexts["Seed sign-off"].firstMatch.click()
@@ -99,7 +99,7 @@ final class LibrarySnippetDraftUITests: XCTestCase {
         let library = try openLibrary(app, extraArguments: ["-ui-test-snippet-save-failure"])
         library.staticTexts["Seed greeting"].firstMatch.click()
         let editor = library.textViews["snippet-editor"].firstMatch
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.appears(within: 5))
         editor.click()
         XCTAssertTrue(waitForKeyboardFocus(editor))
         editor.typeText("unsaved ")
@@ -118,10 +118,10 @@ final class LibrarySnippetDraftUITests: XCTestCase {
         let library = try openLibrary(app)
 
         let greeting = library.staticTexts["Seed greeting"].firstMatch
-        XCTAssertTrue(greeting.waitForExistence(timeout: 10), "the seeded snippets must be listed")
+        XCTAssertTrue(greeting.appears(within: 10), "the seeded snippets must be listed")
         greeting.click()
         let editor = library.textViews["snippet-editor"].firstMatch
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.appears(within: 5))
         XCTAssertTrue(waitForValue(of: editor, containing: "Hello {name}"))
 
         editor.click()
@@ -168,11 +168,11 @@ final class LibrarySnippetDraftUITests: XCTestCase {
         app.launch()
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        XCTAssertTrue(app.textFields["search-field"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.textFields["search-field"].appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         GanchoUITestCommands.post("library", token: nonce)
         let library = app.windows.firstMatch
-        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        XCTAssertTrue(library.appears(within: 5))
         return library
     }
 
@@ -181,7 +181,7 @@ final class LibrarySnippetDraftUITests: XCTestCase {
     {
         library.buttons["board-new"].firstMatch.click()
         let name = app.textFields["Board name"].firstMatch
-        XCTAssertTrue(name.waitForExistence(timeout: 5), "the new-board prompt must open")
+        XCTAssertTrue(name.appears(within: 5), "the new-board prompt must open")
         name.click()
         XCTAssertTrue(waitForKeyboardFocus(name), "the board name field must take focus")
         name.typeText(boardName)
@@ -189,11 +189,11 @@ final class LibrarySnippetDraftUITests: XCTestCase {
         // elsewhere on a small display.
         name.typeKey(.return, modifierFlags: [])
         let board = library.staticTexts[boardName].firstMatch
-        if !board.waitForExistence(timeout: 3) {
+        if !board.appears(within: 3) {
             app.buttons["Create"].firstMatch.click()
         }
         XCTAssertTrue(
-            board.waitForExistence(timeout: 5), "creating a board must refresh the sidebar")
+            board.appears(within: 5), "creating a board must refresh the sidebar")
     }
 
     /// ⌘S writes the title without the field losing focus: the sidebar row
@@ -201,7 +201,7 @@ final class LibrarySnippetDraftUITests: XCTestCase {
     @MainActor
     private func saveTitleWithShortcut(suffix: String, in library: XCUIElement) {
         let title = library.textFields["snippet-title"].firstMatch
-        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertTrue(title.appears(within: 5))
         let before = title.value as? String ?? ""
         title.click()
         XCTAssertTrue(waitForKeyboardFocus(title), "the title field must take focus")
@@ -209,7 +209,7 @@ final class LibrarySnippetDraftUITests: XCTestCase {
         title.typeText(suffix)
         title.typeKey("s", modifierFlags: .command)
         XCTAssertTrue(
-            library.staticTexts[before + suffix].firstMatch.waitForExistence(timeout: 5),
+            library.staticTexts[before + suffix].firstMatch.appears(within: 5),
             "⌘S must write the title without leaving the field")
         XCTAssertTrue(waitForKeyboardFocus(title), "⌘S must not move focus")
     }

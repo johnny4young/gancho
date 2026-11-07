@@ -21,9 +21,9 @@ final class PanelGalleryUITests: XCTestCase {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
 
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        XCTAssertTrue(search.appears(within: 15))
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.element(boundBy: 2).waitForExistence(timeout: 10))
+        XCTAssertTrue(rows.element(boundBy: 2).appears(within: 10))
         let listCount = rows.count
         let gallery = app.descendants(matching: .any)["panel-gallery"].firstMatch
         XCTAssertFalse(gallery.exists, "the list is the default layout")
@@ -35,7 +35,7 @@ final class PanelGalleryUITests: XCTestCase {
             return
         }
         app.typeKey("g", modifierFlags: .command)
-        XCTAssertTrue(gallery.waitForExistence(timeout: 5), "⌘G must show the gallery")
+        XCTAssertTrue(gallery.appears(within: 5), "⌘G must show the gallery")
         XCTAssertEqual(rows.count, listCount, "every clip is one card")
         XCTAssertEqual(rows.allElementsBoundByIndex.filter(\.isSelected).count, 1)
 
@@ -68,8 +68,8 @@ final class PanelGalleryUITests: XCTestCase {
         app.launch()
         defer { app.terminate() }
         XCTAssertTrue(
-            app.descendants(matching: .any)["panel-gallery"].firstMatch.waitForExistence(
-                timeout: 15),
+            app.descendants(matching: .any)["panel-gallery"].firstMatch.appears(
+                within: 15),
             "the gallery layout must come back on relaunch")
     }
 }

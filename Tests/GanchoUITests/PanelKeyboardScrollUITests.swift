@@ -20,7 +20,7 @@ final class PanelKeyboardScrollUITests: XCTestCase {
         defer { app.terminate() }
 
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(row(0, in: app).waitForExistence(timeout: 10))
+        XCTAssertTrue(row(0, in: app).appears(within: 10))
         search.click()
         guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 2) else {
             throw XCTSkip("the search field must own keyboard focus to send arrow keys")
@@ -53,7 +53,7 @@ final class PanelKeyboardScrollUITests: XCTestCase {
         _ index: Int, in app: XCUIApplication, line: UInt = #line
     ) {
         let selected = row(index, in: app)
-        XCTAssertTrue(selected.waitForExistence(timeout: 3), "row \(index)", line: line)
+        XCTAssertTrue(selected.appears(within: 3), "row \(index)", line: line)
         XCTAssertTrue(selected.isSelected, "row \(index)", line: line)
         let headers = app.descendants(matching: .any).matching(identifier: "panel-section-header")
         var covering: CGRect?

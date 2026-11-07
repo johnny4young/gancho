@@ -14,21 +14,21 @@ final class ClipTitleEditingUITests: XCTestCase {
         app.activate()
 
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        guard row.waitForExistence(timeout: 10), row.isHittable else {
+        guard row.waitForHittable(timeout: 10) else {
             throw XCTSkip("seeded panel row is not reachable on this runner")
         }
         try SynthesizedInput.requireForeground(app)
         row.click()
 
         let edit = app.buttons["preview-edit-title"].firstMatch
-        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        XCTAssertTrue(edit.appears(within: 5))
         edit.click()
         let field = app.textFields["preview-title-field"].firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 2))
+        XCTAssertTrue(field.appears(within: 2))
         try typeTextReliably("Team standup", into: field, in: app)
         app.buttons["preview-save-title"].firstMatch.click()
 
-        XCTAssertTrue(app.staticTexts["Team standup"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Team standup"].appears(within: 5))
         try keepRender(of: "history-panel", in: app, named: "macOS inline clip title editing")
     }
 }

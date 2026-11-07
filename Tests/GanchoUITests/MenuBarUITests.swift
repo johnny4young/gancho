@@ -28,7 +28,7 @@ final class MenuBarUITests: XCTestCase {
     @MainActor
     private func statusItem(_ app: XCUIApplication) throws -> XCUIElement {
         let item = app.statusItems.firstMatch
-        guard item.waitForExistence(timeout: 8), item.isHittable else {
+        guard item.waitForHittable(timeout: 8) else {
             throw XCTSkip("status item not hittable on this display/Space")
         }
         return item
@@ -49,7 +49,7 @@ final class MenuBarUITests: XCTestCase {
         XCTAssertTrue(waitForBadge("stack:2", on: item), "two clips wait in the stack")
 
         item.click()
-        XCTAssertTrue(app.menuItems["menu-bar-header"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.menuItems["menu-bar-header"].firstMatch.appears(within: 3))
         for number in 1...4 {
             let row = app.menuItems["menu-bar-recent-\(number)"].firstMatch
             XCTAssertTrue(row.exists, "recent \(number)")
@@ -155,7 +155,7 @@ final class MenuBarUITests: XCTestCase {
         let app = launch(["-simulate-screen-share", "Zoom"])
         defer { app.terminate() }
         let show = app.buttons["screen-share-show-anyway"].firstMatch
-        XCTAssertTrue(show.waitForExistence(timeout: 10), "detection runs on a 3 s tick")
+        XCTAssertTrue(show.appears(within: 10), "detection runs on a 3 s tick")
         let notice = app.descendants(matching: .any)["capture-notice"].firstMatch
         let texts = notice.staticTexts.allElementsBoundByIndex.map {
             $0.label.isEmpty ? $0.value as? String ?? "" : $0.label
@@ -163,7 +163,7 @@ final class MenuBarUITests: XCTestCase {
         XCTAssertTrue(texts.contains("Zoom is sharing. Rows show kinds only."), "\(texts)")
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         let code = rows.matching(NSPredicate(format: "label BEGINSWITH %@", "code,")).firstMatch
-        XCTAssertTrue(code.waitForExistence(timeout: 5))
+        XCTAssertTrue(code.appears(within: 5))
         XCTAssertTrue(code.label.contains("•••"), "masked while sharing: \(code.label)")
         if let item = try? statusItem(app) {
             XCTAssertTrue(waitForBadge("paused", on: item), "sharing pauses capture")
@@ -175,14 +175,14 @@ final class MenuBarUITests: XCTestCase {
         try SynthesizedInput.requireForeground(app)
         app.typeKey("y", modifierFlags: .command)
         XCTAssertFalse(
-            app.sheets["large-preview-window"].firstMatch.waitForExistence(timeout: 2),
+            app.sheets["large-preview-window"].firstMatch.appears(within: 2),
             "no large preview while previews are hidden")
 
         show.click()
         let revealed = rows.matching(
             NSPredicate(format: "label BEGINSWITH %@", "code, let greeting")
         ).firstMatch
-        XCTAssertTrue(revealed.waitForExistence(timeout: 5), "Show anyway reveals the rows")
+        XCTAssertTrue(revealed.appears(within: 5), "Show anyway reveals the rows")
         XCTAssertFalse(show.exists)
     }
 
@@ -192,11 +192,11 @@ final class MenuBarUITests: XCTestCase {
         let app = launch(["-start-capture-paused", "-simulate-screen-share", "Zoom"])
         defer { app.terminate() }
         XCTAssertTrue(
-            app.buttons["screen-share-show-anyway"].firstMatch.waitForExistence(timeout: 10),
+            app.buttons["screen-share-show-anyway"].firstMatch.appears(within: 10),
             "the share notice wins over the paused one")
         let code = app.descendants(matching: .any).matching(identifier: "clip-row")
             .matching(NSPredicate(format: "label BEGINSWITH %@", "code,")).firstMatch
-        XCTAssertTrue(code.waitForExistence(timeout: 5))
+        XCTAssertTrue(code.appears(within: 5))
         XCTAssertTrue(code.label.contains("•••"), "masked while sharing: \(code.label)")
     }
 }

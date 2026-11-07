@@ -6,9 +6,9 @@ final class OutboundPrivacyUITests: XCTestCase {
         let app = launch(seed: "-seed-outbound-privacy")
         defer { app.terminate() }
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 10), "the isolated privacy fixture must appear")
+        XCTAssertTrue(row.appears(within: 10), "the isolated privacy fixture must appear")
         row.press(forDuration: 1)
-        XCTAssertTrue(app.buttons["Copy"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Copy"].firstMatch.appears(within: 5))
         XCTAssertFalse(app.buttons["clip-share-action"].exists)
         let rawPreview = app.descendants(matching: .any).matching(
             NSPredicate(format: "label CONTAINS %@", "synthetic-protected-preview-canary"))
@@ -25,9 +25,9 @@ final class OutboundPrivacyUITests: XCTestCase {
         let app = launch(seed: "-seed-clip-editing")
         defer { app.terminate() }
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.appears(within: 10))
         row.press(forDuration: 1)
-        XCTAssertTrue(app.buttons["clip-share-action"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["clip-share-action"].firstMatch.appears(within: 5))
     }
 
     @MainActor

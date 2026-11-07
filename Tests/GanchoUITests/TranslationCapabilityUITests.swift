@@ -46,7 +46,7 @@ final class TranslationCapabilityUITests: XCTestCase {
         defer { app.terminate() }
         app.activate()
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.appears(within: 10))
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.tab, modifierFlags: [])
         row.click()
@@ -54,23 +54,23 @@ final class TranslationCapabilityUITests: XCTestCase {
         XCTAssertTrue(panel.exists)
         let originalFrame = panel.frame
         let transform = app.buttons["transform-button"].firstMatch
-        XCTAssertTrue(transform.waitForExistence(timeout: 5))
+        XCTAssertTrue(transform.appears(within: 5))
         transform.click()
         XCTAssertTrue(
-            app.buttons["transform-row-smart-redactPII"].firstMatch.waitForExistence(timeout: 5))
+            app.buttons["transform-row-smart-redactPII"].firstMatch.appears(within: 5))
         XCTAssertFalse(app.buttons["transform-row-smart-summarize"].firstMatch.exists)
         XCTAssertFalse(
             app.buttons["transform-row-describe-change"].firstMatch.exists,
             "Describe the change needs the model")
         let spanish = app.buttons["transform-row-translate-es"].firstMatch
-        XCTAssertTrue(spanish.waitForExistence(timeout: 5))
+        XCTAssertTrue(spanish.appears(within: 5))
         XCTAssertTrue(spanish.isEnabled)
         try SynthesizedInput.requireForeground(app)
         spanish.click()
         let result = app.descendants(matching: .any).matching(
             identifier: "intelligence-result-text"
         ).firstMatch
-        let found = result.waitForExistence(timeout: 5)
+        let found = result.appears(within: 5)
         if !found, panel.exists {
             // Diagnostic only: a failed render must not hide the assertion below.
             try? keepRender(

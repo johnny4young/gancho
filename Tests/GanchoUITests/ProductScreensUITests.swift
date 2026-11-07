@@ -24,7 +24,7 @@ final class ProductScreensUITests: XCTestCase {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         XCTAssertTrue(
-            rows.element(boundBy: 4).waitForExistence(timeout: 15),
+            rows.element(boundBy: 4).appears(within: 15),
             "the visual-library (4) and peek-link (1) seeds must list five rows")
         XCTAssertFalse(
             app.descendants(matching: .any)["capture-notice"].firstMatch.exists,
@@ -36,7 +36,7 @@ final class ProductScreensUITests: XCTestCase {
     private func select(_ predicate: NSPredicate, in app: XCUIApplication) {
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         let row = rows.matching(predicate).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        XCTAssertTrue(row.appears(within: 5))
         row.click()
         let selected = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "isSelected == true"), object: row)
@@ -56,8 +56,8 @@ final class ProductScreensUITests: XCTestCase {
         defer { app.terminate() }
         select(NSPredicate(format: "label CONTAINS %@", "example.com"), in: app)
         XCTAssertTrue(
-            app.descendants(matching: .any)["peek-link-hero"].firstMatch.waitForExistence(
-                timeout: 5))
+            app.descendants(matching: .any)["peek-link-hero"].firstMatch.appears(
+                within: 5))
         XCTAssertTrue(app.descendants(matching: .any)["peek-dock"].firstMatch.exists)
         try keep(app, "screen-panel-peek")
     }
@@ -69,8 +69,8 @@ final class ProductScreensUITests: XCTestCase {
         defer { app.terminate() }
         select(NSPredicate(format: "label CONTAINS %@", "example.com"), in: app)
         XCTAssertTrue(
-            app.descendants(matching: .any)["peek-link-hero"].firstMatch.waitForExistence(
-                timeout: 5))
+            app.descendants(matching: .any)["peek-link-hero"].firstMatch.appears(
+                within: 5))
         try keep(app, "screen-panel-large-text")
     }
 
@@ -79,7 +79,7 @@ final class ProductScreensUITests: XCTestCase {
         let app = launch(["-appearance", "dark", "-panel-layout", "gallery"])
         defer { app.terminate() }
         XCTAssertTrue(
-            app.descendants(matching: .any)["panel-gallery"].firstMatch.waitForExistence(timeout: 5)
+            app.descendants(matching: .any)["panel-gallery"].firstMatch.appears(within: 5)
         )
         select(NSPredicate(format: "label CONTAINS %@", "#008080"), in: app)
         try keep(app, "screen-panel-gallery")

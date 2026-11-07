@@ -22,12 +22,12 @@ final class MigrationImportUITests: XCTestCase {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
 
         let entry = app.buttons["onboarding-open-migration-importer"].firstMatch
-        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        XCTAssertTrue(entry.appears(within: 5))
         XCTAssertTrue(entry.isHittable)
         entry.click()
         XCTAssertTrue(
             app.descendants(matching: .any)["migration-import-sheet"].firstMatch
-                .waitForExistence(timeout: 5))
+                .appears(within: 5))
         XCTAssertTrue(app.buttons["migration-select-maccy"].firstMatch.exists)
         XCTAssertTrue(app.buttons["migration-select-csv"].firstMatch.exists)
     }
@@ -46,7 +46,7 @@ final class MigrationImportUITests: XCTestCase {
 
         app.buttons["migration-cancel"].firstMatch.click()
         XCTAssertTrue(
-            app.buttons["migration-select-maccy"].firstMatch.waitForExistence(timeout: 3),
+            app.buttons["migration-select-maccy"].firstMatch.appears(within: 3),
             "Cancel must discard the in-memory plan and return to source choice")
     }
 
@@ -56,10 +56,10 @@ final class MigrationImportUITests: XCTestCase {
         defer { app.terminate() }
 
         let confirm = app.buttons["migration-confirm"].firstMatch
-        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        XCTAssertTrue(confirm.appears(within: 5))
         confirm.click()
         XCTAssertTrue(
-            app.staticTexts["migration-complete-title"].firstMatch.waitForExistence(timeout: 5))
+            app.staticTexts["migration-complete-title"].firstMatch.appears(within: 5))
         XCTAssertEqual(value(of: "migration-imported-count", in: app), "3")
         XCTAssertEqual(value(of: "migration-skipped-count", in: app), "1")
         XCTAssertEqual(value(of: "migration-imported-protected-count", in: app), "1")
@@ -72,11 +72,11 @@ final class MigrationImportUITests: XCTestCase {
         let app = try launchImporter(seedArgument: "-seed-migration-error")
         defer { app.terminate() }
 
-        XCTAssertTrue(app.staticTexts["migration-error"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["migration-error"].firstMatch.appears(within: 5))
         let back = app.buttons["migration-back"].firstMatch
-        XCTAssertTrue(back.waitForExistence(timeout: 3))
+        XCTAssertTrue(back.appears(within: 3))
         back.click()
-        XCTAssertTrue(app.buttons["migration-select-csv"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["migration-select-csv"].firstMatch.appears(within: 3))
     }
 
     @MainActor
@@ -94,13 +94,13 @@ final class MigrationImportUITests: XCTestCase {
         ]
         app.launch()
 
-        guard app.windows["Settings"].firstMatch.waitForExistence(timeout: 5) else {
+        guard app.windows["Settings"].firstMatch.appears(within: 5) else {
             XCTFail("Settings window not exposed to the UI runner")
             app.terminate()
             throw CocoaError(.fileNoSuchFile)
         }
         let sheet = app.descendants(matching: .any)["migration-import-sheet"].firstMatch
-        guard sheet.waitForExistence(timeout: 5) else {
+        guard sheet.appears(within: 5) else {
             XCTFail("Migration sheet not exposed to the UI runner")
             app.terminate()
             throw CocoaError(.fileNoSuchFile)
@@ -113,7 +113,7 @@ final class MigrationImportUITests: XCTestCase {
     @MainActor
     private func value(of identifier: String, in app: XCUIApplication) -> String {
         let value = app.staticTexts[identifier].firstMatch
-        XCTAssertTrue(value.waitForExistence(timeout: 5), "Missing value: \(identifier)")
+        XCTAssertTrue(value.appears(within: 5), "Missing value: \(identifier)")
         return (value.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? value.label
     }
 
@@ -121,7 +121,7 @@ final class MigrationImportUITests: XCTestCase {
     private func keepMigrationRender(in app: XCUIApplication, named name: String) throws {
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        XCTAssertTrue(app.sheets.firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.sheets.firstMatch.appears(within: 3))
         try keepRender(of: "@sheet", in: app, named: name)
     }
 }

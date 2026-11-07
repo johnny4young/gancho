@@ -29,11 +29,11 @@ final class DenylistUITests: XCTestCase {
 
         let row = app.staticTexts[denylistRowIdentifier(for: seededBundleID)].firstMatch
         XCTAssertTrue(
-            row.waitForExistence(timeout: 5),
+            row.appears(within: 5),
             "the seeded denylist entry must render as a Settings row")
 
         let remove = app.buttons[denylistRemoveIdentifier(for: seededBundleID)].firstMatch
-        XCTAssertTrue(remove.waitForExistence(timeout: 3))
+        XCTAssertTrue(remove.appears(within: 3))
         // Wheel events land on the window under the pointer, so the app must be
         // verifiably frontmost before the form is scrolled.
         app.activate()
@@ -63,7 +63,7 @@ final class DenylistUITests: XCTestCase {
 
         let form = captureForm(in: app)
         let addMenu = app.descendants(matching: .any)["denylist-add-menu"].firstMatch
-        XCTAssertTrue(addMenu.waitForExistence(timeout: 3), "the Add app menu must be exposed")
+        XCTAssertTrue(addMenu.appears(within: 3), "the Add app menu must be exposed")
         app.activate()
         try SynthesizedInput.requireForeground(app)
         guard addMenu.revealByScrolling(in: form) else {
@@ -73,17 +73,17 @@ final class DenylistUITests: XCTestCase {
         addMenu.click()
         let byIdentifier = app.menuItems["By bundle identifier…"].firstMatch
         XCTAssertTrue(
-            byIdentifier.waitForExistence(timeout: 3), "the menu must list the typed path")
+            byIdentifier.appears(within: 3), "the menu must list the typed path")
         byIdentifier.click()
 
         let field = app.textFields["denylist-add-field"].firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 3), "the manual-entry field must appear")
+        XCTAssertTrue(field.appears(within: 3), "the manual-entry field must appear")
         let add = app.buttons["denylist-add-button"].firstMatch
         let error = app.staticTexts["denylist-add-error"].firstMatch
 
         // A bare word is refused live: Add stays off and the reason is shown.
         try typeTextReliably("safari", into: field, in: app)
-        XCTAssertTrue(error.waitForExistence(timeout: 2), "an implausible id must explain itself")
+        XCTAssertTrue(error.appears(within: 2), "an implausible id must explain itself")
         XCTAssertFalse(add.isEnabled, "Add must stay disabled for an implausible id")
 
         // The helper select-all-replaces, so this is the corrected entry.
@@ -93,13 +93,13 @@ final class DenylistUITests: XCTestCase {
         add.click()
 
         let row = app.staticTexts[denylistRowIdentifier(for: typedBundleID)].firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 3), "the added app must appear in the list")
+        XCTAssertTrue(row.appears(within: 3), "the added app must appear in the list")
         XCTAssertTrue(
             field.waitForNonexistence(timeout: 2), "adding folds the field back into the menu")
 
         // Cleanup doubles as the remove assertion for this path.
         let remove = app.buttons[denylistRemoveIdentifier(for: typedBundleID)].firstMatch
-        XCTAssertTrue(remove.waitForExistence(timeout: 3))
+        XCTAssertTrue(remove.appears(within: 3))
         guard remove.revealByScrolling(in: form) else {
             XCTFail("the new row's remove button must be reachable in the Capture form")
             return
@@ -120,7 +120,7 @@ final class DenylistUITests: XCTestCase {
 
         let form = captureForm(in: app)
         let addMenu = app.descendants(matching: .any)["denylist-add-menu"].firstMatch
-        XCTAssertTrue(addMenu.waitForExistence(timeout: 3), "the Capture form must load")
+        XCTAssertTrue(addMenu.appears(within: 3), "the Capture form must load")
         XCTAssertFalse(
             app.buttons[denylistRemoveIdentifier(for: builtInBundleID)].firstMatch.exists,
             "a built-in app must not also appear as a removable user entry")
@@ -128,7 +128,7 @@ final class DenylistUITests: XCTestCase {
         app.activate()
         try SynthesizedInput.requireForeground(app)
         let builtIns = app.descendants(matching: .any)["denylist-built-in"].firstMatch
-        guard builtIns.waitForExistence(timeout: 3), builtIns.revealByScrolling(in: form) else {
+        guard builtIns.appears(within: 3), builtIns.revealByScrolling(in: form) else {
             XCTFail("the Built-in exclusions row must be reachable in the Capture form")
             return
         }
@@ -137,7 +137,7 @@ final class DenylistUITests: XCTestCase {
         let toggle = app.descendants(matching: .any)[
             denylistToggleIdentifier(for: builtInBundleID)
         ].firstMatch
-        guard toggle.waitForExistence(timeout: 3), toggle.revealByScrolling(in: form) else {
+        guard toggle.appears(within: 3), toggle.revealByScrolling(in: form) else {
             XCTFail("the built-in app's switch must be reachable")
             return
         }
@@ -148,7 +148,7 @@ final class DenylistUITests: XCTestCase {
             waitForSwitch(toggle, on: false, timeout: 3), "the switch turns the protection off")
 
         let restore = app.buttons["denylist-restore-defaults"].firstMatch
-        guard restore.waitForExistence(timeout: 3), restore.revealByScrolling(in: form) else {
+        guard restore.appears(within: 3), restore.revealByScrolling(in: form) else {
             XCTFail("a switched-off built-in must offer Restore default exclusions")
             return
         }
@@ -173,7 +173,7 @@ final class DenylistUITests: XCTestCase {
         let app = try launchIntoCaptureSettings()
         defer { app.terminate() }
         let card = app.descendants(matching: .any)["capture-concealed-rule-card"].firstMatch
-        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertTrue(card.appears(within: 5))
         XCTAssertTrue(
             "\(card.label) \(card.value as? String ?? "")".contains(
                 "org.nspasteboard.ConcealedType"))
@@ -193,7 +193,7 @@ final class DenylistUITests: XCTestCase {
                 "-ui-test-defaults-suite", defaultsSuite
             ] + extraArguments)
         let captureTab = app.buttons["settings-tab-capture"].firstMatch
-        guard captureTab.waitForExistence(timeout: 3) else {
+        guard captureTab.appears(within: 3) else {
             XCTFail("Capture tab not exposed to the UI runner")
             app.terminate()
             throw CocoaError(.fileNoSuchFile)

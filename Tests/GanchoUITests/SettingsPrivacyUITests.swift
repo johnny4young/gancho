@@ -14,13 +14,13 @@ final class SettingsPrivacyUITests: XCTestCase {
         let settings = app.windows["Settings"].firstMatch
 
         let privacyTab = app.buttons["settings-tab-privacy"].firstMatch
-        XCTAssertTrue(privacyTab.waitForExistence(timeout: 3))
+        XCTAssertTrue(privacyTab.appears(within: 3))
         privacyTab.click()
 
         let spotlightToggle = app.switches["spotlight-indexing-toggle"].firstMatch
-        XCTAssertTrue(spotlightToggle.waitForExistence(timeout: 3))
+        XCTAssertTrue(spotlightToggle.appears(within: 3))
         let privacyNote = app.staticTexts["spotlight-indexing-privacy-note"].firstMatch
-        XCTAssertTrue(privacyNote.waitForExistence(timeout: 3))
+        XCTAssertTrue(privacyNote.appears(within: 3))
 
         let privacySettings = settings.scrollViews
             .containing(.any, identifier: "spotlight-indexing-toggle").firstMatch
@@ -40,15 +40,15 @@ final class SettingsPrivacyUITests: XCTestCase {
         ])
         defer { app.terminate() }
         let privacyTab = app.buttons["settings-tab-privacy"].firstMatch
-        XCTAssertTrue(privacyTab.waitForExistence(timeout: 3))
+        XCTAssertTrue(privacyTab.appears(within: 3))
         privacyTab.click()
 
         let picker = app.popUpButtons["private-mode-auto-off-picker"].firstMatch
-        XCTAssertTrue(picker.waitForExistence(timeout: 3))
+        XCTAssertTrue(picker.appears(within: 3))
         XCTAssertEqual(picker.value as? String, "1 hour")
         picker.click()
         let never = app.menuItems["Until I turn it off"].firstMatch
-        XCTAssertTrue(never.waitForExistence(timeout: 3))
+        XCTAssertTrue(never.appears(within: 3))
         never.click()
         XCTAssertEqual(picker.value as? String, "Until I turn it off")
     }
@@ -64,14 +64,14 @@ final class SettingsPrivacyUITests: XCTestCase {
         defer { app.terminate() }
         let settings = app.windows["Settings"].firstMatch
         let privacyTab = settings.buttons["settings-tab-privacy"].firstMatch
-        XCTAssertTrue(privacyTab.waitForExistence(timeout: 3))
+        XCTAssertTrue(privacyTab.appears(within: 3))
         privacyTab.click()
         for id in [
             "privacy-status-capturing", "privacy-status-encrypted", "privacy-status-skipped",
             "privacy-status-sync"
         ] {
             XCTAssertTrue(
-                settings.descendants(matching: .any)[id].firstMatch.waitForExistence(timeout: 5), id
+                settings.descendants(matching: .any)[id].firstMatch.appears(within: 5), id
             )
         }
         let encrypted = settings.descendants(matching: .any)["privacy-status-encrypted"].firstMatch
@@ -84,10 +84,10 @@ final class SettingsPrivacyUITests: XCTestCase {
 
         settings.buttons["settings-tab-retention"].firstMatch.click()
         let card = settings.buttons["settings-privacy-center-card"].firstMatch
-        XCTAssertTrue(card.waitForExistence(timeout: 3))
+        XCTAssertTrue(card.appears(within: 3))
         card.click()
         XCTAssertTrue(
             app.descendants(matching: .any)["privacy-center"].firstMatch
-                .waitForExistence(timeout: 5))
+                .appears(within: 5))
     }
 }

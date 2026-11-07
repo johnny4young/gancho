@@ -13,7 +13,7 @@ final class MenuBarCommandChannelUITests: XCTestCase {
 
         GanchoUITestCommands.post("settings", token: token)
 
-        XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.windows["Settings"].firstMatch.appears(within: 5))
     }
 
     @MainActor
@@ -23,7 +23,7 @@ final class MenuBarCommandChannelUITests: XCTestCase {
 
         GanchoUITestCommands.post("settings", token: UUID().uuidString)
 
-        XCTAssertFalse(app.windows["Settings"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.windows["Settings"].firstMatch.appears(within: 3))
     }
 
     @MainActor

@@ -14,9 +14,9 @@ final class TelemetryConsentUITests: XCTestCase {
         defer { app.terminate() }
 
         let prompt = app.descendants(matching: .any)["telemetry-consent-prompt"].firstMatch
-        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        XCTAssertTrue(prompt.appears(within: 5))
         let keepDisabled = app.buttons["Keep disabled"].firstMatch
-        XCTAssertTrue(keepDisabled.waitForExistence(timeout: 2))
+        XCTAssertTrue(keepDisabled.appears(within: 2))
 
         app.activate()
         try SynthesizedInput.requireForeground(app)
@@ -28,7 +28,7 @@ final class TelemetryConsentUITests: XCTestCase {
         }
         XCTAssertTrue(keepDisabled.waitForHittable(timeout: 5))
         keepDisabled.click()
-        XCTAssertTrue(prompt.waitForNonExistence(timeout: 5))
-        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        XCTAssertTrue(prompt.waitForNonexistence(timeout: 5))
+        XCTAssertTrue(search.appears(within: 5))
     }
 }

@@ -27,7 +27,7 @@ final class RetentionPassUITests: XCTestCase {
         }
 
         let expired = app.descendants(matching: .any)["private-receipt-expired-count"].firstMatch
-        XCTAssertTrue(expired.waitForExistence(timeout: 10), "the receipt must render")
+        XCTAssertTrue(expired.appears(within: 10), "the receipt must render")
         // The receipt loads asynchronously, so wait for the count rather than
         // reading it once.
         let counted = XCTNSPredicateExpectation(

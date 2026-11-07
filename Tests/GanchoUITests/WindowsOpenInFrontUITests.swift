@@ -26,7 +26,7 @@ final class WindowsOpenInFrontUITests: XCTestCase {
             finder.activate()
             XCTAssertTrue(finder.wait(for: .runningForeground, timeout: 10), command)
             GanchoUITestCommands.post(command, token: Self.nonce)
-            XCTAssertTrue(app.windows[title].firstMatch.waitForExistence(timeout: 10), title)
+            XCTAssertTrue(app.windows[title].firstMatch.appears(within: 10), title)
             XCTAssertTrue(
                 app.wait(for: .runningForeground, timeout: 5), "\(title) takes the keyboard")
             XCTAssertEqual(frontWindowOwner(), "Gancho", "\(title) opens above the active app")
@@ -52,7 +52,7 @@ final class WindowsOpenInFrontUITests: XCTestCase {
 
         GanchoUITestCommands.post("copyScreenText", token: Self.nonce)
         let alert = app.staticTexts["Copy screen text privately"].firstMatch
-        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(alert.appears(within: 10))
         XCTAssertTrue(
             app.wait(for: .runningForeground, timeout: 5), "the alert takes the keyboard")
     }

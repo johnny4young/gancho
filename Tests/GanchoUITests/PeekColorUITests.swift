@@ -29,7 +29,7 @@ final class PeekColorUITests: XCTestCase {
     private func select(_ label: String, in app: XCUIApplication) -> XCUIElement {
         let row = rows(app).matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
         XCTAssertTrue(
-            row.waitForExistence(timeout: 15),
+            row.appears(within: 15),
             "\(label) in \(rows(app).allElementsBoundByIndex.map(\.label))")
         row.click()
         return row
@@ -51,7 +51,7 @@ final class PeekColorUITests: XCTestCase {
         let hero = app.descendants(matching: .any)["peek-hero"].firstMatch
         XCTAssertTrue(
             hero.descendants(matching: .any)["peek-color-format-hex"].firstMatch
-                .waitForExistence(timeout: 5))
+                .appears(within: 5))
         for (key, value) in [
             ("hex", "#008080"), ("rgb", "rgb(0, 128, 128)"), ("hsl", "hsl(180, 100%, 25%)"),
             ("swift", "Color(red: 0, green: 0.502, blue: 0.502)")
@@ -75,7 +75,7 @@ final class PeekColorUITests: XCTestCase {
 
         hero.buttons["peek-color-copy-hex"].firstMatch.click()
         let toast = app.descendants(matching: .any)["gancho-toast"].firstMatch
-        XCTAssertTrue(toast.waitForExistence(timeout: 5), "copying a format confirms it")
+        XCTAssertTrue(toast.appears(within: 5), "copying a format confirms it")
 
         let convert = app.buttons["preview-convert"].firstMatch
         XCTAssertTrue(convert.exists, "Convert sits in the colour dock")
@@ -86,7 +86,7 @@ final class PeekColorUITests: XCTestCase {
         app.typeKey(.rightArrow, modifierFlags: [])
         app.typeKey(.return, modifierFlags: .shift)
         let result = app.descendants(matching: .any)["intelligence-result-text"].firstMatch
-        XCTAssertTrue(result.waitForExistence(timeout: 5), "⇧⏎ opens Convert's result")
+        XCTAssertTrue(result.appears(within: 5), "⇧⏎ opens Convert's result")
     }
 
     @MainActor
@@ -96,20 +96,20 @@ final class PeekColorUITests: XCTestCase {
         _ = select("image, 1200 × 600", in: app)
         let before = rows(app).count
         XCTAssertTrue(
-            app.descendants(matching: .any)["peek-region-toggle"].firstMatch.waitForExistence(
-                timeout: 5))
+            app.descendants(matching: .any)["peek-region-toggle"].firstMatch.appears(
+                within: 5))
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.rightArrow, modifierFlags: [])
         app.typeKey("i", modifierFlags: [])
         let eyedropper = app.descendants(matching: .any)["peek-eyedropper"].firstMatch
-        XCTAssertTrue(eyedropper.waitForExistence(timeout: 5), "I takes up the eyedropper")
+        XCTAssertTrue(eyedropper.appears(within: 5), "I takes up the eyedropper")
         app.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(eyedropper.waitForNonExistence(timeout: 5), "esc puts it down first")
+        XCTAssertTrue(eyedropper.waitForNonexistence(timeout: 5), "esc puts it down first")
         XCTAssertTrue(
             app.descendants(matching: .any)["history-panel"].firstMatch.exists,
             "the first esc leaves the panel open")
         app.typeKey("i", modifierFlags: [])
-        XCTAssertTrue(eyedropper.waitForExistence(timeout: 5))
+        XCTAssertTrue(eyedropper.appears(within: 5))
         // The seed's orange circle sits at the centre of the image.
         eyedropper.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
 
@@ -130,7 +130,7 @@ final class PeekColorUITests: XCTestCase {
         _ = select("image, 1200 × 600", in: app)
         let before = rows(app).count
         let swatches = app.descendants(matching: .any)["peek-dominant-colors"].firstMatch
-        XCTAssertTrue(swatches.waitForExistence(timeout: 5))
+        XCTAssertTrue(swatches.appears(within: 5))
         let first = app.buttons["peek-dominant-color-0"].firstMatch
         XCTAssertTrue(first.exists)
         XCTAssertTrue(app.buttons["peek-dominant-color-1"].firstMatch.exists, "teal and orange")

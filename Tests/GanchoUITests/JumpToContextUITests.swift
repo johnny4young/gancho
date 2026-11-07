@@ -48,7 +48,7 @@ final class JumpToContextUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         let anchor = row(containing: "becomesKeyOnlyIfNeeded", in: app)
-        XCTAssertTrue(anchor.waitForExistence(timeout: 15))
+        XCTAssertTrue(anchor.appears(within: 15))
         XCTAssertTrue(waitForCount(6, in: app))
         try SynthesizedInput.requireForeground(app)
         // Newest first: the link, the fix, then the code. The keys stay in the search field.
@@ -56,11 +56,11 @@ final class JumpToContextUITests: XCTestCase {
         app.typeKey(.downArrow, modifierFlags: [])
 
         let peekAction = app.descendants(matching: .any)["preview-context"].firstMatch
-        XCTAssertTrue(peekAction.waitForExistence(timeout: 5), "the peek offers Show context")
+        XCTAssertTrue(peekAction.appears(within: 5), "the peek offers Show context")
         try keepRender(of: "history-panel", in: app, named: "Show context in the peek")
 
         app.typeKey("j", modifierFlags: .command)
-        XCTAssertTrue(header(app).waitForExistence(timeout: 5))
+        XCTAssertTrue(header(app).appears(within: 5))
         XCTAssertFalse(peekAction.exists, "not offered again inside context mode")
         XCTAssertTrue(
             waitForCount(5, in: app),
@@ -71,7 +71,7 @@ final class JumpToContextUITests: XCTestCase {
         try keepRender(of: "history-panel", in: app, named: "Jump to context")
 
         app.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(header(app).waitForNonExistence(timeout: 5))
+        XCTAssertTrue(header(app).waitForNonexistence(timeout: 5))
         XCTAssertTrue(waitForCount(6, in: app))
         XCTAssertTrue(
             app.descendants(matching: .any)["history-panel"].firstMatch.exists,
@@ -89,13 +89,13 @@ final class JumpToContextUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         let link = row(containing: "gancho.app/docs/panel", in: app)
-        XCTAssertTrue(link.waitForExistence(timeout: 15))
+        XCTAssertTrue(link.appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         link.rightClick()
         let item = app.menuItems["row-show-context"].firstMatch
-        XCTAssertTrue(item.waitForExistence(timeout: 3))
+        XCTAssertTrue(item.appears(within: 3))
         item.click()
-        XCTAssertTrue(header(app).waitForExistence(timeout: 5))
+        XCTAssertTrue(header(app).appears(within: 5))
         // 2 min before the last clip: the code, the fix and the link itself.
         XCTAssertTrue(waitForCount(3, in: app))
     }

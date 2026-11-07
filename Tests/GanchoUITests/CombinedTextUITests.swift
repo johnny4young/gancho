@@ -33,7 +33,7 @@ final class CombinedTextUITests: XCTestCase {
         // first row can exist while the rest are still landing. Wait for the
         // last seeded row before snapshotting the count this test compares
         // against later, or the snapshot races the seed.
-        XCTAssertTrue(rows.element(boundBy: 2).waitForExistence(timeout: 15))
+        XCTAssertTrue(rows.element(boundBy: 2).appears(within: 15))
         let count = rows.count
         XCTAssertGreaterThanOrEqual(count, 3)
         try SynthesizedInput.requireForeground(app)
@@ -45,12 +45,12 @@ final class CombinedTextUITests: XCTestCase {
             app.windows["SafariPlatformSupportAutoCompleteWindow"].exists,
             "search completion must not obscure the multi-selection controls")
         let combined = app.buttons["selection-copy-combined-button"]
-        XCTAssertTrue(combined.waitForExistence(timeout: 5))
+        XCTAssertTrue(combined.appears(within: 5))
         combined.click()
         let preview = app.descendants(matching: .any)["combined-text-preview"].firstMatch
-        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertTrue(preview.appears(within: 5))
         let expectedText = "Xcode source sample\n\nSafari source alpha"
-        XCTAssertTrue(preview.staticTexts[expectedText].waitForExistence(timeout: 5))
+        XCTAssertTrue(preview.staticTexts[expectedText].appears(within: 5))
         XCTAssertEqual(
             app.descendants(matching: .any).matching(identifier: "combined-text-preview").count, 1,
             "The preview identifier must belong to one container, not its descendants")
@@ -65,17 +65,17 @@ final class CombinedTextUITests: XCTestCase {
         XCTAssertTrue(copy.isEnabled)
         XCTAssertEqual(rows.count, count)
         app.buttons["combined-text-cancel"].firstMatch.click()
-        XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(preview.waitForNonexistence(timeout: 5))
         XCTAssertEqual(rows.count, count)
         combined.click()
-        XCTAssertTrue(preview.staticTexts[expectedText].waitForExistence(timeout: 5))
+        XCTAssertTrue(preview.staticTexts[expectedText].appears(within: 5))
         XCTAssertTrue(copy.waitForHittable(timeout: 5))
         XCTAssertTrue(copy.isEnabled)
         if customSeparator { try verifyCustomSeparator(in: app, preview: preview, copy: copy) }
         try keepRender(
             of: "history-panel", in: app, named: "Combined text review — synthetic source clips")
         copy.click()
-        XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(preview.waitForNonexistence(timeout: 5))
         XCTAssertEqual(rows.count, count)
     }
 
@@ -92,7 +92,7 @@ final class CombinedTextUITests: XCTestCase {
         separator.typeText(" | ")
         XCTAssertTrue(
             preview.staticTexts["Xcode source sample | Safari source alpha"]
-                .waitForExistence(timeout: 5))
+                .appears(within: 5))
         XCTAssertTrue(copy.isHittable)
         XCTAssertTrue(app.buttons["combined-text-cancel"].isHittable)
     }

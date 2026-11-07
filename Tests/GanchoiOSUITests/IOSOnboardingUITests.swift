@@ -14,12 +14,12 @@ final class IOSOnboardingUITests: XCTestCase {
         defer { app.terminate() }
 
         let next = app.buttons["onboarding-next"].firstMatch
-        XCTAssertTrue(next.waitForExistence(timeout: 10))
+        XCTAssertTrue(next.appears(within: 10))
         XCTAssertFalse(app.buttons["onboarding-done"].exists, "Get started lives on page 2")
         next.tap()
 
         let example = app.descendants(matching: .any)["onboarding-sensed-example"].firstMatch
-        XCTAssertTrue(example.waitForExistence(timeout: 5))
+        XCTAssertTrue(example.appears(within: 5))
         XCTAssertTrue(app.navigationBars["2 of 2"].exists)
         XCTAssertTrue(
             app.descendants(matching: .any)["onboarding-paste-control"].firstMatch.exists)
@@ -31,18 +31,18 @@ final class IOSOnboardingUITests: XCTestCase {
         add(attachment)
 
         app.buttons["onboarding-how-keyboard"].firstMatch.tap()
-        XCTAssertTrue(app.navigationBars["Gancho keyboard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Gancho keyboard"].appears(within: 5))
         app.navigationBars["Gancho keyboard"].buttons["Done"].tap()
-        XCTAssertTrue(example.waitForExistence(timeout: 5))
+        XCTAssertTrue(example.appears(within: 5))
 
         app.buttons["onboarding-back"].firstMatch.tap()
-        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        XCTAssertTrue(next.appears(within: 5))
         next.tap()
         let done = app.buttons["onboarding-done"].firstMatch
-        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        XCTAssertTrue(done.appears(within: 5))
         done.tap()
         XCTAssertTrue(
-            next.waitForNonExistence(timeout: 5), "Get started closes the welcome")
+            next.waitForNonexistence(timeout: 5), "Get started closes the welcome")
         XCTAssertFalse(example.exists)
     }
 }

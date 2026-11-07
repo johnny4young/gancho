@@ -31,7 +31,7 @@ func launchSettingsWindow(
             "-AppleLanguages", "(en)"
         ] + extraArguments
     app.launch()
-    guard app.windows["Settings"].firstMatch.waitForExistence(timeout: 8) else {
+    guard app.windows["Settings"].firstMatch.appears(within: 8) else {
         XCTFail("Settings window not exposed to the UI runner", file: file, line: line)
         app.terminate()
         throw CocoaError(.fileNoSuchFile)

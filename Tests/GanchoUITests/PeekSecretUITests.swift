@@ -9,15 +9,15 @@ final class PeekSecretUITests: XCTestCase {
         let app = launchPanel(nonce: nonce)
         defer { app.terminate() }
         let secrets = app.buttons["filter-secrets"].firstMatch
-        XCTAssertTrue(secrets.waitForExistence(timeout: 15))
+        XCTAssertTrue(secrets.appears(within: 15))
         secrets.click()
         let row = app.descendants(matching: .any).matching(identifier: "clip-row")
             .matching(NSPredicate(format: "label BEGINSWITH 'secret,'")).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        XCTAssertTrue(row.appears(within: 5))
         row.click()
 
         let hero = app.descendants(matching: .any)["peek-secret-hero"].firstMatch
-        XCTAssertTrue(hero.waitForExistence(timeout: 5))
+        XCTAssertTrue(hero.appears(within: 5))
         XCTAssertEqual(text(of: app.staticTexts["peek-masked"].firstMatch), "●●●● 4Q2v")
         XCTAssertEqual(text(of: app.staticTexts["preview-title"].firstMatch), "Secret")
         let countdown = app.descendants(matching: .any)["peek-secret-countdown"].firstMatch
@@ -30,26 +30,26 @@ final class PeekSecretUITests: XCTestCase {
 
         app.buttons["peek-reveal-button"].firstMatch.click()
         let revealed = app.staticTexts["peek-revealed"].firstMatch
-        XCTAssertTrue(revealed.waitForExistence(timeout: 5))
+        XCTAssertTrue(revealed.appears(within: 5))
         XCTAssertEqual(text(of: revealed), "synthetic-peek-secret-4Q2v")
         XCTAssertTrue(
-            app.staticTexts["peek-masked"].firstMatch.waitForExistence(timeout: 13),
+            app.staticTexts["peek-masked"].firstMatch.appears(within: 13),
             "the reveal masks itself again after 10 s")
         XCTAssertFalse(revealed.exists)
 
         // Private mode while revealed masks it at once, and it stays masked after.
         app.buttons["peek-reveal-button"].firstMatch.click()
-        XCTAssertTrue(revealed.waitForExistence(timeout: 5))
+        XCTAssertTrue(revealed.appears(within: 5))
         GanchoUITestCommands.post("togglePrivateMode", token: nonce)
         XCTAssertTrue(
             app.descendants(matching: .any)["peek-private-mode"].firstMatch
-                .waitForExistence(timeout: 5))
+                .appears(within: 5))
         GanchoUITestCommands.post("togglePrivateMode", token: nonce)
-        XCTAssertTrue(app.staticTexts["peek-masked"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["peek-masked"].firstMatch.appears(within: 5))
         XCTAssertFalse(revealed.exists)
 
         app.buttons["peek-delete-now"].firstMatch.click()
-        XCTAssertTrue(row.waitForNonExistence(timeout: 5), "Delete now removes the secret")
+        XCTAssertTrue(row.waitForNonexistence(timeout: 5), "Delete now removes the secret")
     }
 
     /// macOS puts a static text's string in its label or its value.

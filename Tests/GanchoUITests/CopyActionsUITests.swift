@@ -39,7 +39,7 @@ final class CopyActionsUITests: XCTestCase {
     func testColorOffersFormats() throws {
         let app = launch(seeding: "color")
         defer { app.terminate() }
-        XCTAssertTrue(hud(app).waitForExistence(timeout: 10))
+        XCTAssertTrue(hud(app).appears(within: 10))
         XCTAssertTrue(title(app).contains("Color · #008080"), title(app))
         XCTAssertTrue(app.buttons["copy-hud-action-rgb"].exists)
         XCTAssertTrue(app.buttons["copy-hud-action-hsl"].exists)
@@ -50,7 +50,7 @@ final class CopyActionsUITests: XCTestCase {
     func testLinkOffersOpen() throws {
         let app = launch(seeding: "link")
         defer { app.terminate() }
-        XCTAssertTrue(hud(app).waitForExistence(timeout: 10))
+        XCTAssertTrue(hud(app).appears(within: 10))
         XCTAssertTrue(title(app).contains("Link · gancho.app"), title(app))
         XCTAssertTrue(app.buttons["copy-hud-action-open"].exists)
         try keepRender(of: "copy-hud-panel", in: app, named: "Link HUD")
@@ -62,7 +62,7 @@ final class CopyActionsUITests: XCTestCase {
         let nonce = UUID().uuidString
         let app = launch(seeding: "color", extra: ["-command-nonce", nonce])
         defer { app.terminate() }
-        XCTAssertTrue(hud(app).waitForExistence(timeout: 10))
+        XCTAssertTrue(hud(app).appears(within: 10))
         GanchoUITestCommands.post("togglePrivateMode", token: nonce)
         XCTAssertTrue(hud(app).waitForNonexistence(timeout: 5))
     }
@@ -72,11 +72,11 @@ final class CopyActionsUITests: XCTestCase {
     func testOneTimeCodeIsMaskedAndForgetRemovesIt() throws {
         let app = launch(seeding: "code")
         defer { app.terminate() }
-        XCTAssertTrue(hud(app).waitForExistence(timeout: 10))
+        XCTAssertTrue(hud(app).appears(within: 10))
         XCTAssertTrue(title(app).hasPrefix("One-time code"), title(app))
         XCTAssertFalse(title(app).contains("482"), "the code never shows")
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(rows.firstMatch.appears(within: 5))
         XCTAssertEqual(rows.count, 1)
         try keepRender(of: "copy-hud-panel", in: app, named: "One-time code HUD")
 
@@ -84,7 +84,7 @@ final class CopyActionsUITests: XCTestCase {
         XCTAssertTrue(forget.exists)
         forget.click()
         XCTAssertTrue(rows.firstMatch.waitForNonexistence(timeout: 5))
-        XCTAssertTrue(hud(app).waitForExistence(timeout: 5))
+        XCTAssertTrue(hud(app).appears(within: 5))
         XCTAssertEqual(title(app), "Forgotten")
     }
 
@@ -100,7 +100,7 @@ final class CopyActionsUITests: XCTestCase {
         defer { app.terminate() }
         app.buttons["settings-tab-capture"].firstMatch.click()
         let toggle = app.descendants(matching: .any)["settings-copy-actions"].firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertTrue(toggle.appears(within: 5))
         XCTAssertEqual(toggle.value as? Int, 0)
         let form = app.scrollViews.containing(.any, identifier: "settings-copy-actions").firstMatch
         XCTAssertTrue(toggle.revealByScrolling(in: form))
@@ -109,7 +109,7 @@ final class CopyActionsUITests: XCTestCase {
 
         try SynthesizedInput.requireForeground(app)
         toggle.click()
-        XCTAssertTrue(colors.waitForExistence(timeout: 5))
+        XCTAssertTrue(colors.appears(within: 5))
         for id in ["colors", "links", "codes"] {
             let kind = app.descendants(matching: .any)["settings-copy-actions-\(id)"].firstMatch
             XCTAssertEqual(kind.value as? Int, 1, id)

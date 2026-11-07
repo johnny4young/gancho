@@ -33,11 +33,11 @@ final class PanelAppearanceUITests: XCTestCase {
         app.launch()
         defer { app.terminate() }
         let images = app.buttons["filter-images"].firstMatch
-        XCTAssertTrue(images.waitForExistence(timeout: 15))
+        XCTAssertTrue(images.appears(within: 15))
         images.click()
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
             .matching(NSPredicate(format: "label BEGINSWITH 'image,'"))
-        XCTAssertTrue(rows.element(boundBy: 1).waitForExistence(timeout: 5))
+        XCTAssertTrue(rows.element(boundBy: 1).appears(within: 5))
         // Image rows already exist in the unfiltered list; wait for the filtered render.
         let firstBadge = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "value == %@", "⌘1"), object: rows.element(boundBy: 0))
@@ -56,7 +56,7 @@ final class PanelAppearanceUITests: XCTestCase {
         XCTAssertFalse(masked.label.contains("×"), masked.label)
         landscape.click()
         let title = app.staticTexts["preview-title"].firstMatch
-        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertTrue(title.appears(within: 5))
         XCTAssertTrue(
             title.label == "Synthetic landscape" || title.value as? String == "Synthetic landscape")
     }
@@ -81,7 +81,7 @@ final class PanelAppearanceUITests: XCTestCase {
         defer { app.terminate() }
 
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        XCTAssertTrue(search.appears(within: 15))
         XCTAssertTrue(app.descendants(matching: .any)["board-rail"].firstMatch.exists)
         XCTAssertTrue(app.descendants(matching: .any)["filter-rail"].firstMatch.exists)
         XCTAssertTrue(app.buttons["filter-save"].firstMatch.exists)
@@ -92,7 +92,7 @@ final class PanelAppearanceUITests: XCTestCase {
 
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         XCTAssertTrue(
-            rows.element(boundBy: 2).waitForExistence(timeout: 10),
+            rows.element(boundBy: 2).appears(within: 10),
             "the seeded history must show at least three rows")
         XCTAssertEqual(rows.allElementsBoundByIndex.filter(\.isSelected).count, 1)
 
@@ -102,8 +102,8 @@ final class PanelAppearanceUITests: XCTestCase {
             predicate: NSPredicate(format: "isSelected == true"), object: secondRow)
         XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 3), .completed)
         XCTAssertTrue(
-            app.descendants(matching: .any)["preview-title"].firstMatch.waitForExistence(
-                timeout: 5),
+            app.descendants(matching: .any)["preview-title"].firstMatch.appears(
+                within: 5),
             "selecting a row must open the peek beside the list")
         verifyDock(in: app)
 
@@ -116,10 +116,10 @@ final class PanelAppearanceUITests: XCTestCase {
     @MainActor
     private func verifySourceFilter(in app: XCUIApplication, panel: XCUIElement) {
         let source = app.descendants(matching: .any)["source-app-filter"].firstMatch
-        XCTAssertTrue(source.waitForExistence(timeout: 5))
+        XCTAssertTrue(source.appears(within: 5))
         source.click()
         let safari = app.menuItems["source-app-com.apple.Safari"].firstMatch
-        XCTAssertTrue(safari.waitForExistence(timeout: 5))
+        XCTAssertTrue(safari.appears(within: 5))
         safari.click()
         let rail = app.descendants(matching: .any)["filter-rail"].firstMatch
         let boardRail = app.descendants(matching: .any)["board-rail"].firstMatch
@@ -133,7 +133,7 @@ final class PanelAppearanceUITests: XCTestCase {
         XCTAssertLessThanOrEqual(source.frame.maxX, save.frame.minX + 1)
         source.click()
         let allApps = app.menuItems["source-app-all"].firstMatch
-        XCTAssertTrue(allApps.waitForExistence(timeout: 5))
+        XCTAssertTrue(allApps.appears(within: 5))
         allApps.click()
 
     }
@@ -141,7 +141,7 @@ final class PanelAppearanceUITests: XCTestCase {
     @MainActor
     private func verifyDock(in app: XCUIApplication) {
         let dock = app.descendants(matching: .any)["peek-dock"].firstMatch
-        XCTAssertTrue(dock.waitForExistence(timeout: 5), "the peek must show its action dock")
+        XCTAssertTrue(dock.appears(within: 5), "the peek must show its action dock")
         for identifier in ["preview-paste", "preview-paste-plain", "preview-pin", "preview-board"] {
             XCTAssertTrue(
                 dock.descendants(matching: .any)[identifier].firstMatch.exists,

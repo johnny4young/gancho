@@ -25,14 +25,14 @@ final class PerformanceBaselineUITests: XCTestCase {
         options.iterationCount = 10
         measure(metrics: [metric("panel-to-first-frame")], options: options) {
             GanchoUITestCommands.post("openPanel", token: token)
-            XCTAssertTrue(panel.waitForExistence(timeout: 5))
+            XCTAssertTrue(panel.appears(within: 5))
             // The panel is non-activating, so the app is never "frontmost";
             // keys go only to a search field that holds keyboard focus.
             guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 5) else {
                 return XCTFail("search field never took keyboard focus")
             }
             search.typeKey(.escape, modifierFlags: [])
-            XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
+            XCTAssertTrue(panel.waitForNonexistence(timeout: 5))
         }
     }
 
@@ -46,13 +46,13 @@ final class PerformanceBaselineUITests: XCTestCase {
         options.iterationCount = 10
         measure(metrics: [metric("paste-dispatch")], options: options) {
             GanchoUITestCommands.post("openPanel", token: token)
-            XCTAssertTrue(panel.waitForExistence(timeout: 5))
-            XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+            XCTAssertTrue(panel.appears(within: 5))
+            XCTAssertTrue(rows.firstMatch.appears(within: 10))
             guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 5) else {
                 return XCTFail("search field never took keyboard focus")
             }
             search.typeKey(.return, modifierFlags: [])
-            XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
+            XCTAssertTrue(panel.waitForNonexistence(timeout: 5))
         }
     }
 

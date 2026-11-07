@@ -18,7 +18,7 @@ final class PanelPrewarmedOpenUITests: XCTestCase {
         ]
         app.launch()
         defer { app.terminate() }
-        XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.windows["Settings"].firstMatch.appears(within: 10))
         // Before the panel opens: activating after would give Settings the key and
         // close it, since this launch keeps the panel's real focus behavior.
         app.activate()
@@ -28,7 +28,7 @@ final class PanelPrewarmedOpenUITests: XCTestCase {
 
         GanchoUITestCommands.post("openPanel", token: token)
         let panel = app.descendants(matching: .any)["history-panel"].firstMatch
-        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        XCTAssertTrue(panel.appears(within: 5))
         // The row id also reaches its child texts, so ask for the element that
         // actually carries the selected trait and read its label.
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
@@ -38,8 +38,8 @@ final class PanelPrewarmedOpenUITests: XCTestCase {
         }
         XCTAssertTrue(
             rows.matching(NSPredicate(format: "label CONTAINS %@", "Safari source link"))
-                .firstMatch.waitForExistence(timeout: 10))
-        XCTAssertTrue(selected.waitForExistence(timeout: 5))
+                .firstMatch.appears(within: 10))
+        XCTAssertTrue(selected.appears(within: 5))
         XCTAssertTrue(
             selected.label.contains("Xcode source sample"),
             "the first open selects the newest clip, got \(selected.label)")
@@ -56,10 +56,10 @@ final class PanelPrewarmedOpenUITests: XCTestCase {
             "the newest clip is no longer selected")
 
         search.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(panel.waitForNonexistence(timeout: 5))
         GanchoUITestCommands.post("openPanel", token: token)
-        XCTAssertTrue(panel.waitForExistence(timeout: 5))
-        XCTAssertTrue(selected.waitForExistence(timeout: 5))
+        XCTAssertTrue(panel.appears(within: 5))
+        XCTAssertTrue(selected.appears(within: 5))
         XCTAssertTrue(
             selected.label.contains("Xcode source sample"),
             "a reopen starts from the newest clip again, got \(selected.label)")

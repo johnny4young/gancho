@@ -22,7 +22,7 @@ final class MCPAccessUITests: XCTestCase {
         try keepMCPRender(in: app, named: "macOS MCP client grants")
 
         let revoke = app.buttons["mcp-revoke-client-claude-desktop"].firstMatch
-        XCTAssertTrue(revoke.waitForExistence(timeout: 3))
+        XCTAssertTrue(revoke.appears(within: 3))
         // A window that opens partly off-screen leaves this button out of
         // reach. Report that here, not as a revocation that never published.
         guard revoke.isCenterOnDisplay else {
@@ -50,24 +50,24 @@ final class MCPAccessUITests: XCTestCase {
         defer { app.terminate() }
 
         let add = app.buttons["mcp-add-client-button"].firstMatch
-        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        XCTAssertTrue(add.appears(within: 5))
         XCTAssertTrue(add.isEnabled)
         add.click()
 
         XCTAssertTrue(
-            app.staticTexts["mcp-new-client-header"].firstMatch.waitForExistence(timeout: 3))
+            app.staticTexts["mcp-new-client-header"].firstMatch.appears(within: 3))
         let name = app.textFields["mcp-new-client-name-field"].firstMatch
-        XCTAssertTrue(name.waitForExistence(timeout: 3))
+        XCTAssertTrue(name.appears(within: 3))
         name.click()
         name.typeText("Raycast")
 
         let create = app.buttons["mcp-create-grant-button"].firstMatch
-        XCTAssertTrue(create.waitForExistence(timeout: 3))
+        XCTAssertTrue(create.appears(within: 3))
         XCTAssertTrue(create.isEnabled)
         create.click()
 
         XCTAssertTrue(
-            app.staticTexts["mcp-client-name-raycast"].firstMatch.waitForExistence(timeout: 3))
+            app.staticTexts["mcp-client-name-raycast"].firstMatch.appears(within: 3))
         XCTAssertTrue(waitForLabelOrValue("Active", of: "mcp-client-state-raycast", in: app))
         XCTAssertTrue(waitForLabelOrValue("2 active", of: "mcp-active-client-count", in: app))
     }
@@ -93,12 +93,12 @@ final class MCPAccessUITests: XCTestCase {
             app.terminate()
             throw CocoaError(.fileNoSuchFile)
         }
-        guard app.windows["MCP Access"].firstMatch.waitForExistence(timeout: 5) else {
+        guard app.windows["MCP Access"].firstMatch.appears(within: 5) else {
             XCTFail("MCP Access window was not exposed to the UI runner")
             app.terminate()
             throw CocoaError(.fileNoSuchFile)
         }
-        XCTAssertTrue(app.staticTexts["mcp-access-header"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["mcp-access-header"].firstMatch.appears(within: 3))
         return app
     }
 
@@ -144,7 +144,7 @@ final class MCPAccessUITests: XCTestCase {
         timeout: TimeInterval = 5
     ) -> Bool {
         let element = app.descendants(matching: .any)[identifier].firstMatch
-        guard element.waitForExistence(timeout: timeout) else { return false }
+        guard element.appears(within: timeout) else { return false }
         let predicate = NSPredicate { object, _ in
             guard let element = object as? XCUIElement else { return false }
             // One canonical string, matching the strict pre-polling semantics:
@@ -161,7 +161,7 @@ final class MCPAccessUITests: XCTestCase {
     private func keepMCPRender(in app: XCUIApplication, named name: String) throws {
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        XCTAssertTrue(app.windows["MCP Access"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.windows["MCP Access"].firstMatch.appears(within: 3))
         try keepRender(of: "MCP Access", in: app, named: name)
     }
 }

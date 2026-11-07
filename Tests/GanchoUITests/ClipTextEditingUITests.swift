@@ -18,13 +18,13 @@ final class ClipTextEditingUITests: XCTestCase {
         defer { app.terminate() }
 
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        guard row.waitForExistence(timeout: 10), row.isHittable else {
+        guard row.waitForHittable(timeout: 10) else {
             throw XCTSkip("seeded panel row is not reachable on this runner")
         }
         row.click()
 
         let edit = app.buttons["preview-edit-content"].firstMatch
-        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        XCTAssertTrue(edit.appears(within: 5))
         if edit.isHittable {
             edit.click()
         } else {
@@ -36,7 +36,7 @@ final class ClipTextEditingUITests: XCTestCase {
             edit.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
         }
         let field = app.textViews["preview-content-field"].firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 2))
+        XCTAssertTrue(field.appears(within: 2))
         field.click()
         // `app.typeKey`/`typeText` are GLOBAL events: a menu-bar-agent window
         // that fails to foreground under the runner would send this ⌘A + text
@@ -58,7 +58,7 @@ final class ClipTextEditingUITests: XCTestCase {
             NSPredicate(
                 format: "identifier == 'clip-row' AND label CONTAINS %@", finalText)
         ).firstMatch
-        XCTAssertTrue(saved.waitForExistence(timeout: 5))
+        XCTAssertTrue(saved.appears(within: 5))
         try keepRender(of: "history-panel", in: app, named: "macOS explicit clip text editing")
     }
 }

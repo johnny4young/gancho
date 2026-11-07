@@ -117,11 +117,19 @@ func typeTextReliably(
 }
 
 extension XCUIElement {
+    /// `waitForExistence` first looks after a second even when the element is
+    /// already there; one check up front skips that second.
+    @MainActor
+    func appears(within timeout: TimeInterval) -> Bool {
+        exists || waitForExistence(timeout: timeout)
+    }
+
     /// Shared replacement for the per-file `exists == false` expectations:
     /// polls until the element leaves the hierarchy instead of asserting a
     /// single stale snapshot.
     @MainActor
     func waitForNonexistence(timeout: TimeInterval) -> Bool {
+        if !exists { return true }
         let predicate = NSPredicate(format: "exists == false")
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: self)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
@@ -129,7 +137,7 @@ extension XCUIElement {
 
     /// Polls until the element reports itself hittable. XCTest evaluates a
     /// predicate expectation once per second, so a timeout under one second
-    /// never checks at all — pass at least 1. A caller that falls
+    /// gets only the check up front — pass at least 1. A caller that falls
     /// back to a coordinate click when this times out must check
     /// `isCenterOnDisplay` first (see `MCPAccessUITests.revokeGrant`). The MCP
     /// revoke failures once blamed on a misreported hittable flag were a
@@ -137,9 +145,27 @@ extension XCUIElement {
     /// clicked a point clamped to the screen edge.
     @MainActor
     func waitForHittable(timeout: TimeInterval) -> Bool {
+        if exists && isHittable { return true }
         let predicate = NSPredicate(format: "exists == true AND hittable == true")
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: self)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    /// Clicks, then waits for `predicate` on `target`, and clicks once more if it
+    /// doesn't hold: a click right after typing can land while the panel redraws
+    /// the refreshed list, and the app drops it.
+    @MainActor
+    func click(until predicate: NSPredicate, on target: XCUIElement? = nil) -> Bool {
+        let holds = { (timeout: TimeInterval) in
+            let expectation = XCTNSPredicateExpectation(
+                predicate: predicate, object: target ?? self)
+            return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+        }
+        for _ in 0..<2 where exists {
+            click()
+            if holds(2) { return true }
+        }
+        return holds(3)
     }
 
     /// Scrolls `container` until `self` is hittable and reports the outcome, so

@@ -6,12 +6,12 @@ final class PeekDockUITests: XCTestCase {
         let app = launchPanel()
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        XCTAssertTrue(search.appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         search.click()
         search.typeText("Synthetic link")
         let url = app.staticTexts["peek-link-url"].firstMatch
-        XCTAssertTrue(url.waitForExistence(timeout: 5))
+        XCTAssertTrue(url.appears(within: 5))
         let expected = "https://www.example.com:8443/a%2Fb?q=a%26b#section-2"
         XCTAssertTrue(url.label == expected || url.value as? String == expected)
         let panel = app.dialogs["history-panel"].firstMatch
@@ -21,10 +21,10 @@ final class PeekDockUITests: XCTestCase {
             XCTAssertTrue(dock.buttons[id].firstMatch.isHittable, "\(id) must be a native button")
         }
         let edit = app.buttons["preview-edit-content"].firstMatch
-        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        XCTAssertTrue(edit.appears(within: 5))
         edit.click()
         let editor = app.textViews["preview-content-field"].firstMatch
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.appears(within: 5))
         XCTAssertEqual(editor.value as? String, expected)
         XCTAssertTrue(app.buttons["preview-cancel-content"].firstMatch.isHittable)
         XCTAssertTrue(panel.frame.contains(dock.frame), "Editing must not push the dock offscreen")
@@ -37,26 +37,26 @@ final class PeekDockUITests: XCTestCase {
         let app = launchPanel()
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        XCTAssertTrue(search.appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         search.click()
         search.typeText("Synthetic link")
-        XCTAssertTrue(app.staticTexts["peek-link-url"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["peek-link-url"].firstMatch.appears(within: 5))
         XCTAssertFalse(app.buttons["peek-more-actions"].firstMatch.exists)
         let transform = app.buttons["transform-button"].firstMatch
-        XCTAssertTrue(transform.waitForExistence(timeout: 5))
+        XCTAssertTrue(transform.appears(within: 5))
         transform.click()
         let filter = app.textFields["transform-filter"].firstMatch
-        XCTAssertTrue(filter.waitForExistence(timeout: 5))
+        XCTAssertTrue(filter.appears(within: 5))
         filter.typeText("parse")
         let parse = app.buttons["transform-row-dev-parseURL"].firstMatch
-        XCTAssertTrue(parse.waitForExistence(timeout: 5), "the link's own actions are in the list")
+        XCTAssertTrue(parse.appears(within: 5), "the link's own actions are in the list")
         XCTAssertFalse(
             app.buttons["transform-row-text-uppercase"].firstMatch.exists, "filtered out")
         parse.click()
         XCTAssertTrue(
             app.descendants(matching: .any)["transform-pipeline"].firstMatch
-                .waitForExistence(timeout: 5), "a row opens the before / after")
+                .appears(within: 5), "a row opens the before / after")
         XCTAssertTrue(app.buttons["preview-paste"].firstMatch.isHittable, "Paste stays first")
     }
 
@@ -65,10 +65,10 @@ final class PeekDockUITests: XCTestCase {
         let app = launchPanel()
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        XCTAssertTrue(search.appears(within: 15))
         search.click()
         search.typeText("Synthetic link")
-        XCTAssertTrue(app.staticTexts["peek-link-url"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["peek-link-url"].firstMatch.appears(within: 5))
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.rightArrow, modifierFlags: [])
         app.typeKey("p", modifierFlags: .command)
@@ -76,18 +76,18 @@ final class PeekDockUITests: XCTestCase {
         XCTAssertTrue(unpin.wait(for: \.label, toEqual: "Unpin", timeout: 5))
         app.typeKey("b", modifierFlags: .command)
         let picker = app.textFields["board-picker-filter"].firstMatch
-        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        XCTAssertTrue(picker.appears(within: 5))
         XCTAssertTrue(SynthesizedInput.waitForKeyboardFocus(picker, timeout: 5))
         picker.typeText("Seed board 1")
         let board = app.descendants(matching: .any)["board-picker-board-row"].firstMatch
-        XCTAssertTrue(board.waitForExistence(timeout: 5))
+        XCTAssertTrue(board.appears(within: 5))
         board.click()
         let selected = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "value == 'Selected'"), object: board)
         XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 5), .completed)
         picker.click()
         app.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(picker.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(picker.waitForNonexistence(timeout: 5))
         let chip = app.descendants(matching: .any).matching(
             NSPredicate(
                 format:
@@ -96,7 +96,7 @@ final class PeekDockUITests: XCTestCase {
             )
         ).firstMatch
         XCTAssertTrue(
-            chip.waitForExistence(timeout: 5), "The selected clip must refresh its boards")
+            chip.appears(within: 5), "The selected clip must refresh its boards")
         try keepRender(of: "history-panel", in: app, named: "Peek — live board membership")
     }
 
@@ -105,10 +105,10 @@ final class PeekDockUITests: XCTestCase {
         let app = launchPanel()
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        XCTAssertTrue(search.appears(within: 15))
         search.click()
         search.typeText("Synthetic link")
-        XCTAssertTrue(app.staticTexts["peek-link-url"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["peek-link-url"].firstMatch.appears(within: 5))
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.rightArrow, modifierFlags: [])
         app.typeKey("p", modifierFlags: [.command, .capsLock])
@@ -121,14 +121,14 @@ final class PeekDockUITests: XCTestCase {
         let app = launchPanel()
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        XCTAssertTrue(search.appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         search.click()
         search.typeText("Synthetic link")
-        XCTAssertTrue(app.staticTexts["peek-link-url"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["peek-link-url"].firstMatch.appears(within: 5))
         app.typeKey(.rightArrow, modifierFlags: [])
         app.typeKey(.return, modifierFlags: [])
-        XCTAssertTrue(app.dialogs["history-panel"].firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.dialogs["history-panel"].firstMatch.waitForNonexistence(timeout: 5))
     }
 
     @MainActor
@@ -136,12 +136,12 @@ final class PeekDockUITests: XCTestCase {
         let app = launchPanel()
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        XCTAssertTrue(search.appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         search.click()
         search.typeText("Example")
         let preview = app.staticTexts["preview-content"].firstMatch
-        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertTrue(preview.appears(within: 5))
         XCTAssertTrue(preview.isHittable, "The nested preview must remain readable")
         XCTAssertGreaterThan(preview.frame.height, 10)
         let panel = app.dialogs["history-panel"].firstMatch
@@ -156,15 +156,15 @@ final class PeekDockUITests: XCTestCase {
         let app = launchPanel(extraArguments: ["-command-nonce", nonce])
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        XCTAssertTrue(search.appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         search.click()
         search.typeText("Synthetic link")
         let url = app.staticTexts["peek-link-url"].firstMatch
-        XCTAssertTrue(url.waitForExistence(timeout: 5))
+        XCTAssertTrue(url.appears(within: 5))
         GanchoUITestCommands.post("togglePrivateMode", token: nonce)
         let hero = app.descendants(matching: .any)["peek-private-mode"].firstMatch
-        XCTAssertTrue(hero.waitForExistence(timeout: 5))
+        XCTAssertTrue(hero.appears(within: 5))
         XCTAssertTrue(
             app.staticTexts["Pasting still works; only new copies are skipped."].firstMatch.exists)
         XCTAssertFalse(url.exists)
@@ -173,7 +173,7 @@ final class PeekDockUITests: XCTestCase {
         XCTAssertFalse((title.value as? String ?? "").contains("Synthetic link"))
         XCTAssertFalse(app.buttons["preview-edit-content"].firstMatch.exists)
         GanchoUITestCommands.post("togglePrivateMode", token: nonce)
-        XCTAssertTrue(url.waitForExistence(timeout: 5))
+        XCTAssertTrue(url.appears(within: 5))
     }
 
     @MainActor
@@ -181,13 +181,13 @@ final class PeekDockUITests: XCTestCase {
         let app = launchPanel(extraArguments: ["-appearance", "dark"])
         defer { app.terminate() }
         let images = app.buttons["filter-images"].firstMatch
-        XCTAssertTrue(images.waitForExistence(timeout: 15))
+        XCTAssertTrue(images.appears(within: 15))
         images.click()
         let landscape = app.descendants(matching: .any).matching(identifier: "clip-row")
             .matching(
                 NSPredicate(format: "label BEGINSWITH 'image,' AND NOT (label CONTAINS %@)", "•••")
             ).firstMatch
-        XCTAssertTrue(landscape.waitForExistence(timeout: 5))
+        XCTAssertTrue(landscape.appears(within: 5))
         landscape.click()
         let title = app.staticTexts["preview-title"].firstMatch
         let named = XCTNSPredicateExpectation(
@@ -197,7 +197,7 @@ final class PeekDockUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [named], timeout: 5), .completed)
         let dock = app.descendants(matching: .any)["peek-dock"].firstMatch
         let panel = app.dialogs["history-panel"].firstMatch
-        XCTAssertTrue(dock.waitForExistence(timeout: 5))
+        XCTAssertTrue(dock.appears(within: 5))
         XCTAssertTrue(panel.frame.contains(dock.frame))
         for id in [
             "preview-paste", "preview-paste-plain", "image-copy-text", "preview-pin",
@@ -214,13 +214,13 @@ final class PeekDockUITests: XCTestCase {
         let app = launchPanel()
         defer { app.terminate() }
         let images = app.buttons["filter-images"].firstMatch
-        XCTAssertTrue(images.waitForExistence(timeout: 15))
+        XCTAssertTrue(images.appears(within: 15))
         images.click()
         let masked = app.descendants(matching: .any).matching(identifier: "clip-row")
             .matching(NSPredicate(format: "label CONTAINS %@", "•••")).firstMatch
-        XCTAssertTrue(masked.waitForExistence(timeout: 5))
+        XCTAssertTrue(masked.appears(within: 5))
         masked.click()
-        XCTAssertTrue(app.staticTexts["peek-masked"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["peek-masked"].firstMatch.appears(within: 5))
         let title = app.staticTexts["preview-title"].firstMatch
         XCTAssertFalse(title.label.contains("Hidden fixture title"))
         XCTAssertFalse((title.value as? String ?? "").contains("Hidden fixture title"))

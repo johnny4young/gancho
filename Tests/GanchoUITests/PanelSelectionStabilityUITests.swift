@@ -19,7 +19,7 @@ final class PanelSelectionStabilityUITests: XCTestCase {
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         let target = rows.matching(NSPredicate(format: "label CONTAINS %@", "Safari source alpha"))
             .firstMatch
-        XCTAssertTrue(target.waitForExistence(timeout: 10))
+        XCTAssertTrue(target.appears(within: 10))
         XCTAssertTrue(target.isHittable)
         XCTAssertFalse(
             rows.firstMatch.label.contains("Safari source alpha"), "exercise a non-first row")
@@ -28,10 +28,10 @@ final class PanelSelectionStabilityUITests: XCTestCase {
         XCTAssertTrue(target.isSelected)
 
         let edit = app.buttons["preview-edit-content"].firstMatch
-        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        XCTAssertTrue(edit.appears(within: 5))
         edit.click()
         let field = app.textViews["preview-content-field"].firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 3))
+        XCTAssertTrue(field.appears(within: 3))
         field.click()
         try SynthesizedInput.requireForeground(app)
         let editorFocused = SynthesizedInput.waitForKeyboardFocus(field, timeout: 5)
@@ -45,7 +45,7 @@ final class PanelSelectionStabilityUITests: XCTestCase {
         // The row's updated preview arrives through search.refresh(), so this is
         // a completion signal, not a sleep that might race the old index reset.
         let updated = rows.matching(NSPredicate(format: "label CONTAINS %@", content)).firstMatch
-        XCTAssertTrue(updated.waitForExistence(timeout: 5))
+        XCTAssertTrue(updated.appears(within: 5))
         XCTAssertTrue(updated.isSelected, "the refreshed non-first identity remains selected")
         XCTAssertEqual(rows.allElementsBoundByIndex.filter(\.isSelected).count, 1)
         try keepRender(of: "history-panel", in: app, named: "panel-selection-after-refresh")
@@ -59,6 +59,6 @@ final class PanelSelectionStabilityUITests: XCTestCase {
         search.typeKey(.return, modifierFlags: [])
         let panel = app.descendants(matching: .any)["history-panel"].firstMatch
         XCTAssertTrue(
-            panel.waitForNonExistence(timeout: 5), "Enter uses the selected-item paste path")
+            panel.waitForNonexistence(timeout: 5), "Enter uses the selected-item paste path")
     }
 }

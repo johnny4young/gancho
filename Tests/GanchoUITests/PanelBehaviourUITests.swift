@@ -43,7 +43,7 @@ final class PanelBehaviourUITests: XCTestCase {
             extra: ["-ui-test-paste-target", "Figma", "-ui-test-paste-sink", "pasted"])
         defer { app.terminate() }
         let paste = app.buttons["preview-paste"].firstMatch
-        XCTAssertTrue(paste.waitForExistence(timeout: 15))
+        XCTAssertTrue(paste.appears(within: 15))
         XCTAssertTrue(waitFor(paste, label: "Paste into Figma"), paste.label)
 
         let chip = app.descendants(matching: .any)["capture-indicator"].firstMatch
@@ -57,7 +57,7 @@ final class PanelBehaviourUITests: XCTestCase {
             extra: ["-ui-test-paste-target", "Figma", "-ui-test-paste-sink", "copy-only"])
         defer { app.terminate() }
         let paste = app.buttons["preview-paste"].firstMatch
-        XCTAssertTrue(paste.waitForExistence(timeout: 15))
+        XCTAssertTrue(paste.appears(within: 15))
         XCTAssertTrue(waitFor(paste, label: "Copy"), paste.label)
 
         let chip = app.descendants(matching: .any)["capture-indicator"].firstMatch
@@ -70,12 +70,12 @@ final class PanelBehaviourUITests: XCTestCase {
         let app = launch(capturing: true, extra: ["-command-nonce", nonce])
         defer { app.terminate() }
         let chip = app.descendants(matching: .any)["capture-indicator"].firstMatch
-        XCTAssertTrue(chip.waitForExistence(timeout: 15))
+        XCTAssertTrue(chip.appears(within: 15))
         GanchoUITestCommands.post("togglePrivateMode", token: nonce)
 
         XCTAssertTrue(waitFor(chip, label: "Private mode · 60 min left"), chip.label)
         let notice = app.descendants(matching: .any)["capture-notice"].firstMatch
-        XCTAssertTrue(notice.waitForExistence(timeout: 5))
+        XCTAssertTrue(notice.appears(within: 5))
         XCTAssertTrue(text(beginningWith: "Private Mode is on · since ", in: notice).exists)
         XCTAssertTrue(
             text(beginningWith: "0 copies skipped, none read · turns off at ", in: notice).exists)
@@ -94,19 +94,19 @@ final class PanelBehaviourUITests: XCTestCase {
         let app = launch(capturing: false, extra: ["-seed-peek-link"])
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        XCTAssertTrue(search.appears(within: 15))
         search.click()
         search.typeText("Synthetic link")
         let link = app.staticTexts["peek-link-url"].firstMatch
-        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        XCTAssertTrue(link.appears(within: 5))
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.rightArrow, modifierFlags: [])
 
         app.typeKey(.delete, modifierFlags: [])
         let undo = app.buttons["toast-undo"].firstMatch
-        XCTAssertTrue(undo.waitForExistence(timeout: 5), "⌫ in the actions deletes, with Undo")
-        XCTAssertTrue(link.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(undo.appears(within: 5), "⌫ in the actions deletes, with Undo")
+        XCTAssertTrue(link.waitForNonexistence(timeout: 5))
         undo.click()
-        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        XCTAssertTrue(link.appears(within: 5))
     }
 }

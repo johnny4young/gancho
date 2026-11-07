@@ -14,19 +14,19 @@ final class IntelligenceCapabilityUITests: XCTestCase {
         defer { app.terminate() }
 
         let captureTab = app.buttons["settings-tab-capture"].firstMatch
-        XCTAssertTrue(captureTab.waitForExistence(timeout: 3))
+        XCTAssertTrue(captureTab.appears(within: 3))
         captureTab.click()
 
         let openIntelligence = app.buttons["open-intelligence"].firstMatch
-        XCTAssertTrue(openIntelligence.waitForExistence(timeout: 3))
+        XCTAssertTrue(openIntelligence.appears(within: 3))
         openIntelligence.click()
 
         let intelligence = app.windows["Intelligence"].firstMatch
-        XCTAssertTrue(intelligence.waitForExistence(timeout: 5))
+        XCTAssertTrue(intelligence.appears(within: 5))
 
         let notice = intelligence.descendants(matching: .any)
             .matching(identifier: "intelligence-capability-notice").firstMatch
-        XCTAssertTrue(notice.waitForExistence(timeout: 3))
+        XCTAssertTrue(notice.appears(within: 3))
         // SwiftUI exposes static text through `value` on macOS, while other
         // accessibility roles may expose the same content through `label`.
         let noticeText = "\(notice.label) \(notice.value as? String ?? "")"
@@ -45,19 +45,19 @@ final class IntelligenceCapabilityUITests: XCTestCase {
         defer { app.terminate() }
 
         let captureTab = app.buttons["settings-tab-capture"].firstMatch
-        XCTAssertTrue(captureTab.waitForExistence(timeout: 3))
+        XCTAssertTrue(captureTab.appears(within: 3))
         captureTab.click()
         let openIntelligence = app.buttons["open-intelligence"].firstMatch
-        XCTAssertTrue(openIntelligence.waitForExistence(timeout: 3))
+        XCTAssertTrue(openIntelligence.appears(within: 3))
         openIntelligence.click()
 
         let intelligence = app.windows["Intelligence"].firstMatch
-        XCTAssertTrue(intelligence.waitForExistence(timeout: 5))
+        XCTAssertTrue(intelligence.appears(within: 5))
         let window = intelligence.frame
         for index in 0..<5 {
             let stage = intelligence.descendants(matching: .any)
                 .matching(identifier: "intelligence-stage-\(index)").firstMatch
-            XCTAssertTrue(stage.waitForExistence(timeout: 3), "stage \(index) missing")
+            XCTAssertTrue(stage.appears(within: 3), "stage \(index) missing")
             XCTAssertTrue(
                 window.contains(stage.frame),
                 "stage \(index) at \(stage.frame) must sit inside the window \(window)")

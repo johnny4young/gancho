@@ -41,11 +41,11 @@ final class RefactorFlowUITests: XCTestCase {
         defer { app.terminate() }
 
         XCTAssertTrue(
-            app.textFields["search-field"].firstMatch.waitForExistence(timeout: 8),
+            app.textFields["search-field"].firstMatch.appears(within: 8),
             "the seeded panel must open on launch")
 
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        guard rows.firstMatch.waitForExistence(timeout: 8) else {
+        guard rows.firstMatch.appears(within: 8) else {
             throw XCTSkip("seeded clip rows not exposed to the UI runner in this environment")
         }
         guard rows.firstMatch.isHittable else {
@@ -56,7 +56,7 @@ final class RefactorFlowUITests: XCTestCase {
         // Right-click the first row and pick Delete from its context menu.
         rows.firstMatch.rightClick()
         let deleteItem = app.menuItems["Delete"].firstMatch
-        guard deleteItem.waitForExistence(timeout: 3) else {
+        guard deleteItem.appears(within: 3) else {
             throw XCTSkip("row context menu not reachable on this runner")
         }
         guard deleteItem.isHittable else {
@@ -67,7 +67,7 @@ final class RefactorFlowUITests: XCTestCase {
         // The deferred delete surfaces a "Deleted" toast with an Undo affordance.
         let undo = app.buttons["toast-undo"].firstMatch
         XCTAssertTrue(
-            undo.waitForExistence(timeout: 5),
+            undo.appears(within: 5),
             "deleting a clip must show the Undo toast (DeletionCoordinator window)")
         guard undo.isHittable else {
             throw XCTSkip("Undo action is not hittable on this runner")
@@ -104,11 +104,11 @@ final class RefactorFlowUITests: XCTestCase {
         defer { app.terminate() }
 
         XCTAssertTrue(
-            app.textFields["search-field"].firstMatch.waitForExistence(timeout: 8),
+            app.textFields["search-field"].firstMatch.appears(within: 8),
             "the seeded panel must open on launch")
 
         let newBoard = app.buttons["board-new"].firstMatch
-        guard newBoard.waitForExistence(timeout: 8) else {
+        guard newBoard.appears(within: 8) else {
             throw XCTSkip("New board affordance not exposed to the UI runner")
         }
         guard newBoard.isHittable else {
@@ -120,14 +120,14 @@ final class RefactorFlowUITests: XCTestCase {
         // "Create" button (see PanelView's `.alert(boardSheetTitle, …)`).
         let field = app.textFields["Board name"].firstMatch
         let alertField = field.exists ? field : app.dialogs.textFields.firstMatch
-        guard alertField.waitForExistence(timeout: 3) else {
+        guard alertField.appears(within: 3) else {
             throw XCTSkip("New board prompt not reachable on this runner")
         }
         guard alertField.isHittable else {
             throw XCTSkip("New board name field is not hittable on this runner")
         }
         XCTAssertTrue(
-            app.buttons["Create"].firstMatch.waitForExistence(timeout: 2),
+            app.buttons["Create"].firstMatch.appears(within: 2),
             "the New board prompt must offer a Create action")
         // The affordance + prompt ARE the assertion; dismiss with Escape. (Clicking
         // the alert's "Cancel" can misfire on a hosted runner that maps the button
@@ -157,11 +157,11 @@ final class RefactorFlowUITests: XCTestCase {
         _ = app.wait(for: .runningForeground, timeout: 5)
 
         XCTAssertTrue(
-            app.textFields["search-field"].firstMatch.waitForExistence(timeout: 8),
+            app.textFields["search-field"].firstMatch.appears(within: 8),
             "the panel must open on launch")
 
         let newBoard = app.buttons["board-new"].firstMatch
-        guard newBoard.waitForExistence(timeout: 8) else {
+        guard newBoard.appears(within: 8) else {
             throw XCTSkip("New board affordance not exposed to the UI runner")
         }
         guard newBoard.isHittable else {
@@ -173,7 +173,7 @@ final class RefactorFlowUITests: XCTestCase {
         // so the prompt still opens; it is the Create that trips the paywall.
         let field = app.textFields["Board name"].firstMatch
         let alertField = field.exists ? field : app.dialogs.textFields.firstMatch
-        guard alertField.waitForExistence(timeout: 3) else {
+        guard alertField.appears(within: 3) else {
             throw XCTSkip("New board prompt not reachable on this runner")
         }
         guard alertField.isHittable else {
@@ -181,7 +181,7 @@ final class RefactorFlowUITests: XCTestCase {
         }
         alertField.click()
         alertField.typeText("One past the limit")
-        guard app.buttons["Create"].firstMatch.waitForExistence(timeout: 2) else {
+        guard app.buttons["Create"].firstMatch.appears(within: 2) else {
             throw XCTSkip("Create action not reachable on this runner")
         }
         // Submit with Return (the alert's default action) rather than clicking the
@@ -193,7 +193,7 @@ final class RefactorFlowUITests: XCTestCase {
         // Seeded boards == freeMaxPinboards, so this is the (limit + 1)th create:
         // the gate blocks it and opens the paywall.
         XCTAssertTrue(
-            app.descendants(matching: .any)["paywall"].firstMatch.waitForExistence(timeout: 6),
+            app.descendants(matching: .any)["paywall"].firstMatch.appears(within: 6),
             "creating a board past the free limit must open the paywall")
     }
 
@@ -214,13 +214,13 @@ final class RefactorFlowUITests: XCTestCase {
         _ = app.wait(for: .runningForeground, timeout: 5)
 
         XCTAssertTrue(
-            app.textFields["search-field"].firstMatch.waitForExistence(timeout: 8),
+            app.textFields["search-field"].firstMatch.appears(within: 8),
             "the panel must open on launch")
 
         // The chip's label carries its clip count ("Seed board 1 · 0").
         let board = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Seed board 1"))
             .firstMatch
-        guard board.waitForExistence(timeout: 8) else {
+        guard board.appears(within: 8) else {
             throw XCTSkip("seeded board chip is not reachable on this runner")
         }
         if !board.isHittable {
@@ -232,7 +232,7 @@ final class RefactorFlowUITests: XCTestCase {
         try openAppearanceEditor(for: board, in: app)
 
         let teal = app.buttons["board-color-17999E"].firstMatch
-        guard teal.waitForExistence(timeout: 3), teal.isHittable else {
+        guard teal.waitForHittable(timeout: 3) else {
             throw XCTSkip("board color controls are not reachable on this runner")
         }
         teal.click()
@@ -241,8 +241,8 @@ final class RefactorFlowUITests: XCTestCase {
             "choosing a palette option must update the editor draft")
 
         let save = app.buttons["board-appearance-save"].firstMatch
-        XCTAssertTrue(save.waitForExistence(timeout: 2))
-        guard save.isHittable else {
+        XCTAssertTrue(save.appears(within: 2))
+        guard save.waitForHittable(timeout: 2) else {
             throw XCTSkip("board appearance save action is not hittable on this runner")
         }
         save.click()
@@ -265,9 +265,9 @@ final class RefactorFlowUITests: XCTestCase {
         for attempt in 0..<3 {
             board.rightClick()
             let customize = app.menuItems["Customize board…"].firstMatch
-            if customize.waitForExistence(timeout: 3), customize.isHittable {
+            if customize.waitForHittable(timeout: 3) {
                 customize.click()
-                if app.buttons["board-color-automatic"].firstMatch.waitForExistence(timeout: 4) {
+                if app.buttons["board-color-automatic"].firstMatch.appears(within: 4) {
                     return
                 }
             }

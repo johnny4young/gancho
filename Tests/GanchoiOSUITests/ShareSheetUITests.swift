@@ -11,12 +11,12 @@ final class ShareSheetUITests: XCTestCase {
         defer { safari.terminate() }
         XCTAssertFalse(
             safari.descendants(matching: .any)["share-save-button"].firstMatch
-                .waitForExistence(timeout: 4), "no sheet with the switch on")
+                .appears(within: 4), "no sheet with the switch on")
         gancho.activate()
         let row = gancho.descendants(matching: .any).matching(
             NSPredicate(format: "identifier == 'clip-row' AND label CONTAINS %@", "example.com")
         ).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 15), "the share was saved at once")
+        XCTAssertTrue(row.appears(within: 15), "the share was saved at once")
     }
 
     @MainActor
@@ -27,12 +27,12 @@ final class ShareSheetUITests: XCTestCase {
         let seeded = gancho.buttons.matching(
             NSPredicate(format: "label BEGINSWITH %@", "Seed board 1")
         ).firstMatch
-        XCTAssertTrue(seeded.waitForExistence(timeout: 10))
+        XCTAssertTrue(seeded.appears(within: 10))
 
         let safari = try openShareSheetInSafari()
         defer { safari.terminate() }
         let save = safari.descendants(matching: .any)["share-save-button"].firstMatch
-        XCTAssertTrue(save.waitForExistence(timeout: 10), "the sheet shows what will be saved")
+        XCTAssertTrue(save.appears(within: 10), "the sheet shows what will be saved")
         let preview = safari.descendants(matching: .any)["share-preview"].firstMatch
         XCTAssertTrue(preview.label.contains("example.com"), preview.label)
         // The field starts with the page title the sharing app handed over.
@@ -52,28 +52,28 @@ final class ShareSheetUITests: XCTestCase {
         XCTAssertEqual(pin.value as? String, "1")
         save.tap()
         XCTAssertTrue(
-            save.waitForNonExistence(timeout: 5), "the sheet closes once the share is saved")
+            save.waitForNonexistence(timeout: 5), "the sheet closes once the share is saved")
 
         gancho.activate()
         let row = gancho.descendants(matching: .any).matching(
             NSPredicate(format: "identifier == 'clip-row' AND label CONTAINS %@", "example.com")
         ).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 15), "the shared page arrives")
+        XCTAssertTrue(row.appears(within: 15), "the shared page arrives")
         row.tap()
         let titled = gancho.descendants(matching: .any).matching(
             NSPredicate(format: "label == %@ OR value == %@", "Synthetic share", "Synthetic share")
         ).firstMatch
-        XCTAssertTrue(titled.waitForExistence(timeout: 5), "titled as typed in the sheet")
+        XCTAssertTrue(titled.appears(within: 5), "titled as typed in the sheet")
         XCTAssertTrue(
-            gancho.buttons["Pinned"].firstMatch.waitForExistence(timeout: 5), "and pinned")
+            gancho.buttons["Pinned"].firstMatch.appears(within: 5), "and pinned")
         gancho.buttons["Done"].firstMatch.tap()
         let chip = gancho.buttons.matching(
             NSPredicate(format: "label BEGINSWITH %@", "Seed board 1")
         ).firstMatch
-        XCTAssertTrue(chip.waitForExistence(timeout: 5))
+        XCTAssertTrue(chip.appears(within: 5))
         chip.tap()
         XCTAssertTrue(
-            row.waitForExistence(timeout: 5), "and on the board chosen in the sheet")
+            row.appears(within: 5), "and on the board chosen in the sheet")
     }
 
     @MainActor
@@ -86,7 +86,7 @@ final class ShareSheetUITests: XCTestCase {
         gancho.launch()
         guard
             gancho.descendants(matching: .any)["capture-screen"].firstMatch
-                .waitForExistence(timeout: 10)
+                .appears(within: 10)
         else {
             gancho.terminate()
             throw XCTSkip("capture screen is not reachable on this runner")
@@ -103,12 +103,12 @@ final class ShareSheetUITests: XCTestCase {
             throw XCTSkip("Safari did not open on this runner")
         }
         let more = safari.buttons["MoreMenuButton"].firstMatch
-        guard more.waitForExistence(timeout: 10) else { throw XCTSkip("no Safari menu") }
+        guard more.appears(within: 10) else { throw XCTSkip("no Safari menu") }
         // A share before the page loads carries no URL, and the load closes an open menu.
         let page = safari.descendants(matching: .any).matching(
             NSPredicate(format: "label == 'Example Domain'")
         ).firstMatch
-        guard page.waitForExistence(timeout: 30) else {
+        guard page.appears(within: 30) else {
             throw XCTSkip("example.com did not load on this runner")
         }
         let share = safari.descendants(matching: .any).matching(
@@ -117,14 +117,14 @@ final class ShareSheetUITests: XCTestCase {
         // Safari's toolbar can report no hit point for this button and can drop a tap.
         for _ in 0..<3 where !share.exists && more.exists {
             more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            _ = share.waitForExistence(timeout: 4)
+            _ = share.appears(within: 4)
         }
         XCTAssertTrue(share.exists)
         share.tap()
         let target = safari.descendants(matching: .any).matching(
             NSPredicate(format: "label == 'Gancho' OR label == 'Save to Gancho'")
         ).firstMatch
-        XCTAssertTrue(target.waitForExistence(timeout: 10), "Gancho is offered in the share sheet")
+        XCTAssertTrue(target.appears(within: 10), "Gancho is offered in the share sheet")
         target.tap()
 
         return safari

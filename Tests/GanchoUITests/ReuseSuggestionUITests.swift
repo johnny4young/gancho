@@ -23,14 +23,14 @@ final class ReuseSuggestionUITests: XCTestCase {
         let row = app.descendants(matching: .any).matching(identifier: "clip-row")
             .matching(NSPredicate(format: "label CONTAINS %@", "Reusable standup update"))
             .firstMatch
-        guard row.waitForExistence(timeout: 10), row.isHittable else {
+        guard row.waitForHittable(timeout: 10) else {
             throw XCTSkip("seeded panel row is not reachable on this runner")
         }
         try SynthesizedInput.requireForeground(app)
         row.doubleClick()
 
         let toast = app.descendants(matching: .any)["gancho-toast"].firstMatch
-        XCTAssertTrue(toast.waitForExistence(timeout: 8))
+        XCTAssertTrue(toast.appears(within: 8))
         XCTAssertTrue(app.staticTexts["Used 3 times — save as a snippet?"].exists)
 
         let toastPanel = app.descendants(matching: .any)["gancho-toast-panel"].firstMatch
@@ -39,9 +39,9 @@ final class ReuseSuggestionUITests: XCTestCase {
             of: "gancho-toast-panel", in: app, named: "macOS exact-third-use snippet suggestion")
 
         let action = app.buttons["reuse-suggestion-action"].firstMatch
-        XCTAssertTrue(action.waitForExistence(timeout: 2))
+        XCTAssertTrue(action.appears(within: 2))
         XCTAssertTrue(action.isHittable)
         action.click()
-        XCTAssertTrue(app.staticTexts["Saved as snippet"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Saved as snippet"].appears(within: 5))
     }
 }

@@ -36,21 +36,21 @@ final class BoardNameUITests: XCTestCase {
         app.launch()
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         if library { GanchoUITestCommands.post("library", token: nonce) }
         let window =
             library
             ? app.windows[language == "en" ? "Library" : "Biblioteca"].firstMatch
             : app.descendants(matching: .any)["history-panel"].firstMatch
-        XCTAssertTrue(window.waitForExistence(timeout: 5))
+        XCTAssertTrue(window.appears(within: 5))
         return (app, window)
     }
 
     @MainActor
     private func prompt(_ app: XCUIApplication) -> XCUIElement {
         let field = app.sheets.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5), "the native name prompt must open")
+        XCTAssertTrue(field.appears(within: 5), "the native name prompt must open")
         return field
     }
 
@@ -98,7 +98,7 @@ final class BoardNameUITests: XCTestCase {
         let (app, window) = try launch(language: language, library: library)
         defer { app.terminate() }
         let newBoard = window.buttons[library ? "library-new-board" : "board-new"].firstMatch
-        XCTAssertTrue(newBoard.waitForExistence(timeout: 5))
+        XCTAssertTrue(newBoard.appears(within: 5))
         let renderTarget = library ? (language == "en" ? "Library" : "Biblioteca") : "history-panel"
         let initialBoards = boardCount(in: window, library: library)
         newBoard.click()
@@ -113,7 +113,7 @@ final class BoardNameUITests: XCTestCase {
         app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(app.sheets.firstMatch.waitForNonexistence(timeout: 5))
         let board = board(named: name, in: window, library: library)
-        XCTAssertTrue(board.waitForExistence(timeout: 5), "the Unicode board must be created")
+        XCTAssertTrue(board.appears(within: 5), "the Unicode board must be created")
         XCTAssertEqual(
             boardCount(in: window, library: library), initialBoards + 1,
             "invalid submissions must not create boards")
@@ -136,7 +136,7 @@ final class BoardNameUITests: XCTestCase {
         app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(app.sheets.firstMatch.waitForNonexistence(timeout: 5))
         XCTAssertTrue(
-            self.board(named: renamed, in: window, library: library).waitForExistence(timeout: 5))
+            self.board(named: renamed, in: window, library: library).appears(within: 5))
         XCTAssertFalse(board.exists)
         XCTAssertEqual(boardCount(in: window, library: library), initialBoards + 1)
         try keepRender(of: renderTarget, in: app, named: "\(language) board renamed once")
@@ -165,21 +165,23 @@ final class BoardNameUITests: XCTestCase {
         let (app, panel) = try launch(language: language, library: false)
         defer { app.terminate() }
         let rows = panel.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(rows.firstMatch.appears(within: 8))
         let before = rows.count
         let initialBoards = boardCount(in: panel, library: false)
         rows.firstMatch.rightClick()
         let add = app.menuItems[language == "en" ? "Add to board" : "Añadir a un tablero"]
             .firstMatch
-        XCTAssertTrue(add.waitForExistence(timeout: 3))
+        XCTAssertTrue(add.waitForHittable(timeout: 3))
         add.hover()
-        app.menuItems[language == "en" ? "New board…" : "Nuevo tablero…"].firstMatch.click()
+        let newBoard = app.menuItems[language == "en" ? "New board…" : "Nuevo tablero…"].firstMatch
+        XCTAssertTrue(newBoard.waitForHittable(timeout: 3))
+        newBoard.click()
         try rejectEmptyDrafts(app, language: language)
         try typeTextReliably("Clip café", into: prompt(app), in: app)
         app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(app.sheets.firstMatch.waitForNonexistence(timeout: 5))
         let board = board(named: "Clip café", in: panel, library: false)
-        XCTAssertTrue(board.waitForExistence(timeout: 5))
+        XCTAssertTrue(board.appears(within: 5))
         XCTAssertEqual(boardCount(in: panel, library: false), initialBoards + 1)
         let filedCount = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label ENDSWITH %@", " · 1"), object: board)

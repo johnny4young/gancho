@@ -23,11 +23,11 @@ final class PanelAmbientTintUITests: XCTestCase {
         var app: XCUIApplication = GanchoUITestApplication()
         app.launchArguments = settingsArguments + persistenceArguments
         app.launch()
-        XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.windows["Settings"].firstMatch.appears(within: 5))
 
         let toggle = app.switches["panel-ambient-tint"].firstMatch
         XCTAssertTrue(
-            toggle.waitForExistence(timeout: 5), "the Panel section must offer Ambient color")
+            toggle.appears(within: 5), "the Panel section must offer Ambient color")
         XCTAssertEqual(switchState(toggle), 0, "ambient colour is opt-in")
         // Bring the app forward first: a click on a background window can be
         // spent on activation. The window itself may sit on another display,
@@ -42,10 +42,10 @@ final class PanelAmbientTintUITests: XCTestCase {
 
         GanchoUITestCommands.post("openPanel", token: commandToken)
         let panel = app.descendants(matching: .any)["history-panel"].firstMatch
-        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        XCTAssertTrue(panel.appears(within: 5))
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         XCTAssertTrue(
-            rows.firstMatch.waitForExistence(timeout: 10),
+            rows.firstMatch.appears(within: 10),
             "the panel must still list clips with the wash behind them")
         XCTAssertTrue(app.textFields["search-field"].firstMatch.exists)
         // The first row is selected on open; a click would hand key focus back
@@ -59,7 +59,7 @@ final class PanelAmbientTintUITests: XCTestCase {
         app.launch()
         defer { app.terminate() }
         let relaunched = app.switches["panel-ambient-tint"].firstMatch
-        XCTAssertTrue(relaunched.waitForExistence(timeout: 5))
+        XCTAssertTrue(relaunched.appears(within: 5))
         XCTAssertTrue(waitForSwitch(relaunched, toBe: 1), "the choice must survive relaunch")
     }
 

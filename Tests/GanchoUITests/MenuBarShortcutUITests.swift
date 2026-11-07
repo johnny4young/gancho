@@ -20,12 +20,12 @@ final class MenuBarShortcutUITests: XCTestCase {
         _ = app.wait(for: .runningForeground, timeout: 5)
 
         let statusItem = app.statusItems.firstMatch
-        guard statusItem.waitForExistence(timeout: 5), statusItem.isHittable else {
+        guard statusItem.waitForHittable(timeout: 5) else {
             throw XCTSkip("status item not hittable on this display/Space")
         }
         statusItem.click()
         let openPanel = app.menuItems["menu-bar-command-openPanel"].firstMatch
-        XCTAssertTrue(openPanel.waitForExistence(timeout: 3))
+        XCTAssertTrue(openPanel.appears(within: 3))
         let optionCommand = NSEvent.ModifierFlags([.command, .option]).rawValue
         XCTAssertEqual(openPanel.value as? String, "menu-shortcut:v:\(optionCommand)")
     }
@@ -44,13 +44,13 @@ final class MenuBarShortcutUITests: XCTestCase {
         _ = app.wait(for: .runningForeground, timeout: 5)
 
         let statusItem = app.statusItems.firstMatch
-        guard statusItem.waitForExistence(timeout: 5), statusItem.isHittable else {
+        guard statusItem.waitForHittable(timeout: 5) else {
             throw XCTSkip("status item not hittable on this display/Space")
         }
         XCTAssertTrue(registration(of: statusItem).hasPrefix("global-shortcut-enabled"))
         statusItem.click()
         let openPanel = app.menuItems["menu-bar-command-openPanel"].firstMatch
-        XCTAssertTrue(openPanel.waitForExistence(timeout: 3))
+        XCTAssertTrue(openPanel.appears(within: 3))
         XCTAssertTrue(registration(of: statusItem).hasPrefix("global-shortcut-disabled"))
         // Choosing an item closes the menu; the hotkey must come back.
         openPanel.click()
