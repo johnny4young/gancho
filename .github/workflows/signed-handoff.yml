@@ -1,7 +1,31 @@
 name: Signed helper and real paste
 
+# The account's five macOS runners serve every repository. A pull request runs this
+# only when it touches the helper, signing, entitlements, paste-back or this harness;
+# every other app change is covered by the run on main after the merge.
 on:
   pull_request:
+    paths:
+      - .github/workflows/signed-handoff.yml
+      - project.yml
+      - Makefile
+      - Dependencies/Package.resolved
+      - Apps/GanchoMac/*.entitlements
+      - Apps/GanchoMac/GanchoMenuBar*.swift
+      - Apps/GanchoMenuBarHelper/**
+      - Apps/GanchoShared/**
+      - Packages/GanchoKit/Sources/ClipboardCore/PasteBack*.swift
+      - Packages/GanchoKit/Sources/GanchoAppCore/PasteBack*.swift
+      - Tests/GanchoSignedIntegrationUITests/**
+      - Tests/GanchoPasteReceiver/**
+      - Tests/GanchoUITests/GanchoUITestApplication.swift
+      - scripts/collect-ui-test-evidence.sh
+      - scripts/prepare-hosted-handoff-permissions.py
+      - scripts/sign-hosted-handoff.sh
+      - scripts/fetch-sparkle.sh
+      - scripts/import-hosted-signing-certificate.sh
+  push:
+    branches: [main]
     paths:
       - .github/workflows/signed-handoff.yml
       - project.yml
@@ -24,8 +48,9 @@ on:
 permissions:
   contents: read
 
+# A newer push supersedes a pull request's run; each merge to main keeps its own.
 concurrency:
-  group: signed-handoff-${{ github.event.pull_request.number || github.ref }}
+  group: signed-handoff-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
