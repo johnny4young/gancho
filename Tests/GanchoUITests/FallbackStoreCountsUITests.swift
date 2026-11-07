@@ -23,7 +23,7 @@ final class FallbackStoreCountsUITests: XCTestCase {
         app.launch()
         defer { app.terminate() }
         let all = app.buttons["board-all"].firstMatch
-        XCTAssertTrue(all.waitForExistence(timeout: 15))
+        XCTAssertTrue(all.appears(within: 15))
         let counted = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label == %@", "All clips · 3"), object: all)
         let result = XCTWaiter.wait(for: [counted], timeout: 5)
