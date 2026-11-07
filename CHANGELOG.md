@@ -14,6 +14,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   happen instead of checking every half second and every three seconds. Capture
   now pauses as soon as a screen-sharing app starts its share, rather than up to
   three seconds later, and changing the screen-share setting applies at once.
+- On the Mac, the menu-bar icon's capture state, badge and panel shortcut update
+  when they change instead of being rechecked every second.
 
 ### Fixed
 
