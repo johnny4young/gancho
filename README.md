@@ -16,20 +16,19 @@
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20·%20iOS%20·%20iPadOS-blue)
 ![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
 
-**Status: public v0.11.0; in active development toward 1.0.**
-**Source version: v0.11.1 (unreleased).** The published v0.11.0 direct download
-requires an Apple Silicon Mac with macOS 26 (build 22); Macs on Intel or macOS 15
-keep v0.10.2. Local history and manual OCR are Free; Pro activation through Lemon
-Squeezy is included. The v0.11.1 source opens Gancho's windows in front of the
-app you're using, with the keyboard, and wakes up less often while idle; it is
-not yet a published build. See its [release notes](docs/releases/v0.11.1.md).
+**Status: public v0.11.1; in active development toward 1.0.**
+**Source version: v0.11.1.** The published direct download requires an Apple
+Silicon Mac with macOS 26 (build 23); Macs on Intel or macOS 15 keep v0.10.2.
+Local history and manual OCR are Free; Pro activation through Lemon Squeezy is
+included.
 
 ![The Gancho panel with search modes, board and kind chips, and a link peek above its action dock](site/assets/v0.11.1-release.png)
 
-*v0.11.1 candidate with synthetic fixtures; this is not evidence of a published release.*
+*v0.11.1 with synthetic fixtures.*
 
-[Download v0.11.0](https://github.com/johnny4young/gancho/releases/tag/v0.11.0)
-for a rebuilt panel, peek, Library and Settings, paste runs, one Transform list,
+[Download v0.11.1](https://github.com/johnny4young/gancho/releases/tag/v0.11.1)
+for windows that open in front of the app you're using, a quieter idle and a
+rebuilt panel, peek, Library and Settings, paste runs, one Transform list,
 snippet placeholders that fill themselves, and a visible record when a local AI
 client reads your clips, on top of encrypted history, text recipes, meaning
 suggestions, selected context for AI tools, translation with installed
@@ -42,7 +41,7 @@ TestFlight distribution remain in preparation.
 **Validation boundary:** the signed two-Mac matrix, VoiceOver and
 screen-capture permission/display acceptance remain pending after publication.
 Use disposable data and backups for those checks; green CI and artifact QA do
-not certify them. See the [release notes](docs/releases/v0.11.0.md),
+not certify them. See the [release notes](docs/releases/v0.11.1.md),
 [changelog](CHANGELOG.md), and [release requirements](docs/RELEASING.md).
 
 ## The redesigned panel
@@ -216,7 +215,7 @@ stay in reusable modules.
 
 - `CKSyncEngine` over the user's private iCloud database behind the `SyncEngine`
   boundary (clips, board membership, deletions) with a visible sync status. Earlier
-  development builds passed real-device smoke; the signed v0.11.0 matrix remains
+  development builds passed real-device smoke; the signed v0.11.1 matrix remains
   pending and must use the released bytes.
 - `gancho` CLI and a local, opt-in MCP server with expiring, revocable
   per-client grants, explicit board/time context, independent read/write

@@ -3,6 +3,16 @@
     <channel>
         <title>Gancho</title>
         <item>
+            <title>0.11.1</title>
+            <pubDate>Sat, 07 Nov 2026 17:01:01 +0000</pubDate>
+            <link>https://johnny4young.github.io/gancho/</link>
+            <sparkle:version>23</sparkle:version>
+            <sparkle:shortVersionString>0.11.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/johnny4young/gancho/releases/download/v0.11.1/Gancho-0.11.1.dmg" length="13978896" type="application/octet-stream" sparkle:edSignature="y9Vp2oj+fG+ytzfRZqAj45+rrGY6fsUWb/pk6urHFo45wRl4w+el9IVyqTejhwIMgPjOiziqz+watAUrYWT7Bg=="/>
+        </item>
+        <item>
             <title>0.11.0</title>
             <pubDate>Wed, 04 Nov 2026 00:32:48 +0000</pubDate>
             <link>https://johnny4young.github.io/gancho/</link>
@@ -38,42 +48,6 @@
             <sparkle:shortVersionString>0.10.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/johnny4young/gancho/releases/download/v0.10.0/Gancho-0.10.0.dmg" length="21430095" type="application/octet-stream" sparkle:edSignature="5H9gfmFcsmc0iXKi5k1tI+SotCKN2jK0gtsp2wBHvupAeoXNKmqBRExalKMWOFvPNB4MSW7C81sCV2teU5uWCQ=="/>
-        </item>
-        <item>
-            <title>0.9.1</title>
-            <pubDate>Tue, 29 Sep 2026 14:06:08 +0000</pubDate>
-            <link>https://johnny4young.github.io/gancho/</link>
-            <sparkle:version>18</sparkle:version>
-            <sparkle:shortVersionString>0.9.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/johnny4young/gancho/releases/download/v0.9.1/Gancho-0.9.1.dmg" length="22463431" type="application/octet-stream" sparkle:edSignature="jNA+s956O8HH2pbhIQ67RokntctyMY1lYkBvK1RUoZr4xB9muA3xeuBMS2jeFLcLgUBFJkyEgrXu977XGQ4ZBQ=="/>
-        </item>
-        <item>
-            <title>0.9.0</title>
-            <pubDate>Mon, 28 Sep 2026 18:50:34 +0000</pubDate>
-            <link>https://johnny4young.github.io/gancho/</link>
-            <sparkle:version>17</sparkle:version>
-            <sparkle:shortVersionString>0.9.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/johnny4young/gancho/releases/download/v0.9.0/Gancho-0.9.0.dmg" length="22321186" type="application/octet-stream" sparkle:edSignature="Pu4aV4WzJ63IbcX19aziTD1eUhCXgu8jRalW2bH1AAgJf32/+H467hPqlGBQ96UJL6zeje7AyP4oGYSWREYHDQ=="/>
-        </item>
-        <item>
-            <title>0.8.4</title>
-            <pubDate>Fri, 25 Sep 2026 04:37:40 +0000</pubDate>
-            <link>https://johnny4young.github.io/gancho/</link>
-            <sparkle:version>16</sparkle:version>
-            <sparkle:shortVersionString>0.8.4</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/johnny4young/gancho/releases/download/v0.8.4/Gancho-0.8.4.dmg" length="21767862" type="application/octet-stream" sparkle:edSignature="K6XL8jLCTgoh7PoDBOlQ0DPOPH4+Y2ZVEpKZTj2elnlQJ3z/ndDGOoGWgpPsKPshJFERt0XdbtPXCfEyIzxNAQ=="/>
-        </item>
-        <item>
-            <title>0.8.3</title>
-            <pubDate>Sun, 20 Sep 2026 16:10:18 +0000</pubDate>
-            <link>https://johnny4young.github.io/gancho/</link>
-            <sparkle:version>15</sparkle:version>
-            <sparkle:shortVersionString>0.8.3</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/johnny4young/gancho/releases/download/v0.8.3/Gancho-0.8.3.dmg" length="21405198" type="application/octet-stream" sparkle:edSignature="xM2z3J90plWBUX3S9Le3YdiKrwSj4KP2ZWh2XlaABPZAUD9US9g4f2ERo28YdYQmuw9hpFfeEHL/FZma4Nj/DQ=="/>
         </item>
         <item>
             <title>0.3.0</title>
