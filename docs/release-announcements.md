@@ -11,6 +11,21 @@ Gancho: a local-first, encrypted clipboard history and snippet library for
 Mac (iPhone and iPad apps in the repository, not distributed yet). Free and MIT
 licensed; Pro is a one-time direct purchase. Site: https://gancho.app.
 
+## v0.11.1 — 2026-11-07
+
+Windows you open from the menu bar or a notice come up in front of the app you're using, with the keyboard, and Gancho does less work while it waits.
+
+### X / Bluesky — 254 characters
+
+Gancho 0.11.1 (macOS 26, Apple Silicon): Settings, the Library, Pro and the other windows you open from the menu bar now come up in front of the app you're using, with the keyboard, and Gancho wakes up less often while idle. Free, MIT. https://gancho.app
+
+### Links
+
+- Release: https://github.com/johnny4young/gancho/releases/tag/v0.11.1
+- Site: https://gancho.app
+- `brew tap johnny4young/tap && brew install --cask gancho`
+- Direct download: signed, notarized DMG on the release page (macOS 26, Apple Silicon)
+
 ## v0.11.0 — 2026-11-03
 
 A rebuilt panel with paste runs, one Transform list and a visible record whenever a local AI client reads your clips. It is also the first release that needs an Apple Silicon Mac with macOS 26.
