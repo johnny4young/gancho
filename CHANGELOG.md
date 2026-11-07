@@ -23,9 +23,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - On the Mac, a shortcut for Private Mode, screen text, cyclic paste, the paste
-  stack, the last transform or a text recipe now works every time while a
-  Gancho menu is open. It runs when you press it there, instead of on release,
-  which the menu could swallow. Elsewhere it still runs on release.
+  stack, the last transform or a text recipe no longer gets lost while a Gancho
+  menu is open. It runs when you press it there, instead of on release, which
+  the menu could swallow. Elsewhere it still runs on release.
 - When history can't be saved to disk, the Library still shows how many clips a
   view holds, and the panel's All clips chip shows its count.
 - Exporting an archive no longer holds every exported file in memory while it

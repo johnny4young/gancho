@@ -1,6 +1,6 @@
 #if os(macOS)
     /// Decides whether a release-triggered global shortcut runs on its key-down
-    /// or its key-up, so each press runs it exactly once.
+    /// or its key-up, and never on both for one press.
     ///
     /// While a menu tracks, KeyboardShortcuts reads raw key events, and a key-up
     /// can go missing: the menu dequeues it first when the main thread was busy,

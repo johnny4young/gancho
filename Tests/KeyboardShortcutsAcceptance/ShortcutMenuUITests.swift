@@ -88,14 +88,18 @@ final class ShortcutMenuUITests: XCTestCase {
         try requireRegisteredChord(initial)
 
         let chord: XCUIElement.KeyModifierFlags = [.command, .control, .option, .shift]
-        for _ in 0..<3 {
+        let outsidePresses = 3
+        let menuPresses = 5
+        for _ in 0..<outsidePresses {
             try requireForeground(app, bundleIdentifier: bundleIdentifier)
             app.typeKey("v", modifierFlags: chord)
         }
         let outside = try await waitForSnapshot(at: snapshotPath) {
-            ($0["actionPhases"] as? [String])?.count == 3
+            ($0["actionPhases"] as? [String])?.count == outsidePresses
         }
-        XCTAssertEqual(outside["actionPhases"] as? [String], Array(repeating: "release", count: 3))
+        XCTAssertEqual(
+            outside["actionPhases"] as? [String],
+            Array(repeating: "release", count: outsidePresses))
 
         try requireForeground(app, bundleIdentifier: bundleIdentifier)
         app.buttons["open-menu-button"].click()
@@ -106,24 +110,28 @@ final class ShortcutMenuUITests: XCTestCase {
             XCTFail("The fixture is not tracking its popup menu")
             return
         }
-        for _ in 0..<5 {
+        for _ in 0..<menuPresses {
             try requireForeground(app, bundleIdentifier: bundleIdentifier)
             app.typeKey("v", modifierFlags: chord)
             try await Task.sleep(for: .milliseconds(150))
         }
+        let total = outsidePresses + menuPresses
         let during = try await waitForSnapshot(at: snapshotPath) {
-            ($0["actionPhases"] as? [String])?.count == 8
+            ($0["actionPhases"] as? [String])?.count == total
         }
         try attach(during, name: "release-actions-while-menu-tracks")
-        XCTAssertEqual(during["keyDownCount"] as? Int, 8)
-        XCTAssertEqual((during["actionPhases"] as? [String])?.count, 8)
+        XCTAssertEqual(during["keyDownCount"] as? Int, total)
+        let phases = during["actionPhases"] as? [String] ?? []
+        XCTAssertEqual(phases.count, total)
+        XCTAssertEqual(
+            Array(phases.dropFirst(outsidePresses)), Array(repeating: "press", count: menuPresses))
 
         try requireForeground(app, bundleIdentifier: bundleIdentifier)
         app.typeKey(.escape, modifierFlags: [])
         _ = try await waitForSnapshot(at: snapshotPath) { $0["menuTracking"] as? Bool == false }
         try await Task.sleep(for: .seconds(1))
         let closed = try readSnapshot(snapshotPath)
-        XCTAssertEqual((closed["actionPhases"] as? [String])?.count, 8)
+        XCTAssertEqual((closed["actionPhases"] as? [String])?.count, total)
     }
 
     @MainActor
