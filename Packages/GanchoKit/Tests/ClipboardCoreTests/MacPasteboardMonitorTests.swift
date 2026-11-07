@@ -23,6 +23,8 @@
         private var typeCalls = 0
         /// A copy that lands while the payload read is in flight.
         var writeDuringRead: (payload: PasteboardCapture.Payload, types: Set<String>)?
+        /// Holds the payload read until signalled, so a test can act mid-read.
+        var readGate: DispatchSemaphore?
 
         func currentChangeCount() -> Int {
             lock.withLock { changeCount }
@@ -37,11 +39,12 @@
         }
 
         func readPayload() -> PasteboardCapture.Payload? {
-            let delay = lock.withLock {
+            let (delay, gate) = lock.withLock {
                 readCalls += 1
                 readSawMainThread = Thread.isMainThread
-                return readDelay
+                return (readDelay, readGate)
             }
+            gate?.wait()
             if delay > 0 { Thread.sleep(forTimeInterval: delay) }
             let landed = lock.withLock {
                 defer { writeDuringRead = nil }
@@ -79,6 +82,20 @@
             lock.withLock {
                 self.secondsSinceInput = secondsSinceInput
                 self.locked = locked
+            }
+        }
+    }
+
+    /// The pauses that must take effect at once, even mid-read.
+    enum CapturePause: CaseIterable, Sendable {
+        case screenShare
+        case privateMode
+
+        @MainActor
+        func engage(on monitor: MacPasteboardMonitor) {
+            switch self {
+            case .screenShare: monitor.pausedForScreenShare = true
+            case .privateMode: monitor.preferences.isPrivateModePaused = true
             }
         }
     }
@@ -309,6 +326,31 @@
             try? await Task.sleep(for: .milliseconds(300))
 
             #expect(captures.map(\.textRepresentation) == ["second"])
+        }
+
+        @Test(
+            "A read in flight when capture pauses is never delivered",
+            arguments: CapturePause.allCases)
+        func pauseDropsInFlightRead(pause: CapturePause) async {
+            let pasteboard = FakePasteboard()
+            let gate = DispatchSemaphore(value: 0)
+            pasteboard.readGate = gate
+            let monitor = makeMonitor(pasteboard: pasteboard)
+            var captures: [PasteboardCapture] = []
+            monitor.onCapture = { captures.append($0) }
+
+            pasteboard.write(.text("copied as the pause starts"), types: ["public.utf8-plain-text"])
+            monitor.pollOnce()
+            for _ in 0..<500 where pasteboard.readCalls == 0 {
+                try? await Task.sleep(for: .milliseconds(10))
+            }
+            #expect(pasteboard.readCalls == 1, "the read must be in flight")
+
+            pause.engage(on: monitor)
+            gate.signal()
+            await monitor.drainPendingRead()
+
+            #expect(captures.isEmpty)
         }
 
         @Test("Paused mode skips polling entirely; unlock resumes capture")
