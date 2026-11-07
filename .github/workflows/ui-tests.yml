@@ -299,3 +299,35 @@ jobs:
             build/ios-ui-evidence
           if-no-files-found: warn
           retention-days: 14
+
+  # A red weekly run only reached whoever last edited the schedule; an issue keeps it in view.
+  report-scheduled-failure:
+    name: Report a failed weekly UI run
+    needs: [macos-ui, ios-ui]
+    if: >-
+      always() && github.event_name == 'schedule' &&
+      (contains(fromJSON('["failure","cancelled"]'), needs.macos-ui.result) ||
+       contains(fromJSON('["failure","cancelled"]'), needs.ios-ui.result))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MACOS_RESULT: ${{ needs.macos-ui.result }}
+          IOS_RESULT: ${{ needs.ios-ui.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Weekly UI test run failed"
+          body="The scheduled UI test run on $(date -u +%Y-%m-%d) finished with macOS: ${MACOS_RESULT}, iOS: ${IOS_RESULT}.
+
+          ${RUN_URL}"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
