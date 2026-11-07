@@ -12,10 +12,9 @@ final class MenuFixtureState {
     private var releaseShortcuts: ReleaseShortcuts?
     var trace: [[String: Any]] = []
     let snapshotURL: URL
-    // Encoding and disk writes stay off the main thread: a busy main thread
-    // between the synthetic key-down and key-up lets the menu dequeue the key-up.
+    // Disk writes stay off the main thread: a busy main thread between the
+    // synthetic key-down and key-up lets the menu dequeue the key-up itself.
     private let writer = DispatchQueue(label: "shortcut-menu-fixture.snapshot")
-    private var registration: [String: Any]?
 
     init() {
         let arguments = CommandLine.arguments
@@ -104,33 +103,8 @@ final class MenuFixtureState {
     }
 
     func writeSnapshot() {
-        // Registration never changes after launch; decoding it per key event is
-        // main-thread work in the gap the menu races.
-        let registration = self.registration ?? currentRegistration()
-        self.registration = registration
-        let state = registration.merging(
-            [
-                "menuTracking": menuTracking,
-                "keyDownCount": keyDownCount, "keyUpCount": keyUpCount, "trace": trace,
-                "actionPhases": actionPhases
-            ],
-            uniquingKeysWith: { $1 })
-        let snapshot = Snapshot(state: state)
-        let url = snapshotURL
-        writer.async {
-            do {
-                let data = try JSONSerialization.data(
-                    withJSONObject: snapshot.state, options: [.sortedKeys, .prettyPrinted])
-                try data.write(to: url, options: .atomic)
-            } catch {
-                fatalError("Could not save synthetic fixture event metadata: \(error)")
-            }
-        }
-    }
-
-    private func currentRegistration() -> [String: Any] {
         let shortcut = KeyboardShortcuts.getShortcut(for: .togglePanel)
-        return [
+        let state: [String: Any] = [
             "bundleIdentifier": Bundle.main.bundleIdentifier ?? "missing",
             "version": Bundle.main.object(forInfoDictionaryKey: "FixtureDependencyVersion")
                 as? String ?? "missing",
@@ -138,14 +112,27 @@ final class MenuFixtureState {
                 as? String ?? "missing",
             "shortcutEnabled": KeyboardShortcuts.isEnabled(for: .togglePanel),
             "shortcutKeyCode": shortcut?.carbonKeyCode ?? -1,
-            "shortcutModifiers": shortcut?.carbonModifiers ?? -1
+            "shortcutModifiers": shortcut?.carbonModifiers ?? -1,
+            "menuTracking": menuTracking,
+            "keyDownCount": keyDownCount, "keyUpCount": keyUpCount, "trace": trace,
+            "actionPhases": actionPhases
         ]
+        let data: Data
+        do {
+            data = try JSONSerialization.data(
+                withJSONObject: state, options: [.sortedKeys, .prettyPrinted])
+        } catch {
+            fatalError("Could not encode synthetic fixture event metadata: \(error)")
+        }
+        let url = snapshotURL
+        writer.async {
+            do {
+                try data.write(to: url, options: .atomic)
+            } catch {
+                fatalError("Could not save synthetic fixture event metadata: \(error)")
+            }
+        }
     }
-}
-
-/// Plist values copied on the main thread and never mutated afterwards.
-nonisolated private struct Snapshot: @unchecked Sendable {
-    let state: [String: Any]
 }
 
 @main
