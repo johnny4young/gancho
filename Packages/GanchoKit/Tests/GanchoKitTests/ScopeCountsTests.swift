@@ -106,4 +106,17 @@ struct ScopeCountsTests {
         let counts = try await store.scopeCounts(excluding: excluded)
         #expect(counts.total == 1)
     }
+
+    @Test("The in-memory fallback counts its rows by kind and leaves pending deletes out")
+    func inMemoryFallback() async throws {
+        let store = InMemoryClipboardStore()
+        let text = ClipItem(kind: .text, preview: "text", contentHash: "t")
+        let link = ClipItem(kind: .url, preview: "link", contentHash: "l")
+        let pending = ClipItem(kind: .text, preview: "pending", contentHash: "p")
+        for item in [text, link, pending] {
+            try await store.insert(item, content: .text(item.preview))
+        }
+        let counts = try await store.scopeCounts(excluding: [pending.id])
+        #expect(counts == ScopeCountSnapshot(total: 2, boards: [:], kinds: [.text: 1, .url: 1]))
+    }
 }

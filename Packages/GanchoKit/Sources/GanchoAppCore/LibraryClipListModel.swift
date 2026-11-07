@@ -73,6 +73,15 @@ extension LibraryListRequest {
             LibraryOrdering.sorted(matches, oldestFirst: isPaged && oldestFirst)
                 .dropFirst(max(0, offset)).prefix(limit))
     }
+
+    /// The fallback's total, through the same filter as its pages.
+    public func fallbackCount(
+        now: Date = .now,
+        isolation: isolated (any Actor)? = #isolation,
+        snapshot: () async throws -> [ClipItem]
+    ) async rethrows -> Int {
+        try await fallbackPage(offset: 0, limit: .max, now: now, snapshot: snapshot).count
+    }
 }
 
 public enum LibraryOrdering {
