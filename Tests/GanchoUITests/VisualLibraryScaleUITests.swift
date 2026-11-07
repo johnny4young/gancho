@@ -19,11 +19,11 @@ final class VisualLibraryScaleUITests: XCTestCase {
         defer { app.terminate() }
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         // Seeding writes real encrypted multi-megapixel fixtures, not a mocked count.
-        XCTAssertTrue(app.textFields["search-field"].waitForExistence(timeout: 60))
+        XCTAssertTrue(app.textFields["search-field"].appears(within: 60))
         try SynthesizedInput.requireForeground(app)
         GanchoUITestCommands.post("library", token: nonce)
         let library = app.windows["Library"].firstMatch
-        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        XCTAssertTrue(library.appears(within: 5))
         let total = library.staticTexts["library-scope-count"]
         XCTAssertTrue(waitForCount([2_000], in: total), "The scope count names the whole scope")
         let count = library.descendants(matching: .any)["library-loaded-count"].firstMatch

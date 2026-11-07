@@ -29,17 +29,17 @@ final class DescribeChangeUITests: XCTestCase {
         row.click()
 
         let transform = app.buttons["transform-button"].firstMatch
-        XCTAssertTrue(transform.waitForExistence(timeout: 5))
+        XCTAssertTrue(transform.appears(within: 5))
         transform.click()
         let describe = app.buttons["transform-row-describe-change"].firstMatch
-        XCTAssertTrue(describe.waitForExistence(timeout: 5))
+        XCTAssertTrue(describe.appears(within: 5))
         describe.click()
 
         let field = app.textFields["describe-change-field"].firstMatch
         try typeTextReliably("Say ship", into: field, in: app)
         app.typeKey(.return, modifierFlags: [])
         let willPaste = app.descendants(matching: .any)["describe-change-will-paste"].firstMatch
-        XCTAssertTrue(willPaste.waitForExistence(timeout: 5), "the rewrite shows as a diff")
+        XCTAssertTrue(willPaste.appears(within: 5), "the rewrite shows as a diff")
         XCTAssertTrue(
             app.staticTexts.containing(
                 NSPredicate(format: "value CONTAINS 'ship' OR label CONTAINS 'ship'")
@@ -51,10 +51,10 @@ final class DescribeChangeUITests: XCTestCase {
             named: "Describe the change — synthetic — \(dark ? "dark" : "light")")
         let save = app.buttons["describe-change-save-prompt"].firstMatch
         save.click()
-        XCTAssertTrue(save.waitForNonExistence(timeout: 5), "a saved prompt drops its Save button")
+        XCTAssertTrue(save.waitForNonexistence(timeout: 5), "a saved prompt drops its Save button")
         transform.click()
         XCTAssertTrue(
-            app.buttons["transform-row-prompt-Say ship"].firstMatch.waitForExistence(timeout: 5),
+            app.buttons["transform-row-prompt-Say ship"].firstMatch.appears(within: 5),
             "a saved prompt comes back in the Transform list")
     }
 }

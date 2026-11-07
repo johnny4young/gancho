@@ -30,13 +30,13 @@ final class SourceAppFilterUITests: XCTestCase {
     @MainActor
     private func selectSafariSourceFilter(in app: XCUIApplication) throws {
         let filter = app.descendants(matching: .any)["source-app-filter"].firstMatch
-        guard filter.waitForExistence(timeout: 10), filter.waitForHittable(timeout: 5) else {
+        guard filter.appears(within: 10), filter.waitForHittable(timeout: 5) else {
             throw XCTSkip("source-app filter is not reachable on this runner")
         }
         filter.click()
 
         let safari = app.descendants(matching: .any)["Safari"].firstMatch
-        XCTAssertTrue(safari.waitForExistence(timeout: 4), "Safari source filter is missing")
+        XCTAssertTrue(safari.appears(within: 4), "Safari source filter is missing")
         XCTAssertTrue(safari.isHittable, "Safari source filter is not hittable")
         safari.click()
     }
@@ -47,7 +47,7 @@ final class SourceAppFilterUITests: XCTestCase {
         let app = launchSeededPanel()
         defer { app.terminate() }
         XCTAssertTrue(
-            clipRow(containing: "Xcode source sample", in: app).waitForExistence(timeout: 10))
+            clipRow(containing: "Xcode source sample", in: app).appears(within: 10))
         try keepRender(of: "history-panel", in: app, named: "Future dated clip")
     }
 
@@ -64,8 +64,8 @@ final class SourceAppFilterUITests: XCTestCase {
         let safariAlpha = clipRow(containing: "Safari source alpha", in: app)
         let safariLink = clipRow(containing: "Safari source link", in: app)
         let xcodeSample = clipRow(containing: "Xcode source sample", in: app)
-        XCTAssertTrue(safariAlpha.waitForExistence(timeout: 5))
-        XCTAssertTrue(safariLink.waitForExistence(timeout: 5))
+        XCTAssertTrue(safariAlpha.appears(within: 5))
+        XCTAssertTrue(safariLink.appears(within: 5))
         let xcodeDisappeared = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"), object: xcodeSample)
         XCTAssertEqual(
@@ -83,23 +83,23 @@ final class SourceAppFilterUITests: XCTestCase {
         try selectSafariSourceFilter(in: app)
 
         let field = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertTrue(field.appears(within: 5))
         try typeTextReliably("Xcode source sample", into: field, in: app)
 
         let emptyState = app.descendants(matching: .any)["panel-empty-noresults"].firstMatch
         XCTAssertTrue(
-            emptyState.waitForExistence(timeout: 5),
+            emptyState.appears(within: 5),
             "the mismatched query and source filter must expose the no-results state")
 
         let clearFilters = app.buttons["clear-filters"].firstMatch
         XCTAssertTrue(
-            clearFilters.waitForExistence(timeout: 3),
+            clearFilters.appears(within: 3),
             "the actionable child must remain exposed to accessibility")
         XCTAssertTrue(clearFilters.isHittable)
         clearFilters.click()
 
         XCTAssertTrue(
-            clipRow(containing: "Xcode source sample", in: app).waitForExistence(timeout: 5),
+            clipRow(containing: "Xcode source sample", in: app).appears(within: 5),
             "clearing the source filter must preserve the query and reveal its matching row")
     }
 
@@ -113,7 +113,7 @@ final class SourceAppFilterUITests: XCTestCase {
         defer { app.terminate() }
 
         let images = app.buttons["Images"].firstMatch
-        guard images.waitForExistence(timeout: 10), images.waitForHittable(timeout: 5) else {
+        guard images.appears(within: 10), images.waitForHittable(timeout: 5) else {
             throw XCTSkip("kind filter pills are not reachable on this runner")
         }
         images.click()
@@ -122,7 +122,7 @@ final class SourceAppFilterUITests: XCTestCase {
         // the list while the search field stays empty.
         let noResults = app.descendants(matching: .any)["panel-empty-noresults"].firstMatch
         XCTAssertTrue(
-            noResults.waitForExistence(timeout: 5),
+            noResults.appears(within: 5),
             "a filter-only empty list must not present the first-run state")
         XCTAssertFalse(
             app.descendants(matching: .any)["panel-empty-firstrun"].exists,
@@ -130,13 +130,13 @@ final class SourceAppFilterUITests: XCTestCase {
 
         let clearFilters = app.buttons["clear-filters"].firstMatch
         XCTAssertTrue(
-            clearFilters.waitForExistence(timeout: 3),
+            clearFilters.appears(within: 3),
             "the filter-only empty state must offer a way back")
         XCTAssertTrue(clearFilters.isHittable)
         clearFilters.click()
 
         XCTAssertTrue(
-            clipRow(containing: "Safari source alpha", in: app).waitForExistence(timeout: 5),
+            clipRow(containing: "Safari source alpha", in: app).appears(within: 5),
             "clearing the filter must restore the seeded rows")
     }
 

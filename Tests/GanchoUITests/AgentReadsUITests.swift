@@ -49,7 +49,7 @@ final class AgentReadsUITests: XCTestCase {
     @MainActor
     private func statusItem(_ app: XCUIApplication) throws -> XCUIElement {
         let item = app.statusItems.firstMatch
-        guard item.waitForExistence(timeout: 8), item.isHittable else {
+        guard item.appears(within: 8), item.isHittable else {
             throw XCTSkip("status item not hittable on this display/Space")
         }
         return item
@@ -80,7 +80,7 @@ final class AgentReadsUITests: XCTestCase {
         defer { app.terminate() }
         XCTAssertTrue(waitForText("Claude Desktop read 3 clips", of: hud(app)))
         let state = app.descendants(matching: .any)["mcp-client-state-claude-desktop"].firstMatch
-        XCTAssertTrue(state.waitForExistence(timeout: 5))
+        XCTAssertTrue(state.appears(within: 5))
         XCTAssertEqual(text(of: state), "Active")
         try SynthesizedInput.requireForeground(app)
 
@@ -89,7 +89,7 @@ final class AgentReadsUITests: XCTestCase {
         XCTAssertTrue(waitForText("Revoked", of: state), text(of: state))
 
         let row = app.descendants(matching: .any)["mcp-ledger-row"].firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "the read reaches an open ledger at once")
+        XCTAssertTrue(row.appears(within: 5), "the read reaches an open ledger at once")
         let form = app.scrollViews.containing(.any, identifier: "mcp-ledger-row").firstMatch
         // Only for the render: on a small display the last row can stay under the Dock.
         _ = row.revealByScrolling(in: form, deltas: [-400, -400])
@@ -110,7 +110,7 @@ final class AgentReadsUITests: XCTestCase {
 
         item.click()
         let header = app.menuItems["menu-bar-header"].firstMatch
-        XCTAssertTrue(header.waitForExistence(timeout: 3))
+        XCTAssertTrue(header.appears(within: 3))
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(waitForBadge("none", on: item))
     }
@@ -119,7 +119,7 @@ final class AgentReadsUITests: XCTestCase {
     func testTurnedOffTheReadStaysInTheLedgerOnly() throws {
         let app = launch(["-show-agent-reads", "NO"])
         defer { app.terminate() }
-        XCTAssertFalse(hud(app).waitForExistence(timeout: 6))
+        XCTAssertFalse(hud(app).appears(within: 6))
         XCTAssertTrue(waitForBadge("none", on: try statusItem(app)))
     }
 
@@ -129,7 +129,7 @@ final class AgentReadsUITests: XCTestCase {
     func testScreenShareKeepsTheReadInTheLedgerOnly() throws {
         let app = launch(["-simulate-screen-share", "Zoom"])
         defer { app.terminate() }
-        XCTAssertFalse(hud(app).waitForExistence(timeout: 6))
+        XCTAssertFalse(hud(app).appears(within: 6))
     }
 
     @MainActor
@@ -137,18 +137,18 @@ final class AgentReadsUITests: XCTestCase {
         let token = UUID().uuidString
         let app = launch(["-place-library-for-ui-test", "-command-nonce", token])
         defer { app.terminate() }
-        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.appears(within: 15))
         GanchoUITestCommands.post("library", token: token)
         let library = app.windows["Library"].firstMatch
-        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        XCTAssertTrue(library.appears(within: 5))
         let favorites = library.descendants(matching: .any)["library-board-\(Self.favoritesID)"]
             .firstMatch
-        XCTAssertTrue(favorites.waitForExistence(timeout: 5))
+        XCTAssertTrue(favorites.appears(within: 5))
         try SynthesizedInput.requireForeground(app)
 
         favorites.click()
         let badge = library.descendants(matching: .any)["library-exposed-badge"].firstMatch
-        XCTAssertTrue(badge.waitForExistence(timeout: 5))
+        XCTAssertTrue(badge.appears(within: 5))
         try keepRender(of: "Library", in: app, named: "Library exposed board")
     }
 
@@ -162,7 +162,7 @@ final class AgentReadsUITests: XCTestCase {
         defer { app.terminate() }
         app.buttons["settings-tab-integrations"].firstMatch.click()
         let toggle = app.descendants(matching: .any)["settings-agent-reads"].firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertTrue(toggle.appears(within: 5))
         XCTAssertEqual(toggle.value as? Int, 1, "on unless turned off")
         try keepRender(of: "Settings", in: app, named: "Integrations agent reads toggle")
         try SynthesizedInput.requireForeground(app)

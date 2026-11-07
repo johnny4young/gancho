@@ -14,11 +14,11 @@ final class ClipLargePreviewUITests: XCTestCase {
         app.activate()
 
         let search = app.textFields["search-field"].firstMatch
-        guard search.waitForExistence(timeout: 10) else {
+        guard search.appears(within: 10) else {
             throw XCTSkip("history panel is not reachable on this runner")
         }
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        guard row.waitForExistence(timeout: 10) else {
+        guard row.appears(within: 10) else {
             throw XCTSkip("seeded preview clip is not reachable on this runner")
         }
 
@@ -30,9 +30,9 @@ final class ClipLargePreviewUITests: XCTestCase {
         app.typeKey("y", modifierFlags: .command)
 
         let preview = app.sheets["large-preview-window"].firstMatch
-        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertTrue(preview.appears(within: 5))
         let content = app.textViews["large-preview-content"].firstMatch
-        XCTAssertTrue(content.waitForExistence(timeout: 5))
+        XCTAssertTrue(content.appears(within: 5))
         XCTAssertEqual(
             content.value as? String,
             "Yesterday: fixed search\nToday: improve editing\nBlockers: none")
@@ -40,7 +40,7 @@ final class ClipLargePreviewUITests: XCTestCase {
         try keepRender(of: "large-preview-window", in: app, named: "macOS Command-Y large preview")
 
         app.typeKey("y", modifierFlags: .command)
-        XCTAssertTrue(content.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(content.waitForNonexistence(timeout: 5))
         XCTAssertTrue(search.exists, "closing the preview should return to the history panel")
     }
 }

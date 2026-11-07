@@ -23,23 +23,23 @@ final class MeaningSearchUITests: XCTestCase {
         defer { app.terminate() }
         app.activate()
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(rows.firstMatch.appears(within: 10))
         let meaning = app.buttons["search-mode-meaning"].firstMatch
-        XCTAssertTrue(meaning.waitForExistence(timeout: 5))
+        XCTAssertTrue(meaning.appears(within: 5))
         let query = app.textFields["search-field"].firstMatch
         XCTAssertTrue(query.exists)
         try typeTextReliably("syntheticnomatch", into: query, in: app)
         let noResults = app.descendants(matching: .any)["panel-empty-noresults"].firstMatch
-        XCTAssertTrue(noResults.waitForExistence(timeout: 5))
+        XCTAssertTrue(noResults.appears(within: 5))
         meaning.click()
         XCTAssertTrue(
-            rows.firstMatch.waitForExistence(timeout: 5), "Meaning lists the related clips")
+            rows.firstMatch.appears(within: 5), "Meaning lists the related clips")
         XCTAssertTrue(
             app.descendants(matching: .any)["meaning-search-status"].firstMatch.exists)
         try keepRender(
             of: "history-panel", in: app,
             named: "Meaning search synthetic routing — \(language) — \(appearance)")
         app.buttons["search-mode-fuzzy"].firstMatch.click()
-        XCTAssertTrue(noResults.waitForExistence(timeout: 5), "Fuzzy has no related rows")
+        XCTAssertTrue(noResults.appears(within: 5), "Fuzzy has no related rows")
     }
 }

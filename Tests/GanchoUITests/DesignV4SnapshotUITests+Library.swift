@@ -25,10 +25,10 @@ extension DesignV4SnapshotUITests {
             ]
         app.launch()
         defer { app.terminate() }
-        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.appears(within: 15))
         GanchoUITestCommands.post("library", token: token)
         let library = app.windows["Library"].firstMatch
-        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        XCTAssertTrue(library.appears(within: 5))
         let cards = library.buttons.matching(identifier: "library-clip")
         let seeded = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "count == 6"), object: cards)

@@ -28,7 +28,7 @@ final class UpNextUITests: XCTestCase {
         try SynthesizedInput.requireForeground(app)
 
         let slot = app.descendants(matching: .any)["up-next-slot"].firstMatch
-        XCTAssertTrue(slot.waitForExistence(timeout: 10))
+        XCTAssertTrue(slot.appears(within: 10))
         XCTAssertTrue(slot.label.contains("Greeting"), slot.label)
         XCTAssertTrue(reason(of: slot).contains("Pasted into Editor"), reason(of: slot))
         XCTAssertTrue(reason(of: slot).contains("3×"), reason(of: slot))
@@ -38,16 +38,16 @@ final class UpNextUITests: XCTestCase {
 
         let search = app.textFields["search-field"].firstMatch
         try typeTextReliably("seed", into: search, in: app)
-        XCTAssertTrue(slot.waitForNonExistence(timeout: 5), "searching hides Up next")
+        XCTAssertTrue(slot.waitForNonexistence(timeout: 5), "searching hides Up next")
         search.typeKey("a", modifierFlags: .command)
         search.typeKey(.delete, modifierFlags: [])
-        XCTAssertTrue(slot.waitForExistence(timeout: 5), "clearing the search brings it back")
+        XCTAssertTrue(slot.appears(within: 5), "clearing the search brings it back")
 
         app.typeKey(.return, modifierFlags: .command)
         let panel = app.descendants(matching: .any)["history-panel"].firstMatch
-        XCTAssertTrue(panel.waitForNonExistence(timeout: 5), "⌘↩ pastes and closes the panel")
+        XCTAssertTrue(panel.waitForNonexistence(timeout: 5), "⌘↩ pastes and closes the panel")
         GanchoUITestCommands.post("openPanel", token: nonce)
-        XCTAssertTrue(slot.waitForExistence(timeout: 10))
+        XCTAssertTrue(slot.appears(within: 10))
         let counted = NSPredicate { _, _ in self.reason(of: slot).contains("4×") }
         XCTAssertEqual(
             XCTWaiter.wait(
@@ -70,16 +70,16 @@ final class UpNextUITests: XCTestCase {
         defer { app.terminate() }
         let slot = app.descendants(matching: .any)["up-next-slot"].firstMatch
         GanchoUITestCommands.post("openPanel", token: nonce)
-        XCTAssertTrue(slot.waitForExistence(timeout: 10), "the seeded habit predicts")
+        XCTAssertTrue(slot.appears(within: 10), "the seeded habit predicts")
         app.typeKey(.escape, modifierFlags: [])
 
         app.buttons["settings-tab-capture"].firstMatch.click()
         let openIntelligence = app.buttons["open-intelligence"].firstMatch
-        XCTAssertTrue(openIntelligence.waitForExistence(timeout: 3))
+        XCTAssertTrue(openIntelligence.appears(within: 3))
         openIntelligence.click()
         let toggle = app.windows["Intelligence"].firstMatch
             .descendants(matching: .any)["intelligence-toggle-up-next"].firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertTrue(toggle.appears(within: 5))
         XCTAssertEqual(toggle.value as? Int, 1)
         toggle.click()
         XCTAssertEqual(toggle.value as? Int, 0)
@@ -88,8 +88,8 @@ final class UpNextUITests: XCTestCase {
 
         GanchoUITestCommands.post("openPanel", token: nonce)
         let panel = app.descendants(matching: .any)["history-panel"].firstMatch
-        XCTAssertTrue(panel.waitForExistence(timeout: 10))
-        XCTAssertFalse(slot.waitForExistence(timeout: 3), "the log was erased with the switch")
+        XCTAssertTrue(panel.appears(within: 10))
+        XCTAssertFalse(slot.appears(within: 3), "the log was erased with the switch")
     }
 
     /// The slot's value carries the reason line.

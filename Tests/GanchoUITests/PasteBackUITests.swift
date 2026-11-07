@@ -24,7 +24,7 @@ final class PasteBackUITests: XCTestCase {
     func testPanelOpensOnlyAfterAllSampleCapturesAreReady() {
         let app = launchSeededPanel(pasteSink: "copied-only")
         defer { app.terminate() }
-        XCTAssertTrue(app.textFields["search-field"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.textFields["search-field"].appears(within: 10))
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         XCTAssertEqual(rows.count, 3, "opening the panel must await the complete sample fixture")
         for expected in ["seed alpha", "seed.example", "seed beta"] {
@@ -39,7 +39,7 @@ final class PasteBackUITests: XCTestCase {
         defer { app.terminate() }
         let row = app.descendants(matching: .any).matching(identifier: "clip-row")
             .matching(NSPredicate(format: "label CONTAINS %@", "seed alpha")).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.appears(within: 10))
         try SynthesizedInput.requireForeground(app)
         guard row.isHittable else { throw XCTSkip("seeded row is not reachable on this runner") }
         XCTAssertFalse(row.isSelected)
@@ -47,7 +47,7 @@ final class PasteBackUITests: XCTestCase {
         XCTAssertTrue(row.isSelected)
         // A wrong paste shows its notice and closes the panel asynchronously.
         let toast = app.descendants(matching: .any)["gancho-toast"].firstMatch
-        XCTAssertFalse(toast.waitForExistence(timeout: 2), "a single click must not paste")
+        XCTAssertFalse(toast.appears(within: 2), "a single click must not paste")
         XCTAssertTrue(app.descendants(matching: .any)["history-panel"].firstMatch.exists)
     }
 
@@ -58,7 +58,7 @@ final class PasteBackUITests: XCTestCase {
     private func pasteFirstRow(in app: XCUIApplication) throws -> XCUIElement {
         try SynthesizedInput.requireForeground(app)
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        guard row.waitForExistence(timeout: 10), row.isHittable else {
+        guard row.appears(within: 10), row.isHittable else {
             throw XCTSkip("seeded panel row is not reachable on this runner")
         }
         // NSPanel is exposed as a Dialog rather than a Window on macOS 26.
@@ -75,10 +75,10 @@ final class PasteBackUITests: XCTestCase {
         let panel = try pasteFirstRow(in: app)
 
         XCTAssertTrue(
-            panel.waitForNonExistence(timeout: 5),
+            panel.waitForNonexistence(timeout: 5),
             "pasting must hide the panel so focus can return to the target app")
         let toast = app.descendants(matching: .any)["gancho-toast"].firstMatch
-        XCTAssertTrue(toast.waitForExistence(timeout: 5))
+        XCTAssertTrue(toast.appears(within: 5))
         XCTAssertTrue(app.staticTexts[Self.copyOnlyNotice].exists)
         // The Enable action is offered but deliberately NOT clicked: it opens
         // System Settings.
@@ -95,9 +95,9 @@ final class PasteBackUITests: XCTestCase {
         defer { app.terminate() }
         let panel = try pasteFirstRow(in: app)
 
-        XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(panel.waitForNonexistence(timeout: 5))
         XCTAssertFalse(
-            app.staticTexts[Self.copyOnlyNotice].waitForExistence(timeout: 2),
+            app.staticTexts[Self.copyOnlyNotice].appears(within: 2),
             "a posted paste has nothing to warn about")
     }
 }

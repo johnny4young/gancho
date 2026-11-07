@@ -29,13 +29,13 @@ final class DoubleCopyMergeUITests: XCTestCase {
         defer { app.terminate() }
 
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(rows.firstMatch.appears(within: 10))
         XCTAssertEqual(rows.count, 1, "the first copy's clip was dropped")
         let label = rows.firstMatch.label
         XCTAssertTrue(label.contains("Ana Restrepo"), label)
         XCTAssertTrue(label.contains("Cra. 43A"), label)
         let hud = app.descendants(matching: .any)["copy-hud"].firstMatch
-        XCTAssertTrue(hud.waitForExistence(timeout: 5))
+        XCTAssertTrue(hud.appears(within: 5))
         // A macOS static text carries its string as the value.
         let title = (hud.value as? String) ?? ""
         XCTAssertTrue(title.contains("Merged · 2 parts"), title)
@@ -53,7 +53,7 @@ final class DoubleCopyMergeUITests: XCTestCase {
         defer { app.terminate() }
 
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(rows.firstMatch.appears(within: 10))
         XCTAssertEqual(rows.count, 1, "the first copy's clip was dropped")
         let label = rows.firstMatch.label
         XCTAssertTrue(label.contains("Ana Restrepo"), label)
@@ -70,12 +70,12 @@ final class DoubleCopyMergeUITests: XCTestCase {
         defer { app.terminate() }
 
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        guard rows.firstMatch.waitForExistence(timeout: 10), rows.firstMatch.isHittable else {
+        guard rows.firstMatch.appears(within: 10), rows.firstMatch.isHittable else {
             throw XCTSkip("seeded panel row is not reachable on this runner")
         }
         rows.firstMatch.click()
         let parts = app.descendants(matching: .any).matching(identifier: "peek-part")
-        XCTAssertTrue(parts.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(parts.firstMatch.appears(within: 5))
         XCTAssertEqual(parts.count, 2)
         let newline = app.descendants(matching: .any)["peek-separator-newline"].firstMatch
         XCTAssertTrue(newline.isSelected)
@@ -88,7 +88,7 @@ final class DoubleCopyMergeUITests: XCTestCase {
                 format: "identifier == 'clip-row' AND label CONTAINS %@",
                 "Ana Restrepo, Cra. 43A")
         ).firstMatch
-        XCTAssertTrue(commaRow.waitForExistence(timeout: 5))
+        XCTAssertTrue(commaRow.appears(within: 5))
         XCTAssertTrue(
             app.descendants(matching: .any)["peek-separator-comma"].firstMatch.isSelected)
         try keepRender(of: "history-panel", in: app, named: "Merged peek comma")
@@ -117,7 +117,7 @@ final class DoubleCopyMergeUITests: XCTestCase {
         defer { app.terminate() }
         app.buttons["settings-tab-capture"].firstMatch.click()
         let toggle = app.descendants(matching: .any)["settings-merge-double-copies"].firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertTrue(toggle.appears(within: 5))
         XCTAssertEqual(toggle.value as? Int, 0)
         let form = app.scrollViews.containing(.any, identifier: "settings-merge-double-copies")
             .firstMatch
@@ -128,7 +128,7 @@ final class DoubleCopyMergeUITests: XCTestCase {
 
         try SynthesizedInput.requireForeground(app)
         toggle.click()
-        XCTAssertTrue(sound.waitForExistence(timeout: 5))
+        XCTAssertTrue(sound.appears(within: 5))
         XCTAssertEqual(sound.value as? Int, 1)
         try keepRender(of: "Settings", in: app, named: "Capture settings merging on")
     }

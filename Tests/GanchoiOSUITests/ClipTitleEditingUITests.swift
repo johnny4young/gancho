@@ -13,7 +13,7 @@ final class ClipTitleEditingUITests: XCTestCase {
         // iPad shows the detail in a split view, without a sheet.
         if UIDevice.current.userInterfaceIdiom == .phone {
             let grabber = app.buttons["Sheet Grabber"].firstMatch
-            XCTAssertTrue(grabber.waitForExistence(timeout: 5))
+            XCTAssertTrue(grabber.appears(within: 5))
             grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
                 .press(
                     forDuration: 0.1,
@@ -23,11 +23,11 @@ final class ClipTitleEditingUITests: XCTestCase {
             wait(for: [expanded], timeout: 5)
         }
         let edit = app.buttons["detail-edit-title"].firstMatch
-        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        XCTAssertTrue(edit.appears(within: 5))
         edit.tap()
 
         let field = app.textFields["detail-title-field"].firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 2))
+        XCTAssertTrue(field.appears(within: 2))
         field.tap()
         let title = "Team standup"
         for character in title { field.typeText(String(character)) }
@@ -36,7 +36,7 @@ final class ClipTitleEditingUITests: XCTestCase {
             "The complete synthetic title must reach the field before Save")
         app.buttons["detail-save-title"].firstMatch.tap()
 
-        XCTAssertTrue(app.staticTexts["Team standup"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Team standup"].appears(within: 5))
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "iOS inline clip title editing"
         attachment.lifetime = .keepAlways
@@ -54,7 +54,7 @@ final class ClipTitleEditingUITests: XCTestCase {
             ]
             app.launch()
             let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-            if row.waitForExistence(timeout: 8) { return app }
+            if row.appears(within: 8) { return app }
         }
         return try XCTUnwrap(
             nil as XCUIApplication?,

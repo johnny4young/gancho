@@ -11,18 +11,18 @@ final class ManualOCRUITests: XCTestCase {
         defer { app.terminate() }
         try recognizeSeededImage(in: app)
         let firstLine = element("peek-ocr-line-0", in: app)
-        XCTAssertTrue(firstLine.waitForExistence(timeout: 15), "the section never rendered a line")
+        XCTAssertTrue(firstLine.appears(within: 15), "the section never rendered a line")
         XCTAssertTrue(
             firstLine.label.contains("Hola"), "first recognized line was \(firstLine.label)")
         let secondLine = app.descendants(matching: .any).matching(
             NSPredicate(
                 format: "identifier BEGINSWITH 'peek-ocr-line-' AND label CONTAINS 'imagen'")
         ).firstMatch
-        XCTAssertTrue(secondLine.waitForExistence(timeout: 5), "the second line is missing")
+        XCTAssertTrue(secondLine.appears(within: 5), "the second line is missing")
         // The seed leaves the clipboard untouched, so the text was copied
         // automatically and the section says so — no toast, no window.
         let status = element("peek-ocr-status", in: app)
-        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        XCTAssertTrue(status.appears(within: 5))
         XCTAssertEqual(status.label, "Copied to clipboard")
         XCTAssertTrue(
             element("peek-ocr-region-1", in: app).exists,
@@ -33,7 +33,7 @@ final class ManualOCRUITests: XCTestCase {
         // named by its host. Clicking it never leaves the app under the paste
         // sink, and the section stays put.
         let link = app.buttons["peek-ocr-link-0"].firstMatch
-        XCTAssertTrue(link.waitForExistence(timeout: 5), "the link chip never appeared")
+        XCTAssertTrue(link.appears(within: 5), "the link chip never appeared")
         XCTAssertEqual(link.label, "Open gancho.app")
         XCTAssertEqual(
             app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'peek-ocr-link-'"))
@@ -50,20 +50,20 @@ final class ManualOCRUITests: XCTestCase {
         defer { app.terminate() }
         try recognizeSeededImage(in: app)
         let edit = app.buttons["peek-ocr-edit"].firstMatch
-        XCTAssertTrue(edit.waitForExistence(timeout: 15))
+        XCTAssertTrue(edit.appears(within: 15))
         XCTAssertEqual(edit.label, "Editar")
         XCTAssertEqual(app.buttons["peek-ocr-copy"].firstMatch.label, "Copiar todo")
         try clickPeekButton("peek-ocr-edit", in: app)
         let editor = app.textViews["peek-ocr-editor"].firstMatch
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.appears(within: 5))
         try typeTextReliably("Texto editado: canción y café", into: editor, in: app)
         try keepRender(
             of: "history-panel", in: app, named: "Manual OCR — Spanish light inline editor")
         try clickPeekButton("peek-ocr-editor-cancel", in: app)
-        XCTAssertTrue(editor.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(editor.waitForNonexistence(timeout: 5))
         XCTAssertEqual(rows(in: app).count, 1, "Cancelling an edit must not save a clip")
         try clickPeekButton("peek-ocr-edit", in: app)
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.appears(within: 5))
         try typeTextReliably("Texto editado: canción y café", into: editor, in: app)
         try clickPeekButton("peek-ocr-editor-save", in: app)
         let count = XCTNSPredicateExpectation(
@@ -81,11 +81,11 @@ final class ManualOCRUITests: XCTestCase {
     func testPasteStaysTheFirstPeekActionForImageClips() throws {
         let app = launchOCR(language: "en", appearance: "dark")
         defer { app.terminate() }
-        XCTAssertTrue(rows(in: app).firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(rows(in: app).firstMatch.appears(within: 15))
         let paste = element("preview-paste", in: app)
         let ocr = element("image-copy-text", in: app)
-        XCTAssertTrue(paste.waitForExistence(timeout: 10), "the peek must offer Paste")
-        XCTAssertTrue(ocr.waitForExistence(timeout: 10), "the peek must offer OCR on an image")
+        XCTAssertTrue(paste.appears(within: 10), "the peek must offer Paste")
+        XCTAssertTrue(ocr.appears(within: 10), "the peek must offer OCR on an image")
         XCTAssertEqual(paste.frame.minY, ocr.frame.minY, accuracy: 1, "both live in the dock")
         XCTAssertLessThan(
             paste.frame.minX, ocr.frame.minX,
@@ -100,7 +100,7 @@ final class ManualOCRUITests: XCTestCase {
             language: "en", appearance: "dark", extraArguments: ["-AppleShowScrollBars", "Always"])
         defer { app.terminate() }
         try recognizeSeededImage(in: app)
-        XCTAssertTrue(element("peek-ocr-line-0", in: app).waitForExistence(timeout: 15))
+        XCTAssertTrue(element("peek-ocr-line-0", in: app).appears(within: 15))
         let peek = app.scrollViews.containing(.any, identifier: "peek-ocr").firstMatch
         XCTAssertEqual(peek.scrollBars.count, 0)
     }
@@ -113,11 +113,11 @@ final class ManualOCRUITests: XCTestCase {
             defer { app.terminate() }
             try recognizeSeededImage(in: app)
             let lastRegion = element("peek-ocr-region-2", in: app)
-            XCTAssertTrue(lastRegion.waitForExistence(timeout: 15))
+            XCTAssertTrue(lastRegion.appears(within: 15))
             let toggle = element("peek-region-toggle", in: app)
             let pick = element("peek-pick-color", in: app)
-            XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-            XCTAssertTrue(pick.waitForExistence(timeout: 5))
+            XCTAssertTrue(toggle.appears(within: 5))
+            XCTAssertTrue(pick.appears(within: 5))
             try keepRender(of: "history-panel", in: app, named: "Image stage \(name)")
             XCTAssertGreaterThanOrEqual(toggle.frame.minY, lastRegion.frame.maxY)
             XCTAssertGreaterThanOrEqual(pick.frame.minY, lastRegion.frame.maxY)
@@ -173,11 +173,11 @@ final class ManualOCRUITests: XCTestCase {
     @MainActor
     private func recognizeSeededImage(in app: XCUIApplication) throws {
         let row = rows(in: app).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         row.rightClick()
         let extract = app.menuItems["image-copy-text"].firstMatch
-        XCTAssertTrue(extract.waitForExistence(timeout: 3))
+        XCTAssertTrue(extract.appears(within: 3))
         extract.click()
     }
 }

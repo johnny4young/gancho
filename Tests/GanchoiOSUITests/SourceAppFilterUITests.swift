@@ -12,23 +12,23 @@ final class SourceAppFilterUITests: XCTestCase {
         defer { app.terminate() }
 
         let capture = app.descendants(matching: .any)["capture-screen"].firstMatch
-        guard capture.waitForExistence(timeout: 10) else {
+        guard capture.appears(within: 10) else {
             throw XCTSkip("capture screen is not reachable on this runner")
         }
 
         let filter = app.descendants(matching: .any)["history-filter-menu"].firstMatch
-        guard filter.waitForExistence(timeout: 8), filter.isHittable else {
+        guard filter.appears(within: 8), filter.isHittable else {
             throw XCTSkip("history filter menu is not reachable on this runner")
         }
         filter.tap()
 
         let safari = app.descendants(matching: .any)["Safari"].firstMatch
-        XCTAssertTrue(safari.waitForExistence(timeout: 5), "Safari source filter is missing")
+        XCTAssertTrue(safari.appears(within: 5), "Safari source filter is missing")
         XCTAssertTrue(safari.isHittable, "Safari source filter is not hittable")
         safari.tap()
 
-        XCTAssertTrue(app.staticTexts["Safari source alpha"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Safari source link"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Safari source alpha"].appears(within: 5))
+        XCTAssertTrue(app.staticTexts["Safari source link"].appears(within: 5))
         XCTAssertFalse(app.staticTexts["Xcode source sample"].exists)
 
         let attachment = XCTAttachment(screenshot: app.screenshot())

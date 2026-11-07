@@ -35,11 +35,11 @@ extension DesignV4SnapshotUITests {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         XCTAssertTrue(
             app.descendants(matching: .any)["onboarding-page-dots"].firstMatch
-                .waitForExistence(timeout: 8))
+                .appears(within: 8))
         if step == 3 {
             XCTAssertTrue(
                 app.descendants(matching: .any)["clip-row"].firstMatch
-                    .waitForExistence(timeout: 5))
+                    .appears(within: 5))
         }
         try DesignSnapshot.save(
             DesignSnapshot.renderWindow(

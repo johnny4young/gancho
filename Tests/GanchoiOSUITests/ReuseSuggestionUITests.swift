@@ -9,11 +9,11 @@ final class ReuseSuggestionUITests: XCTestCase {
         try copySeededClip(in: app)
 
         let banner = app.descendants(matching: .any)["reuse-suggestion"].firstMatch
-        XCTAssertTrue(banner.waitForExistence(timeout: 8))
+        XCTAssertTrue(banner.appears(within: 8))
         XCTAssertTrue(app.staticTexts["Used 3 times — save as a snippet?"].exists)
 
         let paste = app.descendants(matching: .any)["paste-control"].firstMatch
-        XCTAssertTrue(paste.waitForExistence(timeout: 5))
+        XCTAssertTrue(paste.appears(within: 5))
         // `isHittable` needs an activation point, which iOS 27 omits for this system control.
         XCTAssertTrue(
             app.windows.firstMatch.frame.contains(paste.frame),
@@ -34,7 +34,7 @@ final class ReuseSuggestionUITests: XCTestCase {
         // The note only follows a confirmed promotion; the launch keeps it on
         // screen because the hosted runner can idle longer than its 2 s life.
         let note = app.descendants(matching: .any).matching(identifier: "save-note").firstMatch
-        XCTAssertTrue(note.waitForExistence(timeout: 5))
+        XCTAssertTrue(note.appears(within: 5))
         XCTAssertTrue(note.label.contains("Saved as snippet"), note.label)
         XCTAssertEqual(note.value as? String, "Done")
     }
@@ -46,9 +46,9 @@ final class ReuseSuggestionUITests: XCTestCase {
 
         try copySeededClip(in: app)
         let banner = app.descendants(matching: .any)["reuse-suggestion"].firstMatch
-        XCTAssertTrue(banner.waitForExistence(timeout: 8))
+        XCTAssertTrue(banner.appears(within: 8))
         let dismiss = app.buttons["reuse-suggestion-dismiss"].firstMatch
-        XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
+        XCTAssertTrue(dismiss.appears(within: 5))
         XCTAssertTrue(dismiss.isHittable)
         dismiss.tap()
         waitForDisappearance(of: banner, timeout: 8)
@@ -79,7 +79,7 @@ final class ReuseSuggestionUITests: XCTestCase {
             ]
             app.launch()
             let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-            if row.waitForExistence(timeout: 8) { return app }
+            if row.appears(within: 8) { return app }
         }
         return try XCTUnwrap(
             nil as XCUIApplication?,
@@ -89,14 +89,14 @@ final class ReuseSuggestionUITests: XCTestCase {
     @MainActor
     private func copySeededClip(in app: XCUIApplication) throws {
         let capture = app.descendants(matching: .any)["capture-screen"].firstMatch
-        guard capture.waitForExistence(timeout: 10) else {
+        guard capture.appears(within: 10) else {
             throw XCTSkip("capture screen is not reachable on this runner")
         }
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 8))
+        XCTAssertTrue(row.appears(within: 8))
         row.tap()
         let copy = app.buttons["Copy"].firstMatch
-        XCTAssertTrue(copy.waitForExistence(timeout: 5))
+        XCTAssertTrue(copy.appears(within: 5))
         XCTAssertTrue(copy.isHittable)
         copy.tap()
     }

@@ -33,7 +33,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         // The same clip at every level: row order follows capture timing.
         let row = app.descendants(matching: .any).matching(identifier: "clip-row")
             .matching(NSPredicate(format: "label CONTAINS %@", "let greeting")).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         let panel = app.dialogs["history-panel"].firstMatch
         if panel.exists {
             try keepRender(of: "history-panel", in: app, named: "panel-text-size-\(textSize)")
@@ -62,11 +62,11 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         app.launchArguments = settingsArguments + persistenceArguments
         app.launch()
         waitForAppToStart(app)
-        XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.windows["Settings"].firstMatch.appears(within: 5))
 
         GanchoUITestCommands.post("openPanel", token: commandToken)
         let panel = historyPanel(in: app)
-        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        XCTAssertTrue(panel.appears(within: 5))
         XCTAssertEqual(panel.value as? String, "standard")
         let standardWidth = panel.frame.width
 
@@ -80,11 +80,11 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
 
         // SwiftUI's segmented Picker is exposed as a RadioGroup on macOS.
         let textSize = app.radioGroups["panel-text-size"].firstMatch
-        XCTAssertTrue(textSize.waitForExistence(timeout: 3))
+        XCTAssertTrue(textSize.appears(within: 3))
         textSize.radioButtons["Large"].click()
 
         GanchoUITestCommands.post("openPanel", token: commandToken)
-        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        XCTAssertTrue(panel.appears(within: 5))
         XCTAssertTrue(
             waitForPanelWidth(in: app) { $0 >= standardWidth + 100 },
             "the Large preset must resize the live panel")
@@ -102,7 +102,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         app = launchWithPanel(
             extraArguments: persistenceArguments + ["-preserve-ui-test-defaults"])
         let relaunchedPanel = historyPanel(in: app)
-        XCTAssertTrue(relaunchedPanel.waitForExistence(timeout: 5))
+        XCTAssertTrue(relaunchedPanel.appears(within: 5))
         XCTAssertEqual(relaunchedPanel.value as? String, "large")
         XCTAssertTrue(
             waitForPanelWidth(in: app) { abs($0 - largeWidth) <= 2 },
@@ -175,7 +175,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         _ preset: String, afterVerifying current: String, in app: XCUIApplication
     ) {
         let panelSize = app.radioGroups["panel-size"].firstMatch
-        XCTAssertTrue(panelSize.waitForExistence(timeout: 3))
+        XCTAssertTrue(panelSize.appears(within: 3))
         XCTAssertEqual(
             panelSize.radioButtons[current].value as? Int, 1,
             "the remembered preset must show as selected")

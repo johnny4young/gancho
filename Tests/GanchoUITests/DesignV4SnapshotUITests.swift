@@ -32,7 +32,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
         let app = try launchSettingsWindow(extraArguments: stableArguments(appearance))
         defer { app.terminate() }
         let capture = app.windows["Settings"].buttons["settings-tab-capture"].firstMatch
-        XCTAssertTrue(capture.waitForExistence(timeout: 3))
+        XCTAssertTrue(capture.appears(within: 3))
         capture.click()
         XCTAssertTrue(capture.isSelected)
         let window = try DesignSnapshot.renderWindow(
@@ -58,9 +58,9 @@ final class DesignV4SnapshotUITests: XCTestCase {
         defer { app.terminate() }
         app.buttons["settings-tab-capture"].firstMatch.click()
         let open = app.buttons["open-intelligence"].firstMatch
-        XCTAssertTrue(open.waitForExistence(timeout: 3))
+        XCTAssertTrue(open.appears(within: 3))
         open.click()
-        XCTAssertTrue(app.windows["Intelligence"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.windows["Intelligence"].firstMatch.appears(within: 5))
         try DesignSnapshot.save(
             DesignSnapshot.renderWindow(
                 titled: "Intelligence", named: "intelligence", in: renders),
@@ -136,10 +136,10 @@ final class DesignV4SnapshotUITests: XCTestCase {
                             "•••")
                         : NSPredicate(format: "label CONTAINS %@", "example.com")
             ).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 8))
+        XCTAssertTrue(row.appears(within: 8))
         row.click()
         XCTAssertTrue(
-            app.descendants(matching: .any)["peek-dock"].firstMatch.waitForExistence(timeout: 5))
+            app.descendants(matching: .any)["peek-dock"].firstMatch.appears(within: 5))
         // Let the selection and peek animations settle.
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         try DesignSnapshot.save(
@@ -241,10 +241,10 @@ final class DesignV4SnapshotUITests: XCTestCase {
         app.launch()
         defer { app.terminate() }
         let field = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        XCTAssertTrue(field.appears(within: 15))
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-                .waitForExistence(timeout: 8))
+                .appears(within: 8))
         switch state {
         case .privateMode:
             break
@@ -254,14 +254,14 @@ final class DesignV4SnapshotUITests: XCTestCase {
                     format: "identifier BEGINSWITH 'board-' AND label BEGINSWITH %@",
                     "Seed board 1")
             ).firstMatch
-            XCTAssertTrue(chip.waitForExistence(timeout: 10))
+            XCTAssertTrue(chip.appears(within: 10))
             // The pointer sits where a drag would, not on whichever row it was left over.
             try SynthesizedInput.requireForeground(app)
             chip.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
         case .screenShare:
             // Detection runs on a three-second tick.
             XCTAssertTrue(
-                app.buttons["screen-share-show-anyway"].firstMatch.waitForExistence(timeout: 10))
+                app.buttons["screen-share-show-anyway"].firstMatch.appears(within: 10))
         case .tokens:
             // Chips for app and type, then a key prefix that opens the popover.
             // Typed straight in: the field keeps only the "be" the chips leave.
@@ -306,7 +306,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
         defer { app.terminate() }
         XCTAssertTrue(
             app.descendants(matching: .any)["panel-first-run-stage"].firstMatch
-                .waitForExistence(timeout: 15))
+                .appears(within: 15))
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         try DesignSnapshot.save(
             DesignSnapshot.renderWindow(titled: "Gancho", named: "panel", in: renders),
@@ -327,11 +327,11 @@ final class DesignV4SnapshotUITests: XCTestCase {
         let app = try launchSettingsWindow(extraArguments: stableArguments(appearance))
         defer { app.terminate() }
         let privacy = app.windows["Settings"].buttons["settings-tab-privacy"].firstMatch
-        XCTAssertTrue(privacy.waitForExistence(timeout: 3))
+        XCTAssertTrue(privacy.appears(within: 3))
         privacy.click()
         XCTAssertTrue(
             app.windows["Settings"].descendants(matching: .any)["spotlight-indexing-toggle"]
-                .firstMatch.waitForExistence(timeout: 5))
+                .firstMatch.appears(within: 5))
         // Let the tab switch and the focus ring settle.
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         try DesignSnapshot.save(
@@ -353,7 +353,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
             extraArguments: stableArguments(appearance) + ["-command-nonce", token])
         defer { app.terminate() }
         GanchoUITestCommands.post("privacyCenter", token: token)
-        XCTAssertTrue(app.windows["Privacy Center"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.windows["Privacy Center"].firstMatch.appears(within: 5))
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         try DesignSnapshot.save(
             DesignSnapshot.renderWindow(

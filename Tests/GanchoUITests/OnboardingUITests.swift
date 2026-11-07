@@ -12,7 +12,7 @@ final class OnboardingUITests: XCTestCase {
         let app = try launch(step: 0)
         defer { app.terminate() }
         let link = app.buttons["onboarding-open-privacy-center"].firstMatch
-        XCTAssertTrue(link.waitForExistence(timeout: 8))
+        XCTAssertTrue(link.appears(within: 8))
         let lifetime = NSPredicate(
             format: "label CONTAINS %@ OR value CONTAINS %@", "after 10 minutes",
             "after 10 minutes")
@@ -20,7 +20,7 @@ final class OnboardingUITests: XCTestCase {
             app.descendants(matching: .any).matching(lifetime).firstMatch.exists,
             "The promise names the configured secret lifetime")
         link.click()
-        XCTAssertTrue(app.windows["Privacy Center"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.windows["Privacy Center"].firstMatch.appears(within: 5))
     }
 
     @MainActor
@@ -28,17 +28,17 @@ final class OnboardingUITests: XCTestCase {
         let app = try launch(step: 2)
         defer { app.terminate() }
         let keys = app.descendants(matching: .any)["onboarding-shortcut-keys-stack"].firstMatch
-        XCTAssertTrue(keys.waitForExistence(timeout: 8))
+        XCTAssertTrue(keys.appears(within: 8))
         let set = app.buttons["onboarding-shortcut-change-stack"].firstMatch
         // Recorded shortcuts live outside the per-test defaults suite.
         XCTAssertTrue(["Set…", "Change…"].contains(set.label), set.label)
         set.click()
         XCTAssertTrue(
             app.descendants(matching: .any)["onboarding-shortcut-recorder-stack"].firstMatch
-                .waitForExistence(timeout: 5))
+                .appears(within: 5))
         XCTAssertFalse(keys.exists)
         app.buttons["onboarding-shortcut-done-stack"].firstMatch.click()
-        XCTAssertTrue(keys.waitForExistence(timeout: 5))
+        XCTAssertTrue(keys.appears(within: 5))
         XCTAssertTrue(
             app.descendants(matching: .any)["onboarding-shortcut-keys-panel"].firstMatch.exists)
     }
@@ -48,22 +48,22 @@ final class OnboardingUITests: XCTestCase {
         let app = try launch(step: nil)
         defer { app.terminate() }
         let dots = app.descendants(matching: .any)["onboarding-page-dots"].firstMatch
-        XCTAssertTrue(dots.waitForExistence(timeout: 8))
+        XCTAssertTrue(dots.appears(within: 8))
         app.buttons["onboarding-continue"].firstMatch.click()
         let skipForNow = app.buttons["onboarding-skip-for-now"].firstMatch
-        XCTAssertTrue(skipForNow.waitForExistence(timeout: 5))
+        XCTAssertTrue(skipForNow.appears(within: 5))
         skipForNow.click()
         let skip = app.buttons["onboarding-skip"].firstMatch
-        XCTAssertTrue(skip.waitForExistence(timeout: 5))
+        XCTAssertTrue(skip.appears(within: 5))
         XCTAssertEqual(dots.label, "Step 3 of 4")
         skip.click()
-        XCTAssertTrue(dots.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(dots.waitForNonexistence(timeout: 5))
 
         // The helper's "Welcome to Gancho" command, as the menu sends it.
         DistributedNotificationCenter.default().postNotificationName(
             Notification.Name("com.johnny4young.gancho.menu-bar-command.welcome"),
             object: Self.nonce, userInfo: nil, options: [.deliverImmediately])
-        XCTAssertTrue(dots.waitForExistence(timeout: 5))
+        XCTAssertTrue(dots.appears(within: 5))
         XCTAssertEqual(dots.label, "Step 1 of 4", "a reopened welcome starts over")
     }
 

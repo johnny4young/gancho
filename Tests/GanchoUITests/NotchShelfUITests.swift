@@ -94,10 +94,10 @@ final class NotchShelfUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         XCTAssertTrue(
-            app.descendants(matching: .any)["notch-shelf"].firstMatch.waitForExistence(
-                timeout: 10))
+            app.descendants(matching: .any)["notch-shelf"].firstMatch.appears(
+                within: 10))
         for index in 1...3 {
-            XCTAssertTrue(shelfBoard("Seed board \(index)", in: app).waitForExistence(timeout: 5))
+            XCTAssertTrue(shelfBoard("Seed board \(index)", in: app).appears(within: 5))
         }
         for id in ["extract-text", "resize", "strip-location", "new-board"] {
             XCTAssertTrue(action(id, in: app).exists, id)
@@ -110,9 +110,9 @@ final class NotchShelfUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         let row = imageRow(app)
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         let board = shelfBoard("Seed board 2", in: app)
-        XCTAssertTrue(board.waitForExistence(timeout: 10))
+        XCTAssertTrue(board.appears(within: 10))
         try SynthesizedInput.requireForeground(app)
 
         drag(row, onto: board)
@@ -125,16 +125,16 @@ final class NotchShelfUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         let row = imageRow(app)
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         XCTAssertEqual(rows(app).count, 1)
         let extract = action("extract-text", in: app)
-        XCTAssertTrue(extract.waitForExistence(timeout: 10))
+        XCTAssertTrue(extract.appears(within: 10))
         try SynthesizedInput.requireForeground(app)
 
         drag(row, onto: extract)
         XCTAssertTrue(waitForHUD("Text extracted · Copied", in: app), hudTitle(app))
         let text = rows(app).matching(NSPredicate(format: "label CONTAINS %@", "Hola Gancho"))
-        XCTAssertTrue(text.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(text.firstMatch.appears(within: 10))
     }
 
     /// The seeded image is 640 px wide, so Resize hands it back as it is.
@@ -143,9 +143,9 @@ final class NotchShelfUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         let row = imageRow(app)
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         let resize = action("resize", in: app)
-        XCTAssertTrue(resize.waitForExistence(timeout: 10))
+        XCTAssertTrue(resize.appears(within: 10))
         try SynthesizedInput.requireForeground(app)
 
         drag(row, onto: resize)
@@ -159,9 +159,9 @@ final class NotchShelfUITests: XCTestCase {
         let app = launch(extra: ["-command-nonce", nonce])
         defer { app.terminate() }
         let row = imageRow(app)
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         let board = shelfBoard("Seed board 1", in: app)
-        XCTAssertTrue(board.waitForExistence(timeout: 10))
+        XCTAssertTrue(board.appears(within: 10))
         GanchoUITestCommands.post("togglePrivateMode", token: nonce)
         try SynthesizedInput.requireForeground(app)
 
@@ -176,14 +176,14 @@ final class NotchShelfUITests: XCTestCase {
         let app = launch(extra: ["-simulate-screen-share", "Zoom"])
         defer { app.terminate() }
         let row = imageRow(app)
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         let extract = action("extract-text", in: app)
-        XCTAssertTrue(extract.waitForExistence(timeout: 10))
+        XCTAssertTrue(extract.appears(within: 10))
         try SynthesizedInput.requireForeground(app)
 
         drag(row, onto: extract)
         let text = rows(app).matching(NSPredicate(format: "label CONTAINS %@", "Hola Gancho"))
-        XCTAssertFalse(text.firstMatch.waitForExistence(timeout: 8))
+        XCTAssertFalse(text.firstMatch.appears(within: 8))
         XCTAssertEqual(rows(app).count, 1)
     }
 
@@ -197,7 +197,7 @@ final class NotchShelfUITests: XCTestCase {
         defer { app.terminate() }
         app.buttons["settings-tab-capture"].firstMatch.click()
         let toggle = app.descendants(matching: .any)["settings-notch-shelf"].firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertTrue(toggle.appears(within: 5))
         XCTAssertEqual(toggle.value as? Int, 0)
         let form = app.scrollViews.containing(.any, identifier: "settings-notch-shelf").firstMatch
         XCTAssertTrue(toggle.revealByScrolling(in: form))

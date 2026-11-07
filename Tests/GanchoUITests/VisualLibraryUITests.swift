@@ -19,12 +19,12 @@ final class VisualLibraryUITests: XCTestCase {
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         defer { app.terminate() }
-        XCTAssertTrue(app.textFields["search-field"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.textFields["search-field"].appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         GanchoUITestCommands.post("library", token: nonce)
         let library = app.windows["Library"].firstMatch
-        XCTAssertTrue(library.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.dialogs["history-panel"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(library.appears(within: 5))
+        XCTAssertTrue(app.dialogs["history-panel"].waitForNonexistence(timeout: 5))
         let cards = library.buttons.matching(identifier: "library-clip")
         // The first card can appear before the rest, so wait for the full set. One
         // query can take seconds on a busy runner, which leaves 5 s only a few samples.
@@ -37,7 +37,7 @@ final class VisualLibraryUITests: XCTestCase {
         let imageCard = cards.matching(
             NSPredicate(format: "label CONTAINS %@", "Synthetic landscape")
         ).firstMatch
-        XCTAssertTrue(imageCard.waitForExistence(timeout: 5))
+        XCTAssertTrue(imageCard.appears(within: 5))
         // The card is one combined accessibility button, not a tree of image children.
         let loaded = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label CONTAINS %@", "Image preview"), object: imageCard)
@@ -49,7 +49,7 @@ final class VisualLibraryUITests: XCTestCase {
         imageCard.rightClick()
         XCTAssertTrue(app.menuItems["Add to board"].firstMatch.exists)
         app.menuItems["library-copy-action"].firstMatch.click()
-        XCTAssertTrue(app.staticTexts["Copied"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Copied"].firstMatch.appears(within: 3))
         XCTAssertEqual(cards.count, 4)
     }
 
@@ -73,11 +73,11 @@ final class VisualLibraryUITests: XCTestCase {
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         defer { app.terminate() }
-        XCTAssertTrue(app.textFields["search-field"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.textFields["search-field"].appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         GanchoUITestCommands.post("library", token: nonce)
         let library = app.windows["Library"].firstMatch
-        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        XCTAssertTrue(library.appears(within: 5))
         let cards = library.buttons.matching(identifier: "library-clip")
         // The first card can appear before the rest, so wait for the full set.
         let allCards = XCTNSPredicateExpectation(
@@ -85,12 +85,12 @@ final class VisualLibraryUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [allCards], timeout: 5), .completed)
         let card = cards.matching(NSPredicate(format: "label CONTAINS %@", "seed beta"))
             .firstMatch
-        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertTrue(card.appears(within: 5))
         try SynthesizedInput.requireForeground(app)
         card.rightClick()
         app.menuItems["library-copy-action"].firstMatch.click()
         XCTAssertTrue(
-            app.staticTexts["Copied"].firstMatch.waitForExistence(timeout: 3),
+            app.staticTexts["Copied"].firstMatch.appears(within: 3),
             "Copy must complete without a durable store")
     }
 }

@@ -28,25 +28,25 @@ final class AppQualityUITests: XCTestCase {
         app.launch()
         defer { app.terminate() }
         let window = app.windows.firstMatch
-        XCTAssertTrue(window.waitForExistence(timeout: 8))
+        XCTAssertTrue(window.appears(within: 8))
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         for section in [
             "general", "capture", "retention", "privacy", "integrations", "pro", "about"
         ] {
             let button = window.buttons["settings-tab-\(section)"].firstMatch
-            XCTAssertTrue(button.waitForExistence(timeout: 3))
+            XCTAssertTrue(button.appears(within: 3))
             button.click()
             try keepRender(
                 of: window.title, in: app, named: "settings-\(section)-\(language)-\(appearance)")
             XCTAssertTrue(button.isSelected, "the current Settings section must expose selection")
         }
         let close = window.buttons[XCUIIdentifierCloseWindow].firstMatch
-        XCTAssertTrue(close.waitForExistence(timeout: 3))
+        XCTAssertTrue(close.appears(within: 3))
         close.click()
-        XCTAssertTrue(window.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(window.waitForNonexistence(timeout: 5))
         GanchoUITestCommands.post("settings", token: token)
-        XCTAssertTrue(window.waitForExistence(timeout: 5))
+        XCTAssertTrue(window.appears(within: 5))
         XCTAssertTrue(window.buttons["settings-tab-about"].firstMatch.isSelected)
     }
 
@@ -56,32 +56,32 @@ final class AppQualityUITests: XCTestCase {
         defer { app.terminate() }
         app.typeKey("b", modifierFlags: .command)
         let picker = app.descendants(matching: .any)["board-picker"].firstMatch
-        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        XCTAssertTrue(picker.appears(within: 5))
         XCTAssertFalse(
             app.textFields["search-field"].firstMatch.exists,
             "the picker hides the panel behind it from assistive technologies")
         try keepRender(of: "history-panel", in: app, named: "panel-board-picker")
         let board = picker.buttons["board-picker-board-row"].firstMatch
         XCTAssertTrue(
-            board.waitForExistence(timeout: 3),
+            board.appears(within: 3),
             "a board must support native accessibility activation")
         let filter = picker.textFields["board-picker-filter"].firstMatch
-        XCTAssertTrue(filter.waitForExistence(timeout: 3))
+        XCTAssertTrue(filter.appears(within: 3))
         filter.click()
         filter.typeText("Synthetic review board")
         let create = picker.buttons["board-picker-create-row"].firstMatch
-        XCTAssertTrue(create.waitForExistence(timeout: 3))
+        XCTAssertTrue(create.appears(within: 3))
         create.click()
-        XCTAssertTrue(picker.waitForNonExistence(timeout: 6))
+        XCTAssertTrue(picker.waitForNonexistence(timeout: 6))
         app.typeKey("b", modifierFlags: .command)
-        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        XCTAssertTrue(picker.appears(within: 5))
         app.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(picker.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(picker.waitForNonexistence(timeout: 5))
         XCTAssertTrue(app.dialogs["history-panel"].firstMatch.exists)
         let search = app.textFields["search-field"].firstMatch
         search.click()
         search.typeText("Ocean")
-        XCTAssertTrue(app.buttons["search-clear"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["search-clear"].firstMatch.appears(within: 3))
         app.buttons["search-clear"].firstMatch.click()
         XCTAssertEqual(search.value as? String, "")
     }
@@ -92,21 +92,21 @@ final class AppQualityUITests: XCTestCase {
         defer { app.terminate() }
         GanchoUITestCommands.post("library", token: token)
         let library = app.windows["Library"].firstMatch
-        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        XCTAssertTrue(library.appears(within: 5))
         let empty = library.staticTexts["No snippets yet"].firstMatch
-        XCTAssertTrue(empty.waitForExistence(timeout: 5))
+        XCTAssertTrue(empty.appears(within: 5))
         try keepRender(of: "Library", in: app, named: "library-before-panel-curation")
         GanchoUITestCommands.post("openPanel", token: token)
         let row = app.descendants(matching: .any).matching(identifier: "clip-row")
             .matching(NSPredicate(format: "label CONTAINS %@", "let greeting")).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        XCTAssertTrue(row.appears(within: 5))
         row.click()
         app.typeKey("s", modifierFlags: .command)
         XCTAssertTrue(
-            empty.waitForNonExistence(timeout: 8),
+            empty.waitForNonexistence(timeout: 8),
             "a confirmed panel mutation must refresh the open Library")
         GanchoUITestCommands.post("library", token: token)
-        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        XCTAssertTrue(library.appears(within: 5))
         try keepRender(of: "Library", in: app, named: "library-after-panel-curation")
     }
 
@@ -120,10 +120,10 @@ final class AppQualityUITests: XCTestCase {
         search.click()
         search.typeText("hi")
         let insertBanner = app.buttons["snippet-insert-banner"].firstMatch
-        XCTAssertTrue(insertBanner.waitForExistence(timeout: 5))
+        XCTAssertTrue(insertBanner.appears(within: 5))
         insertBanner.click()
         let sheet = app.sheets.firstMatch
-        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        XCTAssertTrue(sheet.appears(within: 5))
         let insert = sheet.buttons["fill-insert"].firstMatch
         let cancel = sheet.buttons["Cancel"].firstMatch
         XCTAssertTrue(insert.isHittable)
@@ -131,12 +131,12 @@ final class AppQualityUITests: XCTestCase {
         app.typeKey("g", modifierFlags: .command)
         try keepRender(of: "@sheet", in: app, named: "snippet-many-fields-large-text")
         let fields = sheet.scrollViews["fill-fields-scroll"].firstMatch
-        XCTAssertTrue(fields.waitForExistence(timeout: 3))
+        XCTAssertTrue(fields.appears(within: 3))
         fields.scroll(byDeltaX: 0, deltaY: -1_000)
         XCTAssertTrue(sheet.textFields["fill-field-field20"].firstMatch.isHittable)
         XCTAssertTrue(insert.isHittable)
         cancel.click()
-        XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(sheet.waitForNonexistence(timeout: 5))
         XCTAssertTrue(app.dialogs["history-panel"].firstMatch.exists)
         XCTAssertFalse(
             app.descendants(matching: .any)["panel-gallery"].firstMatch.exists,
@@ -163,7 +163,7 @@ final class AppQualityUITests: XCTestCase {
         }
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "clip-row")
-                .element(boundBy: 3).waitForExistence(timeout: 15))
+                .element(boundBy: 3).appears(within: 15))
         return (app, token)
     }
 }

@@ -23,7 +23,7 @@ final class TextRecipeUITests: XCTestCase {
             of: "@sheet", in: app, named: "Recipe review — synthetic — \(language) — \(appearance)")
         try verifyEightSteps(app, label: "\(language) — \(appearance)")
         app.buttons["text-recipe-cancel"].firstMatch.click()
-        XCTAssertTrue(run.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(run.waitForNonexistence(timeout: 5))
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch.exists)
     }
@@ -92,10 +92,10 @@ final class TextRecipeUITests: XCTestCase {
         row.click()
         app.buttons["transform-button"].firstMatch.click()
         let upper = app.buttons["transform-row-text-uppercase"].firstMatch
-        XCTAssertTrue(upper.waitForExistence(timeout: 5))
+        XCTAssertTrue(upper.appears(within: 5))
         upper.click()
         let save = app.buttons["transform-save-recipe"].firstMatch
-        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        XCTAssertTrue(save.appears(within: 5))
         // The compact peek clips the pipeline's last row above the dock.
         app.scrollViews.containing(.any, identifier: "transform-pipeline").firstMatch
             .scroll(byDeltaX: 0, deltaY: -400)
@@ -106,10 +106,10 @@ final class TextRecipeUITests: XCTestCase {
 
         try openReview(app)
         let picker = app.popUpButtons["text-recipe-picker"].firstMatch
-        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        XCTAssertTrue(picker.appears(within: 5))
         picker.click()
         XCTAssertTrue(
-            app.menuItems["Synthetic shout"].firstMatch.waitForExistence(timeout: 5),
+            app.menuItems["Synthetic shout"].firstMatch.appears(within: 5),
             "the saved pipeline is listed with the recipes")
         app.typeKey(.escape, modifierFlags: [])
     }
@@ -124,7 +124,7 @@ final class TextRecipeUITests: XCTestCase {
         XCTAssertTrue(transform.waitForHittable(timeout: 5))
         transform.click()
         let recipes = app.buttons["transform-row-recipes"].firstMatch
-        XCTAssertTrue(recipes.waitForExistence(timeout: 5))
+        XCTAssertTrue(recipes.appears(within: 5))
         try SynthesizedInput.requireForeground(app)
         recipes.click()
         XCTAssertTrue(app.buttons["text-recipe-new"].firstMatch.waitForHittable(timeout: 5))
@@ -143,12 +143,12 @@ final class TextRecipeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts[original].firstMatch.exists)
         app.descendants(matching: .any)["text-recipe-action-picker"].firstMatch.click()
         let uppercase = app.menuItems["UPPERCASE"].firstMatch
-        XCTAssertTrue(uppercase.waitForExistence(timeout: 5))
+        XCTAssertTrue(uppercase.appears(within: 5))
         uppercase.click()
         app.buttons["text-recipe-add-step"].firstMatch.click()
         app.buttons["text-recipe-run"].firstMatch.click()
         XCTAssertTrue(
-            app.staticTexts[original.uppercased()].firstMatch.waitForExistence(timeout: 5))
+            app.staticTexts[original.uppercased()].firstMatch.appears(within: 5))
         XCTAssertTrue(app.staticTexts[original].firstMatch.exists)
         let copy = app.buttons["text-recipe-copy"].firstMatch
         XCTAssertTrue(copy.isEnabled)
@@ -156,10 +156,10 @@ final class TextRecipeUITests: XCTestCase {
         try keepRender(
             of: "@sheet", in: app, named: "Recipe transformation before explicit copy — synthetic")
         copy.click()
-        XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(copy.waitForNonexistence(timeout: 5))
         XCTAssertEqual(rows.count, originalCount)
         try openReview(app)
-        XCTAssertTrue(app.staticTexts[original].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[original].firstMatch.appears(within: 5))
         app.buttons["text-recipe-cancel"].firstMatch.click()
     }
 
@@ -186,12 +186,12 @@ final class TextRecipeUITests: XCTestCase {
         expectation(for: NSPredicate(format: "enabled == false"), evaluatedWith: save)
         waitForExpectations(timeout: 5)
         app.buttons["text-recipe-cancel"].firstMatch.click()
-        XCTAssertTrue(name.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(name.waitForNonexistence(timeout: 5))
         try openReview(app)
         let picker = app.descendants(matching: .any)["text-recipe-picker"].firstMatch
         picker.click()
         let saved = app.menuItems["Renamed synthetic recipe"].firstMatch
-        XCTAssertTrue(saved.waitForExistence(timeout: 5))
+        XCTAssertTrue(saved.appears(within: 5))
         saved.hover()
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.return, modifierFlags: [])
@@ -201,7 +201,7 @@ final class TextRecipeUITests: XCTestCase {
         waitForExpectations(timeout: 5)
         XCTAssertEqual(app.buttons.matching(identifier: "text-recipe-remove-step-button").count, 2)
         app.buttons["text-recipe-delete"].firstMatch.click()
-        XCTAssertTrue(name.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(name.waitForNonexistence(timeout: 5))
         app.buttons["text-recipe-cancel"].firstMatch.click()
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch.exists)

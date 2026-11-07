@@ -27,7 +27,7 @@ final class CaptureFlowUITests: XCTestCase {
         defer { app.terminate() }
 
         let capture = app.descendants(matching: .any)["capture-screen"].firstMatch
-        guard capture.waitForExistence(timeout: 10) else {
+        guard capture.appears(within: 10) else {
             throw XCTSkip("capture screen not exposed to the UI runner in this environment")
         }
 
@@ -37,7 +37,7 @@ final class CaptureFlowUITests: XCTestCase {
         // been observed to outlast the shorter wait while still succeeding.
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         XCTAssertTrue(
-            rows.firstMatch.waitForExistence(timeout: 15),
+            rows.firstMatch.appears(within: 15),
             "a seeded clip must appear in the history via the capture path")
     }
 
@@ -61,16 +61,16 @@ final class CaptureFlowUITests: XCTestCase {
         app.launch()
         defer { app.terminate() }
         let capture = app.descendants(matching: .any)["capture-screen"].firstMatch
-        guard capture.waitForExistence(timeout: 10) else {
+        guard capture.appears(within: 10) else {
             throw XCTSkip("capture screen not exposed to the UI runner in this environment")
         }
         // Let the seed land before scrolling: rows arrive at the top of a lazy
         // list, and larger text can push them below the status area.
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-        if !row.waitForExistence(timeout: 15) {
+        if !row.appears(within: 15) {
             for _ in 0..<4 where !row.exists { capture.swipeUp() }
         }
-        XCTAssertTrue(row.waitForExistence(timeout: 3), "a seeded clip must be listed")
+        XCTAssertTrue(row.appears(within: 3), "a seeded clip must be listed")
         return row.frame.height
     }
 
@@ -88,34 +88,34 @@ final class CaptureFlowUITests: XCTestCase {
         defer { app.terminate() }
 
         let capture = app.descendants(matching: .any)["capture-screen"].firstMatch
-        guard capture.waitForExistence(timeout: 10) else {
+        guard capture.appears(within: 10) else {
             throw XCTSkip("capture screen not exposed to the UI runner in this environment")
         }
         let board = app.buttons["Seed board 1"].firstMatch
-        guard board.waitForExistence(timeout: 8), board.isHittable else {
+        guard board.appears(within: 8), board.isHittable else {
             throw XCTSkip("seeded board chip is not reachable on this runner")
         }
 
         try openAppearanceEditor(for: board, in: app)
         let blue = app.buttons["board-color-2E70D1"].firstMatch
-        guard blue.waitForExistence(timeout: 4), blue.isHittable else {
+        guard blue.appears(within: 4), blue.isHittable else {
             throw XCTSkip("board color controls are not reachable on this runner")
         }
         blue.tap()
         XCTAssertTrue(waitForSelected(blue), "tapping a swatch must select it")
 
         let save = app.buttons["board-appearance-save"].firstMatch
-        XCTAssertTrue(save.waitForExistence(timeout: 2))
+        XCTAssertTrue(save.appears(within: 2))
         save.tap()
         // Use XCTest's element wait so disappearance is checked against fresh
         // accessibility snapshots, not an async generic predicate scheduler.
         XCTAssertTrue(
-            save.waitForNonExistence(timeout: 5),
+            save.waitForNonexistence(timeout: 5),
             "a successful durable update must dismiss the editor")
 
         try openAppearanceEditor(for: board, in: app)
         let persisted = app.buttons["board-color-2E70D1"].firstMatch
-        XCTAssertTrue(persisted.waitForExistence(timeout: 4))
+        XCTAssertTrue(persisted.appears(within: 4))
         XCTAssertTrue(
             waitForSelected(persisted),
             "reopening after model refresh must retain the persisted palette token")
@@ -136,12 +136,12 @@ final class CaptureFlowUITests: XCTestCase {
     ) throws {
         board.press(forDuration: 1)
         let customize = app.buttons["Customize board…"].firstMatch
-        guard customize.waitForExistence(timeout: 4), customize.isHittable else {
+        guard customize.appears(within: 4), customize.isHittable else {
             throw XCTSkip("board appearance context action is not reachable on this runner")
         }
         customize.tap()
         XCTAssertTrue(
-            app.buttons["board-color-automatic"].firstMatch.waitForExistence(timeout: 4),
+            app.buttons["board-color-automatic"].firstMatch.appears(within: 4),
             "the board appearance action must open its editor")
     }
 
@@ -198,13 +198,13 @@ final class CaptureFlowUITests: XCTestCase {
         defer { app.terminate() }
 
         let capture = app.descendants(matching: .any)["capture-screen"].firstMatch
-        guard capture.waitForExistence(timeout: 10) else {
+        guard capture.appears(within: 10) else {
             throw XCTSkip("capture screen not exposed to the UI runner in this environment")
         }
         // The control's identity and label are the app's, whatever the
         // pasteboard holds, so they are asserted before any skip.
         let paste = app.descendants(matching: .any)["paste-control"].firstMatch
-        guard paste.waitForExistence(timeout: 5) else {
+        guard paste.appears(within: 5) else {
             XCTFail("paste control not found on the capture screen (see PasteControlView)")
             return
         }
@@ -231,18 +231,18 @@ final class CaptureFlowUITests: XCTestCase {
         // generously: the hosted runner is slow, and existence polling samples
         // about once per second — which is also why the note lifetime above
         // is far longer than the two seconds a user sees.
-        XCTAssertTrue(note.waitForExistence(timeout: 15), "the Saved note must show")
+        XCTAssertTrue(note.appears(within: 15), "the Saved note must show")
         XCTAssertTrue(note.label.contains("Saved"), "the note was \(note.label)")
         XCTAssertEqual(note.value as? String, "Done", "a saved note must expose its success kind")
         let row = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier == 'clip-row' AND label CONTAINS %@", sample)
         ).firstMatch
         XCTAssertTrue(
-            row.waitForExistence(timeout: 15),
+            row.appears(within: 15),
             "tapping the paste control must save the pasteboard content as a history row")
         // The product's own dismissal, at the lifetime the launch asked for.
         XCTAssertTrue(
-            note.waitForNonExistence(timeout: Double(noteLifetime) + 15),
+            note.waitForNonexistence(timeout: Double(noteLifetime) + 15),
             "the note must dismiss after its lifetime")
 
         assertOpenShowsTheSave(in: app)
@@ -252,14 +252,14 @@ final class CaptureFlowUITests: XCTestCase {
     @MainActor
     private func assertOpenShowsTheSave(in app: XCUIApplication) {
         let open = app.buttons["pasteboard-saved-open"].firstMatch
-        XCTAssertTrue(open.waitForExistence(timeout: 5), "the card must offer to open the save")
+        XCTAssertTrue(open.appears(within: 5), "the card must offer to open the save")
         open.tap()
         let detail = app.descendants(matching: .any).matching(
             NSPredicate(
                 format: "identifier IN %@",
                 ["detail-title", "detail-edit-title", "detail-add-to-board"])
         ).firstMatch
-        XCTAssertTrue(detail.waitForExistence(timeout: 10), "Open must show the saved clip")
+        XCTAssertTrue(detail.appears(within: 10), "Open must show the saved clip")
     }
 
     /// Spanish at the largest accessibility text size once squeezed the sensed
@@ -293,11 +293,11 @@ final class CaptureFlowUITests: XCTestCase {
         defer { app.terminate() }
 
         let capture = app.descendants(matching: .any)["capture-screen"].firstMatch
-        guard capture.waitForExistence(timeout: 10) else {
+        guard capture.appears(within: 10) else {
             throw XCTSkip("capture screen not exposed to the UI runner in this environment")
         }
         let info = app.buttons["pasteboard-info"].firstMatch
-        guard info.waitForExistence(timeout: 5) else {
+        guard info.appears(within: 5) else {
             XCTFail("the clipboard privacy info button must be on the capture screen")
             return
         }
@@ -314,7 +314,7 @@ final class CaptureFlowUITests: XCTestCase {
 
         if pinningLongNote {
             let note = app.descendants(matching: .any)["save-note"].firstMatch
-            XCTAssertTrue(note.waitForExistence(timeout: 3), "the pinned note must show")
+            XCTAssertTrue(note.appears(within: 3), "the pinned note must show")
             XCTAssertTrue(screen.contains(note.frame), "a long note must wrap, not run off screen")
             // The pinned load failure must not read as a success: its kind is
             // the chip's accessibility value ("Error" in Spanish too).

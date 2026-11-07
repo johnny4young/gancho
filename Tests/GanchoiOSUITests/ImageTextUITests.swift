@@ -8,11 +8,11 @@ final class ImageTextUITests: XCTestCase {
 
         app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch.tap()
         let copyImage = app.buttons["detail-copy"].firstMatch
-        XCTAssertTrue(copyImage.waitForExistence(timeout: 5))
+        XCTAssertTrue(copyImage.appears(within: 5))
         XCTAssertEqual(copyImage.label, "Copy image")
         XCTAssertTrue(
             app.descendants(matching: .any)["detail-ocr-region-4"].firstMatch
-                .waitForExistence(timeout: 60), "recognition never finished")
+                .appears(within: 60), "recognition never finished")
         for line in 1...4 {
             XCTAssertTrue(
                 app.descendants(matching: .any)["detail-ocr-region-\(line)"].firstMatch.exists,
@@ -24,7 +24,7 @@ final class ImageTextUITests: XCTestCase {
         for _ in 0..<3 where !(secretLine.exists && secretLine.isHittable) {
             drag(app, from: 0.8, to: 0.55)
         }
-        XCTAssertTrue(secretLine.waitForExistence(timeout: 2))
+        XCTAssertTrue(secretLine.appears(within: 2))
         XCTAssertFalse(app.descendants(matching: .any)["detail-ocr-line-5"].firstMatch.exists)
         XCTAssertFalse(secretLine.label.contains("AKIA"), "the key must start masked")
         XCTAssertFalse(app.descendants(matching: .any)["detail-ocr-translate"].firstMatch.exists)
@@ -36,7 +36,7 @@ final class ImageTextUITests: XCTestCase {
         XCTAssertTrue(copyAll.label.contains("3"), copyAll.label)
         app.buttons["detail-ocr-reveal-4"].firstMatch.tap()
         XCTAssertTrue(
-            app.buttons["detail-ocr-copy-line-4"].firstMatch.waitForExistence(timeout: 2))
+            app.buttons["detail-ocr-copy-line-4"].firstMatch.appears(within: 2))
         XCTAssertTrue(copyAll.label.contains("4"), copyAll.label)
     }
 
@@ -48,7 +48,7 @@ final class ImageTextUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch.tap()
         XCTAssertTrue(
             app.descendants(matching: .any)["detail-ocr-region-4"].firstMatch
-                .waitForExistence(timeout: 60), "recognition never finished")
+                .appears(within: 60), "recognition never finished")
         drag(app, from: 0.85, to: 0.3)
         let save = app.buttons["detail-ocr-save"].firstMatch
         for _ in 0..<4 where !(save.exists && save.isHittable) {
@@ -59,7 +59,7 @@ final class ImageTextUITests: XCTestCase {
         let saved = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier == 'clip-row' AND label CONTAINS 'Hola Gancho'")
         ).firstMatch
-        XCTAssertTrue(saved.waitForExistence(timeout: 5), "the saved text clip")
+        XCTAssertTrue(saved.appears(within: 5), "the saved text clip")
         XCTAssertFalse(saved.label.contains("AKIA"), saved.label)
     }
 
@@ -82,7 +82,7 @@ final class ImageTextUITests: XCTestCase {
             ]
             app.launch()
             let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-            if row.waitForExistence(timeout: 8) { return app }
+            if row.appears(within: 8) { return app }
         }
         return try XCTUnwrap(
             nil as XCUIApplication?,

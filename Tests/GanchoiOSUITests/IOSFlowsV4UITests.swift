@@ -12,12 +12,12 @@ final class IOSFlowsV4UITests: XCTestCase {
         let link = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier == 'clip-row' AND label CONTAINS %@", "example.com")
         ).firstMatch
-        XCTAssertTrue(link.waitForExistence(timeout: 10))
+        XCTAssertTrue(link.appears(within: 10))
         link.tap()
         expandSheet(in: app)
         for id in ["detail-provenance", "detail-link-hero", "detail-copy"] {
             XCTAssertTrue(
-                app.descendants(matching: .any)[id].firstMatch.waitForExistence(timeout: 5), id)
+                app.descendants(matching: .any)[id].firstMatch.appears(within: 5), id)
         }
         for id in ["detail-board", "detail-save-snippet"] {
             XCTAssertTrue(app.buttons[id].firstMatch.exists, id)
@@ -32,15 +32,15 @@ final class IOSFlowsV4UITests: XCTestCase {
         .firstMatch
         for _ in 0..<3 where !result.exists { app.swipeUp() }
         XCTAssertTrue(
-            result.waitForExistence(timeout: 5), "the Markdown link is titled by the clip")
+            result.appears(within: 5), "the Markdown link is titled by the clip")
 
         // The hero keeps a link editable.
         let edit = app.buttons["detail-edit-link"].firstMatch
         for _ in 0..<3 where !edit.isHittable { app.swipeDown() }
-        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        XCTAssertTrue(edit.appears(within: 5))
         edit.tap()
         XCTAssertTrue(
-            app.textViews["detail-content-field"].firstMatch.waitForExistence(timeout: 5),
+            app.textViews["detail-content-field"].firstMatch.appears(within: 5),
             "editing a link opens its text")
     }
 
@@ -51,10 +51,10 @@ final class IOSFlowsV4UITests: XCTestCase {
         let secret = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier == 'clip-row' AND label BEGINSWITH[c] %@", "secret")
         ).firstMatch
-        XCTAssertTrue(secret.waitForExistence(timeout: 10))
+        XCTAssertTrue(secret.appears(within: 10))
         secret.tap()
         let snippet = app.buttons["detail-save-snippet"].firstMatch
-        XCTAssertTrue(snippet.waitForExistence(timeout: 5))
+        XCTAssertTrue(snippet.appears(within: 5))
         XCTAssertFalse(snippet.isEnabled, "a secret can't become a snippet")
         app.buttons["Done"].firstMatch.tap()
 
@@ -62,9 +62,9 @@ final class IOSFlowsV4UITests: XCTestCase {
             NSPredicate(
                 format: "identifier == 'clip-row' AND label CONTAINS %@", "Ship the onboarding")
         ).firstMatch
-        XCTAssertTrue(notes.waitForExistence(timeout: 5))
+        XCTAssertTrue(notes.appears(within: 5))
         notes.tap()
-        XCTAssertTrue(snippet.waitForExistence(timeout: 5))
+        XCTAssertTrue(snippet.appears(within: 5))
         let saved = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "value == %@", "Saved"), object: snippet)
         XCTAssertEqual(XCTWaiter().wait(for: [saved], timeout: 5), .completed, "shown as set")
@@ -77,16 +77,16 @@ final class IOSFlowsV4UITests: XCTestCase {
         defer { app.terminate() }
         app.buttons["boards-home-open"].firstMatch.tap()
         let limit = app.staticTexts["boards-home-limit"].firstMatch
-        XCTAssertTrue(limit.waitForExistence(timeout: 5))
+        XCTAssertTrue(limit.appears(within: 5))
         XCTAssertTrue(
             limit.label.range(of: #"^\d+ of \d+ · Free$"#, options: .regularExpression) != nil,
             limit.label)
         XCTAssertTrue(
-            app.staticTexts["On this iPhone"].firstMatch.waitForExistence(timeout: 5),
+            app.staticTexts["On this iPhone"].firstMatch.appears(within: 5),
             "boards say where they live when sync is off")
         let snippet = app.buttons["boards-home-snippet"].firstMatch
         for _ in 0..<3 where !snippet.exists { app.swipeUp() }
-        XCTAssertTrue(snippet.waitForExistence(timeout: 5))
+        XCTAssertTrue(snippet.appears(within: 5))
         XCTAssertTrue(snippet.label.contains(";standup"), snippet.label)
     }
 
@@ -97,10 +97,10 @@ final class IOSFlowsV4UITests: XCTestCase {
         app.buttons["boards-home-open"].firstMatch.tap()
         let newBoard = app.buttons["boards-home-new"].firstMatch
         for _ in 0..<3 where !newBoard.isHittable { app.swipeUp() }
-        XCTAssertTrue(newBoard.waitForExistence(timeout: 5))
+        XCTAssertTrue(newBoard.appears(within: 5))
         newBoard.tap()
         let field = app.alerts.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertTrue(field.appears(within: 5))
         let create = app.alerts.buttons["Create"].firstMatch
         XCTAssertFalse(create.isEnabled, "an empty name can't be created")
         field.tap()
@@ -112,7 +112,7 @@ final class IOSFlowsV4UITests: XCTestCase {
         let board = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier BEGINSWITH 'boards-home-' AND label CONTAINS 'Trips'")
         ).firstMatch
-        XCTAssertTrue(board.waitForExistence(timeout: 5), "the trimmed name is created")
+        XCTAssertTrue(board.appears(within: 5), "the trimmed name is created")
     }
 
     @MainActor
@@ -121,12 +121,12 @@ final class IOSFlowsV4UITests: XCTestCase {
         defer { app.terminate() }
         app.buttons["Settings"].firstMatch.tap()
         let pro = app.buttons["open-pro"].firstMatch
-        XCTAssertTrue(pro.waitForExistence(timeout: 5))
+        XCTAssertTrue(pro.appears(within: 5))
         XCTAssertTrue(pro.label.contains("Free ·"), pro.label)
         let keyboard = app.buttons["settings-keyboard-how"].firstMatch
         for _ in 0..<3 where !keyboard.isHittable { app.swipeUp() }
         keyboard.tap()
-        XCTAssertTrue(app.navigationBars["Gancho keyboard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Gancho keyboard"].appears(within: 5))
     }
 
     /// The switch lives in the App Group, so the test leaves it off as it found it.
@@ -137,7 +137,7 @@ final class IOSFlowsV4UITests: XCTestCase {
         app.buttons["Settings"].firstMatch.tap()
         let toggle = app.switches["settings-keyboard-up-next"].firstMatch
         for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertTrue(toggle.appears(within: 5))
         XCTAssertEqual(toggle.value as? String, "0", "off unless turned on")
         toggle.switches.firstMatch.tap()
         XCTAssertEqual(toggle.value as? String, "1")
@@ -154,11 +154,11 @@ final class IOSFlowsV4UITests: XCTestCase {
         app.launch()
         defer { app.terminate() }
         let verify = app.buttons["ios-privacy-verify-encryption"].firstMatch
-        XCTAssertTrue(verify.waitForExistence(timeout: 10))
+        XCTAssertTrue(verify.appears(within: 10))
         XCTAssertTrue(app.descendants(matching: .any)["ios-privacy-masked"].firstMatch.exists)
         verify.tap()
         let result = app.descendants(matching: .any)["ios-privacy-verify-result"].firstMatch
-        XCTAssertTrue(result.waitForExistence(timeout: 10))
+        XCTAssertTrue(result.appears(within: 10))
         // UI tests run on a plaintext throwaway store, so an honest check says so.
         XCTAssertEqual(result.label, "The database file isn’t encrypted.")
     }
@@ -166,7 +166,7 @@ final class IOSFlowsV4UITests: XCTestCase {
     @MainActor
     private func expandSheet(in app: XCUIApplication) {
         let grabber = app.buttons["Sheet Grabber"].firstMatch
-        guard grabber.waitForExistence(timeout: 5) else { return }
+        guard grabber.appears(within: 5) else { return }
         grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(
                 forDuration: 0.1,
@@ -183,7 +183,7 @@ final class IOSFlowsV4UITests: XCTestCase {
         app.launch()
         guard
             app.descendants(matching: .any)["capture-screen"].firstMatch
-                .waitForExistence(timeout: 10)
+                .appears(within: 10)
         else {
             app.terminate()
             throw XCTSkip("capture screen is not reachable on this runner")

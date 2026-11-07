@@ -57,7 +57,7 @@ final class PanelReproUITests: XCTestCase {
     @MainActor
     private func requireSeededRows(_ rows: XCUIElementQuery) throws {
         try XCTSkipUnless(
-            rows.firstMatch.waitForExistence(timeout: 8),
+            rows.firstMatch.appears(within: 8),
             "seeded clip rows not exposed to the UI runner in this environment")
         XCTAssertTrue(
             waitForSeededRows(rows),
@@ -102,7 +102,7 @@ final class PanelReproUITests: XCTestCase {
         // assuming every refresh resets the cursor to index zero.
         // Accessibility order is not visual order (the pinned section renders
         // separately), so anchor on the topmost row rather than `firstMatch`.
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(rows.firstMatch.appears(within: 5))
         let first = try XCTUnwrap(
             rows.allElementsBoundByIndex.filter { $0.isHittable && !$0.frame.isEmpty }
                 .min { $0.frame.minY < $1.frame.minY })
@@ -131,31 +131,31 @@ final class PanelReproUITests: XCTestCase {
     @MainActor
     private func verifyBatchBoardAssignment(_ app: XCUIApplication, search: XCUIElement) {
         let addToBoard = app.buttons["selection-add-to-board-button"].firstMatch
-        XCTAssertTrue(addToBoard.waitForExistence(timeout: 3))
+        XCTAssertTrue(addToBoard.appears(within: 3))
         addToBoard.click()
         XCTAssertTrue(
-            app.descendants(matching: .any)["board-picker"].firstMatch.waitForExistence(
-                timeout: 3),
+            app.descendants(matching: .any)["board-picker"].firstMatch.appears(
+                within: 3),
             "the board picker must accept the full selected batch")
         let boardRow = app.descendants(matching: .any)["board-picker-board-row"].firstMatch
-        XCTAssertTrue(boardRow.waitForExistence(timeout: 3))
+        XCTAssertTrue(boardRow.appears(within: 3))
         boardRow.click()
         // Re-resolve the row after the durable refresh replaces its accessibility snapshot.
         let assignedBoard = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier == 'board-picker-board-row' AND value == 'Selected'")
         ).firstMatch
         XCTAssertTrue(
-            assignedBoard.waitForExistence(timeout: 5),
+            assignedBoard.appears(within: 5),
             "one board action must assign every selected clip")
         let boardFilter = app.textFields["board-picker-filter"].firstMatch
-        XCTAssertTrue(boardFilter.waitForExistence(timeout: 3))
+        XCTAssertTrue(boardFilter.appears(within: 3))
         boardFilter.click()
         boardFilter.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(boardFilter.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(boardFilter.waitForNonexistence(timeout: 3))
         XCTAssertTrue(search.exists, "closing the board picker must keep the panel open")
         addToBoard.click()
         XCTAssertTrue(
-            assignedBoard.waitForExistence(timeout: 5),
+            assignedBoard.appears(within: 5),
             "reopening must read the shared membership of all selected clips from storage")
         boardFilter.click()
         boardFilter.typeKey(.escape, modifierFlags: [])
@@ -178,11 +178,11 @@ final class PanelReproUITests: XCTestCase {
         _ = app.wait(for: .runningForeground, timeout: 5)
 
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 8))
+        XCTAssertTrue(search.appears(within: 8))
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
         let target = app.descendants(matching: .any)["multi-file-drop-target"].firstMatch
-        try XCTSkipUnless(row.waitForExistence(timeout: 8), "multi-file row not exposed")
-        try XCTSkipUnless(target.waitForExistence(timeout: 3), "drop target not exposed")
+        try XCTSkipUnless(row.appears(within: 8), "multi-file row not exposed")
+        try XCTSkipUnless(target.appears(within: 3), "drop target not exposed")
         if app.state != .runningForeground {
             app.activate()
             _ = app.wait(for: .runningForeground, timeout: 2)
@@ -238,8 +238,8 @@ final class PanelReproUITests: XCTestCase {
 
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
         let target = app.descendants(matching: .any)["multi-file-drop-target"].firstMatch
-        try XCTSkipUnless(row.waitForExistence(timeout: 8), "multi-file row not exposed")
-        try XCTSkipUnless(target.waitForExistence(timeout: 3), "drop target not exposed")
+        try XCTSkipUnless(row.appears(within: 8), "multi-file row not exposed")
+        try XCTSkipUnless(target.appears(within: 3), "drop target not exposed")
         let prepared = XCTNSPredicateExpectation(
             predicate: NSPredicate(
                 format: "label == %@",
@@ -253,7 +253,7 @@ final class PanelReproUITests: XCTestCase {
 
         let delete = app.menuItems["Delete"].firstMatch
         XCTAssertTrue(
-            delete.waitForExistence(timeout: 3),
+            delete.appears(within: 3),
             "Control-click must reach the row context menu instead of the drag bridge")
     }
 
@@ -272,7 +272,7 @@ final class PanelReproUITests: XCTestCase {
         _ = app.wait(for: .runningForeground, timeout: 5)
 
         XCTAssertTrue(
-            app.textFields["search-field"].firstMatch.waitForExistence(timeout: 8),
+            app.textFields["search-field"].firstMatch.appears(within: 8),
             "the seeded panel must open on launch")
 
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
@@ -313,7 +313,7 @@ final class PanelReproUITests: XCTestCase {
         defer { app.terminate() }
 
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 8))
+        XCTAssertTrue(search.appears(within: 8))
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         // The same race the ⇧↓ test hit: every seeded capture refreshes the
         // list and resets the cursor to row 0, so take the baseline and
@@ -324,7 +324,7 @@ final class PanelReproUITests: XCTestCase {
 
         let preview = app.descendants(matching: .any)["preview-content"].firstMatch
         try XCTSkipUnless(
-            preview.waitForExistence(timeout: 5),
+            preview.appears(within: 5),
             "selected preview is not exposed to the UI runner in this environment")
         let firstValue = preview.value as? String
 
@@ -363,21 +363,21 @@ final class PanelReproUITests: XCTestCase {
         defer { app.terminate() }
 
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 8))
+        XCTAssertTrue(search.appears(within: 8))
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         try requireSeededRows(rows)
 
         try selectThreeRows(app, search: search, rows: rows)
 
         let contextBar = app.descendants(matching: .any)["selection-context-bar"].firstMatch
-        XCTAssertTrue(contextBar.waitForExistence(timeout: 3))
+        XCTAssertTrue(contextBar.appears(within: 3))
         XCTAssertEqual(contextBar.label, "3 clips")
 
         let addToStack = app.buttons["selection-add-to-stack-button"].firstMatch
-        XCTAssertTrue(addToStack.waitForExistence(timeout: 3))
+        XCTAssertTrue(addToStack.appears(within: 3))
         addToStack.click()
         let stack = app.buttons["paste-stack-strip"].firstMatch
-        XCTAssertTrue(stack.waitForExistence(timeout: 3))
+        XCTAssertTrue(stack.appears(within: 3))
         XCTAssertTrue(
             stack.label.contains("3"),
             "batch enqueue must add all three selected clips in one action")
@@ -386,11 +386,11 @@ final class PanelReproUITests: XCTestCase {
 
         let beforeDelete = rows.count
         let delete = app.buttons["selection-delete-button"].firstMatch
-        XCTAssertTrue(delete.waitForExistence(timeout: 3))
+        XCTAssertTrue(delete.appears(within: 3))
         delete.click()
 
         let undo = app.buttons["toast-undo"].firstMatch
-        XCTAssertTrue(undo.waitForExistence(timeout: 3))
+        XCTAssertTrue(undo.appears(within: 3))
         let hidden = NSPredicate { _, _ in rows.count <= beforeDelete - 3 }
         XCTAssertEqual(
             XCTWaiter.wait(

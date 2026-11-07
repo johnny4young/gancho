@@ -78,9 +78,9 @@ final class BoardDropUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         let row = codeRow(app)
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         let chip = railChip("Seed board 1", in: app)
-        XCTAssertTrue(chip.waitForExistence(timeout: 10))
+        XCTAssertTrue(chip.appears(within: 10))
         try SynthesizedInput.requireForeground(app)
 
         drag(row, onto: chip)
@@ -91,7 +91,7 @@ final class BoardDropUITests: XCTestCase {
         assertToast("Already in Seed board 1", in: app)
 
         chip.click()
-        XCTAssertTrue(codeRow(app).waitForExistence(timeout: 5), "the board now holds the clip")
+        XCTAssertTrue(codeRow(app).appears(within: 5), "the board now holds the clip")
         XCTAssertEqual(rows(app).count, 1)
     }
 
@@ -100,16 +100,16 @@ final class BoardDropUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         let row = codeRow(app)
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         let chip = railChip("Seed board 2", in: app)
-        XCTAssertTrue(chip.waitForExistence(timeout: 10))
+        XCTAssertTrue(chip.appears(within: 10))
         try SynthesizedInput.requireForeground(app)
 
         drag(row, onto: chip)
         assertToast("Added to Seed board 2", in: app)
         app.typeKey("z", modifierFlags: .command)
         XCTAssertTrue(
-            app.buttons["toast-undo"].firstMatch.waitForNonExistence(timeout: 5),
+            app.buttons["toast-undo"].firstMatch.waitForNonexistence(timeout: 5),
             "⌘Z runs the toast's Undo and closes it")
 
         chip.click()
@@ -128,9 +128,9 @@ final class BoardDropUITests: XCTestCase {
         let app = launch(extraArguments: ["-hold-toasts-for-ui-test"])
         defer { app.terminate() }
         let row = codeRow(app)
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         let chip = railChip("Seed board 1", in: app)
-        XCTAssertTrue(chip.waitForExistence(timeout: 10))
+        XCTAssertTrue(chip.appears(within: 10))
         try SynthesizedInput.requireForeground(app)
 
         drag(row, onto: chip)
@@ -152,7 +152,7 @@ final class BoardDropUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         let field = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        XCTAssertTrue(field.appears(within: 15))
         try typeTextReliably("ocean", into: field, in: app)
         app.typeKey("z", modifierFlags: .command)
         let deadline = Date().addingTimeInterval(3)
@@ -166,11 +166,11 @@ final class BoardDropUITests: XCTestCase {
     func testDroppingALibraryCardOnASidebarBoard() throws {
         let app = launch()
         defer { app.terminate() }
-        XCTAssertTrue(codeRow(app).waitForExistence(timeout: 15))
+        XCTAssertTrue(codeRow(app).appears(within: 15))
         GanchoUITestCommands.post("library", token: Self.nonce)
         let card = app.descendants(matching: .any).matching(identifier: "library-clip")
             .matching(NSPredicate(format: "label BEGINSWITH %@", "Example")).firstMatch
-        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        XCTAssertTrue(card.appears(within: 10))
         // Favorites comes first; the seeded board is found by its name.
         let board = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'library-board-'"))
@@ -178,7 +178,7 @@ final class BoardDropUITests: XCTestCase {
                 NSPredicate(format: "label == %@ OR value == %@", "Seed board 1", "Seed board 1")
             )
             .firstMatch
-        XCTAssertTrue(board.waitForExistence(timeout: 5))
+        XCTAssertTrue(board.appears(within: 5))
         try SynthesizedInput.requireForeground(app)
 
         drag(card, onto: board)
@@ -186,7 +186,7 @@ final class BoardDropUITests: XCTestCase {
         // The row's id reaches both of its texts: the name and the count.
         let count = app.staticTexts.matching(identifier: board.identifier)
             .matching(NSPredicate(format: "label == '1' OR value == '1'")).firstMatch
-        XCTAssertTrue(count.waitForExistence(timeout: 5), "the sidebar counts the filed clip")
+        XCTAssertTrue(count.appears(within: 5), "the sidebar counts the filed clip")
     }
 
     /// Filing a clip into a board it is already on writes nothing, so there is
@@ -196,9 +196,9 @@ final class BoardDropUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         let row = codeRow(app)
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         let chip = railChip("Seed board 2", in: app)
-        XCTAssertTrue(chip.waitForExistence(timeout: 10))
+        XCTAssertTrue(chip.appears(within: 10))
         try SynthesizedInput.requireForeground(app)
 
         drag(row, onto: chip)
@@ -206,17 +206,17 @@ final class BoardDropUITests: XCTestCase {
 
         row.rightClick()
         let menu = app.menuItems["Add to board"].firstMatch
-        XCTAssertTrue(menu.waitForExistence(timeout: 3))
+        XCTAssertTrue(menu.appears(within: 3))
         menu.hover()
         let target = app.menuItems["Seed board 2"].firstMatch
-        XCTAssertTrue(target.waitForExistence(timeout: 3))
+        XCTAssertTrue(target.appears(within: 3))
         target.click()
         assertToast("Already in Seed board 2", in: app)
         XCTAssertFalse(app.buttons["toast-undo"].firstMatch.exists)
         app.typeKey("z", modifierFlags: .command)
 
         chip.click()
-        XCTAssertTrue(codeRow(app).waitForExistence(timeout: 5), "the clip is still on the board")
+        XCTAssertTrue(codeRow(app).appears(within: 5), "the clip is still on the board")
     }
 
     /// A row drag carries a clip; the panel stays put and moves from its top strip.
@@ -227,7 +227,7 @@ final class BoardDropUITests: XCTestCase {
         let panel = app.descendants(matching: .any).matching(identifier: "history-panel")
             .firstMatch
         let row = codeRow(app)
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         let before = panel.frame
         let start = row.coordinate(withNormalizedOffset: CGVector(dx: 0.18, dy: 0.5))
@@ -251,7 +251,7 @@ final class BoardDropUITests: XCTestCase {
         defer { app.terminate() }
         let panel = app.descendants(matching: .any).matching(identifier: "history-panel")
             .firstMatch
-        XCTAssertTrue(panel.waitForExistence(timeout: 15))
+        XCTAssertTrue(panel.appears(within: 15))
         let first = panel.frame
         _ = XCTWaiter().wait(for: [XCTestExpectation(description: "launch settles")], timeout: 3)
         XCTAssertTrue(codeRow(app).exists)

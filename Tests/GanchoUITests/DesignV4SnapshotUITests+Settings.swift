@@ -26,11 +26,11 @@ extension DesignV4SnapshotUITests {
         let app = try launchSettingsWindow(extraArguments: stableArguments(appearance))
         defer { app.terminate() }
         let button = app.windows["Settings"].buttons["settings-tab-\(tab)"].firstMatch
-        XCTAssertTrue(button.waitForExistence(timeout: 3))
+        XCTAssertTrue(button.appears(within: 3))
         button.click()
         XCTAssertTrue(
             app.windows["Settings"].descendants(matching: .any)[identifier].firstMatch
-                .waitForExistence(timeout: 5))
+                .appears(within: 5))
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         try DesignSnapshot.save(
             DesignSnapshot.renderWindow(titled: "Settings", named: "settings", in: renders),

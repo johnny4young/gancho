@@ -27,7 +27,7 @@ final class PanelUITests: XCTestCase {
             search.exists,
             "plain launch must not bypass the global shortcut by opening the panel directly")
         let statusItem = app.statusItems.firstMatch
-        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
+        XCTAssertTrue(statusItem.appears(within: 5))
         let diagnostic = try XCTUnwrap(statusItem.value as? String)
         let components = diagnostic.split(separator: ":")
         guard components.count == 3 else {
@@ -82,7 +82,7 @@ final class PanelUITests: XCTestCase {
         // collapsed-to-zero item would fail here). Which display it lands on,
         // and whether that is on-screen, the app logs in DEBUG at launch.
         let statusItem = app.statusItems.firstMatch
-        guard statusItem.waitForExistence(timeout: 5) else {
+        guard statusItem.appears(within: 5) else {
             // Self-skip where the runner can't reach the status menu bar (some
             // headless CI displays); residence is covered by the sibling test.
             throw XCTSkip("status item not exposed to the UI runner in this environment")
@@ -97,7 +97,7 @@ final class PanelUITests: XCTestCase {
         defer { app.terminate() }
 
         let statusItem = app.statusItems.firstMatch
-        guard statusItem.waitForExistence(timeout: 5), !statusItem.frame.isEmpty else {
+        guard statusItem.appears(within: 5), !statusItem.frame.isEmpty else {
             throw XCTSkip("status item not exposed to the UI runner in this environment")
         }
 
@@ -105,9 +105,9 @@ final class PanelUITests: XCTestCase {
         // 10s waits, not 5: the first Settings-scene open runs cold on CI, and
         // hosted runners drop the first status-menu action often enough that
         // the path gets one retry before any verdict.
-        if !app.windows["Settings"].firstMatch.waitForExistence(timeout: 10) {
+        if !app.windows["Settings"].firstMatch.appears(within: 10) {
             try openStatusMenuItem("Settings…", app: app)
-            if !app.windows["Settings"].firstMatch.waitForExistence(timeout: 10) {
+            if !app.windows["Settings"].firstMatch.appears(within: 10) {
                 // Three consecutive scheduled runs: the menu ACTION fires on
                 // the hosted runner (Quit via the same menu terminates the
                 // app) but the Settings window never surfaces there, while
@@ -132,7 +132,7 @@ final class PanelUITests: XCTestCase {
         }
 
         let statusItem = app.statusItems.firstMatch
-        guard statusItem.waitForExistence(timeout: 5), !statusItem.frame.isEmpty else {
+        guard statusItem.appears(within: 5), !statusItem.frame.isEmpty else {
             throw XCTSkip("status item not exposed to the UI runner in this environment")
         }
 
@@ -157,7 +157,7 @@ final class PanelUITests: XCTestCase {
 
         statusItem.click()
         let menuItem = app.menuItems[title].firstMatch
-        XCTAssertTrue(menuItem.waitForExistence(timeout: 3), file: file, line: line)
+        XCTAssertTrue(menuItem.appears(within: 3), file: file, line: line)
         menuItem.click()
     }
 
@@ -239,7 +239,7 @@ final class PanelUITests: XCTestCase {
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
         XCTAssertTrue(
-            search.waitForExistence(timeout: 5), "panel search field must open on launch hook")
+            search.appears(within: 5), "panel search field must open on launch hook")
 
         // Type-to-search goes straight to the field — no click required.
         try SynthesizedInput.requireForeground(app)
@@ -252,7 +252,7 @@ final class PanelUITests: XCTestCase {
         let app = launchWithPanel()
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        XCTAssertTrue(search.appears(within: 5))
 
         try SynthesizedInput.requireForeground(app)
         // `requireForeground` proves the APPLICATION is frontmost, not that the
@@ -277,7 +277,7 @@ final class PanelUITests: XCTestCase {
         let app = launchWithPanel()
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        XCTAssertTrue(search.appears(within: 5))
 
         // Arrows are handled by the panel; the search field keeps focus so
         // the user can keep typing mid-navigation.
@@ -297,12 +297,12 @@ final class PanelUITests: XCTestCase {
                 "-suppress-storage-notice-for-ui-test"
             ])
         defer { app.terminate() }
-        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.appears(within: 5))
 
         // The footer "?" surfaces the power shortcuts (⌘P/⌘S/⌥⏎/⌘1-9) the inline
         // hints can't fit.
         let helpButton = app.buttons["panel-shortcuts-button"].firstMatch
-        XCTAssertTrue(helpButton.waitForExistence(timeout: 3), "the footer ? button must exist")
+        XCTAssertTrue(helpButton.appears(within: 3), "the footer ? button must exist")
         // The button is tiny and edge-anchored, so XCUITest can report it as not
         // hittable; click its center coordinate directly. Coordinate clicks are
         // raw screen points, so only with the app verified frontmost.
@@ -311,12 +311,12 @@ final class PanelUITests: XCTestCase {
 
         let card = app.descendants(matching: .any)["panel-shortcuts"].firstMatch
         XCTAssertTrue(
-            card.waitForExistence(timeout: 3), "the ? button must open the keyboard cheat-sheet")
+            card.appears(within: 3), "the ? button must open the keyboard cheat-sheet")
 
         try keepRender(of: "history-panel", in: app, named: "panel-keyboard-shortcuts")
 
         let closeButton = app.buttons["panel-shortcuts-close-button"].firstMatch
-        XCTAssertTrue(closeButton.waitForExistence(timeout: 3))
+        XCTAssertTrue(closeButton.appears(within: 3))
         closeButton.click()
         let disappeared = NSPredicate(format: "exists == false")
         let expectation = XCTNSPredicateExpectation(predicate: disappeared, object: card)
@@ -334,10 +334,10 @@ final class PanelUITests: XCTestCase {
                 "-start-capture-paused"
             ])
         defer { app.terminate() }
-        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.appears(within: 5))
 
         let indicator = app.descendants(matching: .any)["capture-indicator"].firstMatch
-        XCTAssertTrue(indicator.waitForExistence(timeout: 5), "capture status must be visible")
+        XCTAssertTrue(indicator.appears(within: 5), "capture status must be visible")
         let pausedIndicatorResult = XCTWaiter().wait(
             for: [
                 XCTNSPredicateExpectation(
@@ -348,15 +348,15 @@ final class PanelUITests: XCTestCase {
             pausedIndicatorResult, .completed,
             "manual pause must update the footer status")
         XCTAssertTrue(
-            app.staticTexts["Capture is paused"].firstMatch.waitForExistence(timeout: 3),
+            app.staticTexts["Capture is paused"].firstMatch.appears(within: 3),
             "manual pause must explain the cause in the panel")
         XCTAssertTrue(
-            app.staticTexts["Resume capture to save new copies."].firstMatch.waitForExistence(
-                timeout: 3),
+            app.staticTexts["Resume capture to save new copies."].firstMatch.appears(
+                within: 3),
             "manual pause must explain how to resume capture")
 
         let resume = app.buttons["Resume"].firstMatch
-        XCTAssertTrue(resume.waitForExistence(timeout: 3), "paused notice must be actionable")
+        XCTAssertTrue(resume.appears(within: 3), "paused notice must be actionable")
         try SynthesizedInput.requireForeground(app)
         if resume.isHittable {
             resume.click()
@@ -390,16 +390,16 @@ final class PanelUITests: XCTestCase {
         _ = app.wait(for: .runningForeground, timeout: 5)
         defer { app.terminate() }
 
-        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.appears(within: 5))
         // When the durable store can't open, the panel must warn that history
         // isn't being saved (data-loss > silent fallback).
         let notice = app.descendants(matching: .any)["capture-notice"].firstMatch
         XCTAssertTrue(
-            notice.waitForExistence(timeout: 3),
+            notice.appears(within: 3),
             "ephemeral storage must surface the capture-notice warning banner")
 
         let indicator = app.descendants(matching: .any)["capture-indicator"].firstMatch
-        XCTAssertTrue(indicator.waitForExistence(timeout: 3), "capture status must be visible")
+        XCTAssertTrue(indicator.appears(within: 3), "capture status must be visible")
         let activeIndicatorResult = XCTWaiter().wait(
             for: [
                 XCTNSPredicateExpectation(
@@ -429,7 +429,7 @@ final class PanelUITests: XCTestCase {
         // correct UI.
         let privacyCenter = app.descendants(matching: .any)["privacy-center"].firstMatch
         XCTAssertTrue(
-            privacyCenter.waitForExistence(timeout: 8),
+            privacyCenter.appears(within: 8),
             "the -open-privacy-center-on-launch hook must open the Privacy Center")
 
         // The ephemeral-store launch logged an issue, so the "Recent issues"
@@ -437,7 +437,7 @@ final class PanelUITests: XCTestCase {
         // end-to-end proof that the error log records and renders.
         let copyButton = app.buttons["copy-diagnostics"].firstMatch
         XCTAssertTrue(
-            copyButton.waitForExistence(timeout: 5),
+            copyButton.appears(within: 5),
             "an ephemeral-store launch must log a content-free issue shown in Recent issues")
     }
 
@@ -446,14 +446,14 @@ final class PanelUITests: XCTestCase {
         let app = launchWithPanel()
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        XCTAssertTrue(search.appears(within: 5))
 
         // Activating a filter marks it selected (the non-colour active cue +
         // VoiceOver state, WCAG 1.4.1). Use the keyboard-first rail path the
         // panel is optimized for: ↑ enters filters, → moves to Links, Space
         // activates the focused pill.
         let links = app.buttons["filter-links"].firstMatch
-        XCTAssertTrue(links.waitForExistence(timeout: 3), "the Links filter pill must exist")
+        XCTAssertTrue(links.appears(within: 3), "the Links filter pill must exist")
 
         try SynthesizedInput.requireForeground(app)
         // This keyboard path starts in the search field, not merely in the

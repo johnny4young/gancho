@@ -15,25 +15,25 @@ final class PrivacyCenterUITests: XCTestCase {
         defer { app.terminate() }
 
         let privacyCenter = app.descendants(matching: .any)["ios-privacy-center"].firstMatch
-        XCTAssertTrue(privacyCenter.waitForExistence(timeout: 10))
+        XCTAssertTrue(privacyCenter.appears(within: 10))
         let reused = app.descendants(matching: .any)[
             "ios-private-receipt-reused-count"
         ].firstMatch
         // The Verify group sits above the receipt.
         for _ in 0..<6 where !reused.exists { privacyCenter.swipeUp(velocity: .slow) }
-        XCTAssertTrue(reused.waitForExistence(timeout: 5))
+        XCTAssertTrue(reused.appears(within: 5))
         XCTAssertEqual(integerValue(of: reused), 8)
         XCTAssertEqual(count(of: "ios-private-receipt-captured-count", in: app), 12)
         XCTAssertEqual(count(of: "ios-private-receipt-skipped-count", in: app), 2)
         XCTAssertEqual(count(of: "ios-private-receipt-protected-count", in: app), 2)
         let firstApp = app.descendants(matching: .any)["ios-private-receipt-app-0-row"].firstMatch
         for _ in 0..<4 where !firstApp.exists { privacyCenter.swipeUp(velocity: .slow) }
-        XCTAssertTrue(firstApp.waitForExistence(timeout: 3))
+        XCTAssertTrue(firstApp.appears(within: 3))
         let secondApp = app.descendants(matching: .any)[
             "ios-private-receipt-app-1-row"
         ].firstMatch
         for _ in 0..<3 where !secondApp.exists { privacyCenter.swipeUp() }
-        XCTAssertTrue(secondApp.waitForExistence(timeout: 3))
+        XCTAssertTrue(secondApp.appears(within: 3))
 
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "iOS private activity receipt"
@@ -47,11 +47,11 @@ final class PrivacyCenterUITests: XCTestCase {
         for _ in 0..<3 { privacyCenter.swipeDown() }
         // From the top, the Verify group above can push it below the fold.
         if !clear.isHittable { privacyCenter.swipeUp() }
-        XCTAssertTrue(clear.waitForExistence(timeout: 3))
+        XCTAssertTrue(clear.appears(within: 3))
         XCTAssertTrue(clear.isHittable)
         clear.tap()
         let alert = app.alerts["Clear activity receipt?"].firstMatch
-        XCTAssertTrue(alert.waitForExistence(timeout: 3))
+        XCTAssertTrue(alert.appears(within: 3))
         alert.buttons["Clear receipt"].tap()
         // Revealing the button can push this row out of the lazy Form.
         for _ in 0..<3 where !reused.exists { privacyCenter.swipeDown(velocity: .slow) }
@@ -69,7 +69,7 @@ final class PrivacyCenterUITests: XCTestCase {
     @MainActor
     private func value(of identifier: String, in app: XCUIApplication) -> String {
         let element = app.descendants(matching: .any)[identifier].firstMatch
-        XCTAssertTrue(element.waitForExistence(timeout: 5), "Missing element: \(identifier)")
+        XCTAssertTrue(element.appears(within: 5), "Missing element: \(identifier)")
         return Self.accessibleText(of: element)
     }
 
@@ -104,17 +104,17 @@ final class PrivacyCenterUITests: XCTestCase {
 
         let privacyCenter = app.descendants(matching: .any)["ios-privacy-center"].firstMatch
         XCTAssertTrue(
-            privacyCenter.waitForExistence(timeout: 10),
+            privacyCenter.appears(within: 10),
             "the -open-privacy-center-on-launch hook must show the Privacy Center")
         let successfulReuse = app.descendants(matching: .any)[
             "ios-successful-reuse-count"
         ].firstMatch
         for _ in 0..<6 {
-            if successfulReuse.waitForExistence(timeout: 1) { break }
+            if successfulReuse.appears(within: 1) { break }
             privacyCenter.swipeUp()
         }
         XCTAssertTrue(
-            successfulReuse.waitForExistence(timeout: 5),
+            successfulReuse.appears(within: 5),
             "the Privacy Center must expose the in-memory successful-reuse count")
 
         // The ephemeral-store launch logged an issue, so the "Recent issues"
@@ -122,11 +122,11 @@ final class PrivacyCenterUITests: XCTestCase {
         // end-to-end proof that the error log records and renders on iOS.
         let copyButton = app.buttons["copy-diagnostics"].firstMatch
         for _ in 0..<8 {
-            if copyButton.waitForExistence(timeout: 1) { break }
+            if copyButton.appears(within: 1) { break }
             privacyCenter.swipeUp()
         }
         XCTAssertTrue(
-            copyButton.waitForExistence(timeout: 5),
+            copyButton.appears(within: 5),
             "an ephemeral-store launch must log a content-free issue shown in Recent issues")
     }
 
@@ -142,8 +142,8 @@ final class PrivacyCenterUITests: XCTestCase {
         defer { app.terminate() }
 
         let alert = app.alerts["Help improve Gancho?"].firstMatch
-        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(alert.appears(within: 10))
         alert.buttons["Keep disabled"].tap()
-        XCTAssertFalse(alert.waitForExistence(timeout: 1))
+        XCTAssertFalse(alert.appears(within: 1))
     }
 }

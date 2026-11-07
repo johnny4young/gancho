@@ -8,11 +8,11 @@ final class ClipTextEditingUITests: XCTestCase {
 
         seededRow(in: app).tap()
         let edit = app.buttons["detail-edit-content"].firstMatch
-        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        XCTAssertTrue(edit.appears(within: 5))
         edit.tap()
 
         let field = app.textViews["detail-content-field"].firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 2))
+        XCTAssertTrue(field.appears(within: 2))
         field.tap()
         field.typeText("Next: ship safely\n")
         app.buttons["detail-save-content"].firstMatch.tap()
@@ -22,7 +22,7 @@ final class ClipTextEditingUITests: XCTestCase {
         let saved = app.staticTexts.matching(
             NSPredicate(format: "label == %@", finalText)
         ).firstMatch
-        XCTAssertTrue(saved.waitForExistence(timeout: 5))
+        XCTAssertTrue(saved.appears(within: 5))
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "iOS explicit clip text editing"
         attachment.lifetime = .keepAlways
@@ -49,7 +49,7 @@ final class ClipTextEditingUITests: XCTestCase {
                 "-force-free-tier", "-AppleLanguages", "(en)"
             ]
             app.launch()
-            if seededRow(in: app).waitForExistence(timeout: 8) { return app }
+            if seededRow(in: app).appears(within: 8) { return app }
         }
         return try XCTUnwrap(
             nil as XCUIApplication?,

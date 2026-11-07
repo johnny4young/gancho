@@ -9,11 +9,11 @@ final class PanelBoardUITests: XCTestCase {
     func testBoardPickerCreatesBoardAndRepeatLastShortcutFilesAnotherClip() throws {
         let app = launchWithPanel()
         defer { app.terminate() }
-        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.appears(within: 8))
 
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         try XCTSkipUnless(
-            rows.firstMatch.waitForExistence(timeout: 8),
+            rows.firstMatch.appears(within: 8),
             "seeded clip rows not exposed to the UI runner in this environment")
         let settle = Date().addingTimeInterval(3)
         while rows.count < 2 && Date() < settle {
@@ -25,11 +25,11 @@ final class PanelBoardUITests: XCTestCase {
         try SynthesizedInput.requireForeground(app)
         app.typeKey("b", modifierFlags: .command)
         let picker = app.descendants(matching: .any)["board-picker"].firstMatch
-        XCTAssertTrue(picker.waitForExistence(timeout: 5), "⌘B must open the board picker")
+        XCTAssertTrue(picker.appears(within: 5), "⌘B must open the board picker")
         try typeBoardPickerFilter("Review queue", in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)["board-picker-create-row"].firstMatch
-                .waitForExistence(timeout: 3),
+                .appears(within: 3),
             "typing a new board name must offer a create row")
 
         app.typeKey(.return, modifierFlags: .command)
@@ -50,10 +50,10 @@ final class PanelBoardUITests: XCTestCase {
         app.typeKey("b", modifierFlags: .command)
         let reopenedPicker = app.descendants(matching: .any)["board-picker"].firstMatch
         XCTAssertTrue(
-            reopenedPicker.waitForExistence(timeout: 5), "⌘B must reopen the board picker")
+            reopenedPicker.appears(within: 5), "⌘B must reopen the board picker")
         try typeBoardPickerFilter("Review queue", in: app)
         let createdBoardRow = app.descendants(matching: .any)["board-picker-board-row"].firstMatch
-        XCTAssertTrue(createdBoardRow.waitForExistence(timeout: 3))
+        XCTAssertTrue(createdBoardRow.appears(within: 3))
         let repeatedBoardSelection = XCTWaiter().wait(
             for: [
                 XCTNSPredicateExpectation(
@@ -70,11 +70,11 @@ final class PanelBoardUITests: XCTestCase {
     func testBoardChipFiltersToTheFiledClipAndCapturesEvidence() throws {
         let app = launchWithPanel()
         defer { app.terminate() }
-        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.appears(within: 8))
 
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         try XCTSkipUnless(
-            rows.firstMatch.waitForExistence(timeout: 8),
+            rows.firstMatch.appears(within: 8),
             "seeded clip rows not exposed to the UI runner in this environment")
         let settle = Date().addingTimeInterval(3)
         while rows.count < 2 && Date() < settle {
@@ -86,13 +86,13 @@ final class PanelBoardUITests: XCTestCase {
         try SynthesizedInput.requireForeground(app)
         app.typeKey("b", modifierFlags: .command)
         let picker = app.descendants(matching: .any)["board-picker"].firstMatch
-        XCTAssertTrue(picker.waitForExistence(timeout: 5), "⌘B must open the board picker")
+        XCTAssertTrue(picker.appears(within: 5), "⌘B must open the board picker")
         try typeBoardPickerFilter("Paged board", in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)["board-picker-create-row"].firstMatch
-                .waitForExistence(timeout: 3))
+                .appears(within: 3))
         app.typeKey(.return, modifierFlags: .command)
-        XCTAssertTrue(picker.waitForNonExistence(timeout: 6))
+        XCTAssertTrue(picker.waitForNonexistence(timeout: 6))
 
         // Select the new board on the rail — from here the rows come through
         // the paged board query, not the recent browse.
@@ -104,7 +104,7 @@ final class PanelBoardUITests: XCTestCase {
             )
             .firstMatch
         XCTAssertTrue(
-            chip.waitForExistence(timeout: 5), "the created board must appear on the rail")
+            chip.appears(within: 5), "the created board must appear on the rail")
         chip.click()
 
         // Exactly the filed clip remains visible under the board filter.
@@ -141,13 +141,13 @@ final class PanelBoardUITests: XCTestCase {
         line: UInt = #line
     ) throws {
         let identifiedField = app.textFields["board-picker-filter"].firstMatch
-        if identifiedField.waitForExistence(timeout: 2) {
+        if identifiedField.appears(within: 2) {
             try typeTextReliably(text, into: identifiedField, in: app, file: file, line: line)
             return
         }
 
         let labelledField = app.textFields["Filter or new board name"].firstMatch
-        guard labelledField.waitForExistence(timeout: 2) else {
+        guard labelledField.appears(within: 2) else {
             XCTFail("the picker filter must exist before typing", file: file, line: line)
             return
         }

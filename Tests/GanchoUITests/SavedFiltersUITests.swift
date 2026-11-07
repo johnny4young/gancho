@@ -17,7 +17,7 @@ final class SavedFiltersUITests: XCTestCase {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         defer { app.terminate() }
         let field = app.textFields["search-field"]
-        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        XCTAssertTrue(field.appears(within: 15))
         // The field appears before the seed's rows do.
         let panelRows = app.descendants(matching: .any).matching(identifier: "clip-row")
         let seeded = XCTNSPredicateExpectation(
@@ -27,25 +27,25 @@ final class SavedFiltersUITests: XCTestCase {
         try typeTextReliably("Yesterday", into: field, in: app)
         app.buttons["filter-save"].click()
         let name = app.textFields["filter-name-field"]
-        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        XCTAssertTrue(name.appears(within: 5))
         try typeTextReliably("Daily notes", into: name, in: app)
         app.buttons["filter-confirm"].click()
-        XCTAssertTrue(name.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(name.waitForNonexistence(timeout: 5))
         try SynthesizedInput.requireForeground(app)
         GanchoUITestCommands.post("library", token: nonce)
         let library = app.windows["Library"]
-        XCTAssertTrue(library.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.dialogs["history-panel"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(library.appears(within: 5))
+        XCTAssertTrue(app.dialogs["history-panel"].waitForNonexistence(timeout: 5))
         let row = library.staticTexts["saved-filter-row"].firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        XCTAssertTrue(row.appears(within: 5))
         XCTAssertEqual(row.value as? String, "Daily notes")
         row.click()
         let clips = library.descendants(matching: .any).matching(identifier: "library-clip")
-        XCTAssertTrue(clips.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(clips.firstMatch.appears(within: 5))
         XCTAssertEqual(clips.count, 1)
         row.rightClick()
         app.menuItems["Edit filter…"].click()
-        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        XCTAssertTrue(name.appears(within: 5))
         try typeTextReliably("Renamed notes", into: name, in: app)
         app.buttons["filter-confirm"].click()
         let renamed = library.staticTexts["saved-filter-row"].firstMatch
@@ -55,7 +55,7 @@ final class SavedFiltersUITests: XCTestCase {
         try keepRender(of: "Library", in: app, named: "Saved filter — synthetic query")
         renamed.rightClick()
         app.menuItems["Delete filter"].click()
-        XCTAssertTrue(renamed.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(renamed.waitForNonexistence(timeout: 5))
         // The scope's total, not the grid: a lazy grid only realizes the cards on screen.
         let total = library.descendants(matching: .any)["library-scope-count"].firstMatch
         let allClips = XCTNSPredicateExpectation(

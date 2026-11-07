@@ -51,7 +51,7 @@ final class SelectedContextUITests: XCTestCase {
     ) throws -> (app: GanchoUITestApplication, preview: XCUIElement, rowCount: Int) {
         let app = launch(language, appearance, extraArguments: ["-seed-recognized-text-image"])
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.element(boundBy: 3).waitForExistence(timeout: 15))
+        XCTAssertTrue(rows.element(boundBy: 3).appears(within: 15))
         let count = rows.count
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.tab, modifierFlags: [])
@@ -61,7 +61,7 @@ final class SelectedContextUITests: XCTestCase {
         XCTAssertTrue(action.waitForHittable(timeout: 5))
         action.click()
         let preview = app.descendants(matching: .any)["ai-context-preview"].firstMatch
-        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertTrue(preview.appears(within: 5))
         return (app, preview, count)
     }
 
@@ -75,7 +75,7 @@ final class SelectedContextUITests: XCTestCase {
         XCTAssertFalse(copy.isEnabled, "an image is not shared until something is chosen")
         share.click()
         let pixels = app.descendants(matching: .any)["ai-context-shared-image"].firstMatch
-        XCTAssertTrue(pixels.waitForExistence(timeout: 10), "the outbound pixels are shown")
+        XCTAssertTrue(pixels.appears(within: 10), "the outbound pixels are shown")
         XCTAssertFalse(share.exists)
         XCTAssertFalse(copy.isEnabled, "pixels cannot be copied as Markdown")
         try keepRender(
@@ -93,7 +93,7 @@ final class SelectedContextUITests: XCTestCase {
         XCTAssertTrue(use.waitForHittable(timeout: 5))
         XCTAssertFalse(copy.isEnabled, "an image is not shared until its text is approved")
         use.click()
-        XCTAssertTrue(use.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(use.waitForNonexistence(timeout: 5))
         XCTAssertTrue(copy.isEnabled)
         let recognized = preview.descendants(matching: .staticText).matching(
             NSPredicate(
@@ -101,7 +101,7 @@ final class SelectedContextUITests: XCTestCase {
                 "Synthetic queue between API and workers",
                 "Synthetic queue between API and workers")
         ).firstMatch
-        XCTAssertTrue(recognized.waitForExistence(timeout: 5), "the full outbound text is shown")
+        XCTAssertTrue(recognized.appears(within: 5), "the full outbound text is shown")
         try keepRender(
             of: "@sheet", in: app,
             named: "Selected context review — recognized text — \(language) — \(appearance)")
@@ -115,7 +115,7 @@ final class SelectedContextUITests: XCTestCase {
         let app = launch(language, appearance)
         defer { app.terminate() }
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.element(boundBy: 2).waitForExistence(timeout: 15))
+        XCTAssertTrue(rows.element(boundBy: 2).appears(within: 15))
         let count = rows.count
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.tab, modifierFlags: [])
@@ -126,7 +126,7 @@ final class SelectedContextUITests: XCTestCase {
         action.hover()
         action.click()
         let preview = app.descendants(matching: .any)["ai-context-preview"].firstMatch
-        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertTrue(preview.appears(within: 5))
         let copy = app.buttons["ai-context-copy-button"].firstMatch
         XCTAssertTrue(copy.waitForHittable(timeout: 5))
         XCTAssertTrue(copy.isEnabled)
@@ -142,12 +142,12 @@ final class SelectedContextUITests: XCTestCase {
             return
         }
         app.buttons["ai-context-cancel-button"].firstMatch.click()
-        XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(preview.waitForNonexistence(timeout: 5))
         XCTAssertEqual(rows.count, count)
         action.click()
         XCTAssertTrue(copy.waitForHittable(timeout: 5))
         copy.click()
-        XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(preview.waitForNonexistence(timeout: 5))
         XCTAssertEqual(rows.count, count)
     }
     @MainActor
@@ -164,7 +164,7 @@ final class SelectedContextUITests: XCTestCase {
         XCTAssertTrue(command.isEnabled)
         command.click()
         app.buttons["ai-context-cancel-button"].firstMatch.click()
-        XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(preview.waitForNonexistence(timeout: 5))
         XCTAssertEqual(
             app.descendants(matching: .any).matching(identifier: "clip-row").count,
             originalCount)

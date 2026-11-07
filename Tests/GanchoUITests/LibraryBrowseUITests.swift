@@ -29,11 +29,11 @@ final class LibraryBrowseUITests: XCTestCase {
         app.launch()
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         GanchoUITestCommands.post("library", token: nonce)
         let library = app.windows["Library"].firstMatch
-        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        XCTAssertTrue(library.appears(within: 5))
         waitForCards(expected, in: library)
         return (app, library)
     }
@@ -104,16 +104,16 @@ final class LibraryBrowseUITests: XCTestCase {
         .firstMatch
         link.hover()
         let copy = library.buttons["library-card-copy"].firstMatch
-        XCTAssertTrue(copy.waitForExistence(timeout: 3))
+        XCTAssertTrue(copy.appears(within: 3))
         XCTAssertTrue(library.buttons["library-card-pin"].firstMatch.exists)
         XCTAssertTrue(library.descendants(matching: .any)["library-card-board"].firstMatch.exists)
         copy.click()
-        XCTAssertTrue(app.staticTexts["Copied"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Copied"].firstMatch.appears(within: 3))
 
         let secret = cards(library).matching(NSPredicate(format: "label BEGINSWITH %@", "Secret"))
             .firstMatch
         secret.hover()
-        XCTAssertTrue(library.buttons["library-card-pin"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(library.buttons["library-card-pin"].firstMatch.appears(within: 3))
         XCTAssertFalse(library.buttons["library-card-copy"].firstMatch.exists)
         XCTAssertFalse(secret.label.contains("synthetic-secret"), "the card shows the mask only")
     }
@@ -145,7 +145,7 @@ final class LibraryBrowseUITests: XCTestCase {
         XCTAssertFalse(ocean.label.contains("Work"))
         ocean.hover()
         let board = library.descendants(matching: .any)["library-card-board"].firstMatch
-        XCTAssertTrue(board.waitForExistence(timeout: 3))
+        XCTAssertTrue(board.appears(within: 3))
         board.click()
         app.menuItems["Work"].firstMatch.click()
         let filed = XCTNSPredicateExpectation(
@@ -161,7 +161,7 @@ final class LibraryBrowseUITests: XCTestCase {
         ])
         defer { app.terminate() }
         cards(library).firstMatch.hover()
-        XCTAssertTrue(library.buttons["library-card-pin"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(library.buttons["library-card-pin"].firstMatch.appears(within: 3))
         XCTAssertFalse(library.buttons["library-card-copy"].firstMatch.exists)
     }
 
@@ -193,15 +193,15 @@ final class LibraryBrowseUITests: XCTestCase {
         let (app, library) = try openLibrary(extra: ["-seed-snippets"], cards: 8)
         defer { app.terminate() }
         let pro = library.descendants(matching: .any)["library-pro"].firstMatch
-        XCTAssertTrue(pro.waitForExistence(timeout: 5))
+        XCTAssertTrue(pro.appears(within: 5))
         XCTAssertEqual(pro.value as? String, "33%")
         let keyword = library.descendants(matching: .any)
             .matching(identifier: "snippet-keyword").firstMatch
-        XCTAssertTrue(keyword.waitForExistence(timeout: 5))
+        XCTAssertTrue(keyword.appears(within: 5))
 
         library.buttons["saved-filter-new"].firstMatch.click()
         let name = app.textFields["filter-name-field"].firstMatch
-        XCTAssertTrue(name.waitForExistence(timeout: 3))
+        XCTAssertTrue(name.appears(within: 3))
         try typeTextReliably("Repos", into: name, in: app)
         try typeTextReliably(
             "github", into: app.textFields["filter-query-field"].firstMatch, in: app)
@@ -209,7 +209,7 @@ final class LibraryBrowseUITests: XCTestCase {
         // The row's id reaches its texts, the count included.
         let filterCount = library.staticTexts.matching(identifier: "saved-filter-row")
             .matching(NSPredicate(format: "label == '1' OR value == '1'")).firstMatch
-        XCTAssertTrue(filterCount.waitForExistence(timeout: 5), "the new filter counts its clip")
+        XCTAssertTrue(filterCount.appears(within: 5), "the new filter counts its clip")
     }
 }
 

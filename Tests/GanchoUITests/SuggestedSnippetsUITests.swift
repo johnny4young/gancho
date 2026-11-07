@@ -21,10 +21,10 @@ final class SuggestedSnippetsUITests: XCTestCase {
                 "com.johnny4young.gancho.uitests.suggested.\(UUID().uuidString)"
             ]
         app.launch()
-        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.appears(within: 15))
         GanchoUITestCommands.post("library", token: token)
         let library = app.windows["Library"].firstMatch
-        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        XCTAssertTrue(library.appears(within: 5))
         return (app, library)
     }
 
@@ -89,7 +89,7 @@ final class SuggestedSnippetsUITests: XCTestCase {
         let (app, library) = try openLibrary(extra: ["-simulate-screen-share", "Zoom"])
         defer { app.terminate() }
         // The sidebar has loaded, and the share is picked up on the next 3 s poll.
-        XCTAssertTrue(library.staticTexts["No snippets yet"].waitForExistence(timeout: 8))
+        XCTAssertTrue(library.staticTexts["No snippets yet"].appears(within: 8))
         RunLoop.current.run(until: Date().addingTimeInterval(4))
         XCTAssertEqual(buttons("keep", in: library).count, 0)
     }

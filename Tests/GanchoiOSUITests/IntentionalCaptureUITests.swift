@@ -26,12 +26,12 @@ final class IntentionalCaptureUITests: XCTestCase {
         let app = launch(scenario)
         defer { app.terminate() }
         let note = app.descendants(matching: .any).matching(identifier: "save-note").firstMatch
-        XCTAssertTrue(note.waitForExistence(timeout: 10))
+        XCTAssertTrue(note.appears(within: 10))
         XCTAssertTrue(note.label.contains("cannot be saved for privacy reasons"))
         // Absence only means something after giving a late insert time to land.
         XCTAssertFalse(
             app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-                .waitForExistence(timeout: 3))
+                .appears(within: 3))
     }
 
     @MainActor
@@ -39,11 +39,11 @@ final class IntentionalCaptureUITests: XCTestCase {
         let app = launch(scenario)
         defer { app.terminate() }
         let note = app.descendants(matching: .any).matching(identifier: "save-note").firstMatch
-        XCTAssertTrue(note.waitForExistence(timeout: 10))
+        XCTAssertTrue(note.appears(within: 10))
         XCTAssertTrue(note.label.contains("Saved"))
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
-                .waitForExistence(timeout: 10))
+                .appears(within: 10))
     }
 
     @MainActor

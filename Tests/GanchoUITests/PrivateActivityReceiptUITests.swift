@@ -22,22 +22,22 @@ final class PrivateActivityReceiptUITests: XCTestCase {
         }
 
         let receipt = app.descendants(matching: .any)["private-receipt-section"].firstMatch
-        XCTAssertTrue(receipt.waitForExistence(timeout: 8))
+        XCTAssertTrue(receipt.appears(within: 8))
         XCTAssertEqual(count(of: "private-receipt-reused-count", in: app), 8)
         XCTAssertEqual(count(of: "private-receipt-captured-count", in: app), 12)
         XCTAssertEqual(count(of: "private-receipt-skipped-count", in: app), 3)
         XCTAssertEqual(count(of: "private-receipt-protected-count", in: app), 2)
         XCTAssertTrue(
             app.descendants(matching: .any)["private-receipt-app-0-row"].firstMatch
-                .waitForExistence(timeout: 3))
+                .appears(within: 3))
         XCTAssertTrue(
             app.descendants(matching: .any)["private-receipt-app-1-row"].firstMatch
-                .waitForExistence(timeout: 3))
+                .appears(within: 3))
 
         try keepRender(of: "Privacy Center", in: app, named: "macOS private activity receipt")
 
         let clear = app.buttons["clear-private-receipt-button"].firstMatch
-        XCTAssertTrue(clear.waitForExistence(timeout: 3))
+        XCTAssertTrue(clear.appears(within: 3))
         app.activate()
         try SynthesizedInput.requireForeground(app)
         // The action sits below the fold of the Privacy Center's form.
@@ -46,7 +46,7 @@ final class PrivateActivityReceiptUITests: XCTestCase {
         XCTAssertTrue(clear.revealByScrolling(in: form))
         clear.click()
         let confirmation = app.windows["Privacy Center"].sheets.firstMatch
-        XCTAssertTrue(confirmation.waitForExistence(timeout: 3))
+        XCTAssertTrue(confirmation.appears(within: 3))
         confirmation.buttons["Clear receipt"].click()
 
         let reused = app.descendants(matching: .any)["private-receipt-reused-count"].firstMatch
@@ -63,7 +63,7 @@ final class PrivateActivityReceiptUITests: XCTestCase {
     @MainActor
     private func value(of identifier: String, in app: XCUIApplication) -> String {
         let element = app.descendants(matching: .any)[identifier].firstMatch
-        XCTAssertTrue(element.waitForExistence(timeout: 5), "Missing element: \(identifier)")
+        XCTAssertTrue(element.appears(within: 5), "Missing element: \(identifier)")
         return AccessibleValue.text(of: element)
     }
 

@@ -11,11 +11,11 @@ final class RetentionSettingsUITests: XCTestCase {
             "com.johnny4young.gancho.uitests.retention.\(UUID().uuidString)"
         ])
         let tab = app.windows["Settings"].buttons["settings-tab-retention"].firstMatch
-        XCTAssertTrue(tab.waitForExistence(timeout: 3))
+        XCTAssertTrue(tab.appears(within: 3))
         tab.click()
         XCTAssertTrue(
             app.descendants(matching: .any)["retention-timeline"].firstMatch
-                .waitForExistence(timeout: 5))
+                .appears(within: 5))
         return app
     }
 
@@ -33,16 +33,16 @@ final class RetentionSettingsUITests: XCTestCase {
         XCTAssertTrue(marker("secrets", in: app).exists)
         XCTAssertFalse(marker("images", in: app).exists, "Use global folds images in")
         let images = app.popUpButtons["retention-images-picker"].firstMatch
-        XCTAssertTrue(images.waitForExistence(timeout: 3))
+        XCTAssertTrue(images.appears(within: 3))
         images.click()
         app.menuItems["7 days"].firstMatch.click()
-        XCTAssertTrue(marker("7 d · images", in: app).waitForExistence(timeout: 3))
+        XCTAssertTrue(marker("7 d · images", in: app).appears(within: 3))
 
         // Five markers still read: no label sits on another.
         let text = app.popUpButtons["retention-text-picker"].firstMatch
         text.click()
         app.menuItems["90 days"].firstMatch.click()
-        XCTAssertTrue(marker("text", in: app).waitForExistence(timeout: 3))
+        XCTAssertTrue(marker("text", in: app).appears(within: 3))
         let frames = app.descendants(matching: .any).matching(identifier: "retention-marker")
             .allElementsBoundByIndex.map(\.frame)
         XCTAssertEqual(frames.count, 5)
@@ -68,7 +68,7 @@ final class RetentionSettingsUITests: XCTestCase {
         app.buttons["forget-recent-button"].firstMatch.click()
         XCTAssertEqual(XCTWaiter.wait(for: [shows("Nothing to forget")], timeout: 5), .completed)
         let undo = app.buttons["toast-undo"].firstMatch
-        XCTAssertTrue(undo.waitForExistence(timeout: 3))
+        XCTAssertTrue(undo.appears(within: 3))
         undo.click()
         XCTAssertEqual(
             XCTWaiter.wait(for: [shows("4 clips")], timeout: 5), .completed, "Undo restores them")

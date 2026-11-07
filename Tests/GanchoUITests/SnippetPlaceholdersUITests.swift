@@ -28,15 +28,15 @@ final class SnippetPlaceholdersUITests: XCTestCase {
     @MainActor
     private func openFillSheet(_ app: XCUIApplication) throws -> XCUIElement {
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        XCTAssertTrue(search.appears(within: 15))
         try SynthesizedInput.requireForeground(app)
         search.click()
         search.typeText("hi")
         let banner = app.buttons["snippet-insert-banner"].firstMatch
-        XCTAssertTrue(banner.waitForExistence(timeout: 5))
+        XCTAssertTrue(banner.appears(within: 5))
         banner.click()
         let sheet = app.sheets.firstMatch
-        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        XCTAssertTrue(sheet.appears(within: 5))
         return sheet
     }
 
@@ -44,16 +44,16 @@ final class SnippetPlaceholdersUITests: XCTestCase {
     private func openEditor(
         _ app: XCUIApplication, token: String
     ) throws -> (library: XCUIElement, editor: XCUIElement) {
-        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.appears(within: 15))
         GanchoUITestCommands.post("library", token: token)
         let library = app.windows["Library"].firstMatch
-        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        XCTAssertTrue(library.appears(within: 5))
         let row = library.staticTexts["Seed sign-off"].firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 8))
+        XCTAssertTrue(row.appears(within: 8))
         try SynthesizedInput.requireForeground(app)
         row.click()
         let editor = library.textViews["snippet-editor"].firstMatch
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.appears(within: 5))
         return (library, editor)
     }
 
@@ -89,14 +89,14 @@ final class SnippetPlaceholdersUITests: XCTestCase {
         let preview = sheet.staticTexts.matching(
             NSPredicate(format: "value CONTAINS %@", "{clipboard | trim}")
         ).firstMatch
-        XCTAssertTrue(preview.waitForExistence(timeout: 3))
+        XCTAssertTrue(preview.appears(within: 3))
         let shown = (preview.value as? String) ?? ""
         XCTAssertTrue(shown.contains("{cursor}"), shown)
         XCTAssertFalse(shown.contains("{date"), "the date is filled: \(shown)")
         try keepRender(of: "@sheet", in: app, named: "Snippet fill sheet")
 
         sheet.buttons["fill-insert"].firstMatch.click()
-        XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(sheet.waitForNonexistence(timeout: 5))
     }
 
     @MainActor

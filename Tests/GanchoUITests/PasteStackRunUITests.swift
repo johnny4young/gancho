@@ -9,11 +9,11 @@ final class PasteStackRunUITests: XCTestCase {
         let app = launchPanel(nonce: nonce)
         defer { app.terminate() }
         let strip = app.buttons["paste-stack-strip"].firstMatch
-        XCTAssertTrue(strip.waitForExistence(timeout: 15))
+        XCTAssertTrue(strip.appears(within: 15))
         strip.click()
 
         let rows = app.descendants(matching: .any).matching(identifier: "paste-stack-row")
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(rows.firstMatch.appears(within: 5))
         XCTAssertEqual(rows.count, 2)
         XCTAssertEqual(rows.element(boundBy: 0).value as? String, "Next")
 
@@ -25,9 +25,9 @@ final class PasteStackRunUITests: XCTestCase {
         // Pasting hides the panel, as it does for a real paste; reopen it.
         app.buttons["paste-stack-next"].firstMatch.click()
         let panel = app.descendants(matching: .any)["history-panel"].firstMatch
-        XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(panel.waitForNonexistence(timeout: 5))
         GanchoUITestCommands.post("openPanel", token: nonce)
-        XCTAssertTrue(strip.waitForExistence(timeout: 5))
+        XCTAssertTrue(strip.appears(within: 5))
         XCTAssertTrue(strip.label.contains("2 of 2"), strip.label)
         strip.click()
         XCTAssertTrue(waitForValue("Pasted", of: rows.element(boundBy: 0)))
@@ -43,15 +43,15 @@ final class PasteStackRunUITests: XCTestCase {
         let app = launchPanel(nonce: UUID().uuidString)
         defer { app.terminate() }
         let strip = app.buttons["paste-stack-strip"].firstMatch
-        XCTAssertTrue(strip.waitForExistence(timeout: 15))
+        XCTAssertTrue(strip.appears(within: 15))
         strip.click()
         let next = app.buttons["paste-stack-next"].firstMatch
-        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        XCTAssertTrue(next.appears(within: 5))
         next.click()
 
         let position = app.staticTexts["paste-stack-run-position"].firstMatch
         XCTAssertTrue(
-            position.waitForExistence(timeout: 5), "pasting with the panel closed shows the strip")
+            position.appears(within: 5), "pasting with the panel closed shows the strip")
         XCTAssertEqual(text(of: position), "2 of 2")
         XCTAssertEqual(text(of: app.staticTexts["paste-stack-run-next"].firstMatch), "Ocean")
         try keepRender(of: "paste-stack-run-strip", in: app, named: "Paste-stack run strip")
@@ -59,7 +59,7 @@ final class PasteStackRunUITests: XCTestCase {
         app.buttons["paste-stack-run-back"].firstMatch.click()
         XCTAssertTrue(waitForText("1 of 2", of: position), "Back to the first entry keeps the run")
         app.buttons["paste-stack-run-end"].firstMatch.click()
-        XCTAssertTrue(position.waitForNonExistence(timeout: 5), "End run closes the strip")
+        XCTAssertTrue(position.waitForNonexistence(timeout: 5), "End run closes the strip")
     }
 
     /// macOS puts a static text's string in its label or its value.
