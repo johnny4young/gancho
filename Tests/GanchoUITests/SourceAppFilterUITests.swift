@@ -96,7 +96,8 @@ final class SourceAppFilterUITests: XCTestCase {
             clearFilters.appears(within: 3),
             "the actionable child must remain exposed to accessibility")
         XCTAssertTrue(clearFilters.waitForHittable(timeout: 3))
-        clearFilters.click()
+        XCTAssertTrue(
+            clearFilters.click(until: NSPredicate(format: "exists == false"), on: emptyState))
 
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         XCTAssertTrue(

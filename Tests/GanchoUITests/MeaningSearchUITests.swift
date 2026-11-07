@@ -32,7 +32,7 @@ final class MeaningSearchUITests: XCTestCase {
         let noResults = app.descendants(matching: .any)["panel-empty-noresults"].firstMatch
         XCTAssertTrue(noResults.appears(within: 5))
         XCTAssertTrue(meaning.waitForHittable(timeout: 5))
-        meaning.click()
+        XCTAssertTrue(meaning.click(until: NSPredicate(format: "isSelected == true")))
         let status = app.descendants(matching: .any)["meaning-search-status"].firstMatch
         XCTAssertTrue(
             rows.firstMatch.appears(within: 5),

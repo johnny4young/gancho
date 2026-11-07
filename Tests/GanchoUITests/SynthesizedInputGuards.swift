@@ -151,6 +151,23 @@ extension XCUIElement {
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
+    /// Clicks, then waits for `predicate` on `target`, and clicks once more if it
+    /// doesn't hold: a click right after typing can land while the panel redraws
+    /// the refreshed list, and the app drops it.
+    @MainActor
+    func click(until predicate: NSPredicate, on target: XCUIElement? = nil) -> Bool {
+        let holds = { (timeout: TimeInterval) in
+            let expectation = XCTNSPredicateExpectation(
+                predicate: predicate, object: target ?? self)
+            return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+        }
+        for _ in 0..<2 where exists {
+            click()
+            if holds(2) { return true }
+        }
+        return holds(3)
+    }
+
     /// Scrolls `container` until `self` is hittable and reports the outcome, so
     /// the caller decides between skip and fail. The wheel sign that moves
     /// content toward the fold depends on the host's scroller settings, so the
