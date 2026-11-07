@@ -1,6 +1,7 @@
 import AppKit
 import ClipboardCore
 import CoreSpotlight
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import KeyboardShortcuts
@@ -393,25 +394,41 @@ private enum GanchoDeepLinks {
 
 /// Publishes the content-free menu-bar state to the App Group bridge so the
 /// external helper renders a localized, status-aware menu without ever touching
-/// clipboard data. `monitor.status` is an engine value (not `@Observable`), so a
-/// light 1s poll keeps the bridge fresh and user-driven changes also publish
-/// immediately. Runs on both launch paths (helper and in-process fallback).
+/// clipboard data. Writes follow the model's observable state and the stored
+/// panel shortcut; nothing polls. Runs on both launch paths (helper and
+/// in-process fallback).
 @MainActor
 final class GanchoMenuBarStatusPublisher {
-    private weak var model: AppModel?
-    private var timer: Timer?
-    private var lastStatus: (label: String, badge: MenuBarBadge?)?
-    private var lastPanelShortcut: MenuBarKeyEquivalent??
+    nonisolated private struct Status: Equatable {
+        let label: String
+        let badge: MenuBarBadge?
+    }
+
+    private var status: ObservedValueMirror<Status>?
+    private let panelShortcut = ObservedValueMirror<MenuBarKeyEquivalent?>(
+        read: {
+            KeyboardShortcuts.getShortcut(for: .togglePanel).flatMap {
+                MenuBarKeyEquivalent(key: $0.nsMenuItemKeyEquivalent, modifiers: $0.modifiers)
+            }
+        },
+        write: GanchoMenuBarBridge.writePanelShortcut)
+    private var defaultsObserver: (any NSObjectProtocol)?
 
     func start(model: AppModel) {
-        self.model = model
         GanchoMenuBarBridge.removeRetiredValues()
         publishTitles()
-        publishNow()
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(
-            timeInterval: 1, target: self, selector: #selector(publishNow), userInfo: nil,
-            repeats: true)
+        let status = ObservedValueMirror(
+            read: { Status(label: model.menuBarAccessibilityLabel, badge: model.menuBarBadge) },
+            write: { GanchoMenuBarBridge.writeStatus(label: $0.label, badge: $0.badge) })
+        self.status = status
+        status.start()
+        panelShortcut.start()
+        // KeyboardShortcuts keeps recordings in standard defaults, outside Observation.
+        defaultsObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.panelShortcut.refresh() }
+        }
     }
 
     private func publishTitles() {
@@ -422,25 +439,10 @@ final class GanchoMenuBarStatusPublisher {
         GanchoMenuBarBridge.writeTitles(titles)
     }
 
-    /// The helper cannot read KeyboardShortcuts, so the recorded panel shortcut
-    /// (or its absence) crosses the bridge and the 1s poll picks up re-records.
-    private func publishPanelShortcut() {
-        let shortcut = KeyboardShortcuts.getShortcut(for: .togglePanel).flatMap {
-            MenuBarKeyEquivalent(key: $0.nsMenuItemKeyEquivalent, modifiers: $0.modifiers)
-        }
-        guard lastPanelShortcut != .some(shortcut) else { return }
-        lastPanelShortcut = .some(shortcut)
-        GanchoMenuBarBridge.writePanelShortcut(shortcut)
-    }
-
-    @objc func publishNow() {
-        publishPanelShortcut()
-        guard let model else { return }
-        let status = (label: model.menuBarAccessibilityLabel, badge: model.menuBarBadge)
-        if let lastStatus, lastStatus.label == status.label, lastStatus.badge == status.badge {
-            return
-        }
-        lastStatus = status
-        GanchoMenuBarBridge.writeStatus(label: status.label, badge: status.badge)
+    /// Writes at once what a helper command just changed, before the observed
+    /// change arrives on the next turn.
+    func publishNow() {
+        panelShortcut.refresh()
+        status?.refresh()
     }
 }
