@@ -58,14 +58,17 @@
         /// Source apps whose copies are vetoed before any read.
         public var denylist = SourceAppDenylist()
 
-        /// User capture knobs. Entering private mode pauses; leaving it
-        /// resynchronizes so nothing copied while paused is captured.
+        /// User capture knobs. Entering private mode pauses and drops a read
+        /// already in flight; leaving it resynchronizes so nothing copied
+        /// while paused is captured.
         public var preferences: CapturePreferences {
             didSet {
                 guard preferences.isPrivateModePaused != oldValue.isPrivateModePaused else {
                     return
                 }
-                if !preferences.isPrivateModePaused {
+                if preferences.isPrivateModePaused {
+                    dropPendingRead()
+                } else {
                     discardChangesWhilePaused()
                 }
             }
@@ -82,7 +85,9 @@
         /// Set by the app layer while a screen share is detected. Pauses
         /// capture exactly like private mode (including the no-backfill
         /// resync on resume).
-        public var pausedForScreenShare = false
+        public var pausedForScreenShare = false {
+            didSet { if pausedForScreenShare { dropPendingRead() } }
+        }
 
         /// When the monitor last read pasteboard CONTENT (the Privacy
         /// Center surfaces this so users can audit read behavior).
@@ -277,6 +282,12 @@
             lastChangeCount = count
             guard !reader.currentTypes().contains(Self.selfWriteMarker.rawValue) else { return }
             onPrivateModeCopy?()
+        }
+
+        /// Drops the read now rather than on the next turn (`status` still
+        /// follows then); the cancelled task stays so `drainPendingRead()` waits.
+        private func dropPendingRead() {
+            pendingRead?.cancel()
         }
 
         /// Forgets pasteboard changes that happened while capture was paused
