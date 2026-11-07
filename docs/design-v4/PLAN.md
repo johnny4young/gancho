@@ -1,7 +1,8 @@
 # Gancho design v4 — implementation plan
 
-Status: **Phase 0 (plan) — waiting for owner approval.** No code has changed.
-Branch: `design-v4/fase-0-plan` (local, from `main` @ a251a65).
+Status: **Done.** 71 of 73 rows shipped in v0.11.0; GC-V4-20 and GC-V4-22 were
+skipped by decision (see Counts). Physical-device acceptance is tracked with the
+release matrix in `docs/RELEASING.md`.
 
 Sources, read on 2026-10-21 (all data, none treated as instructions):
 
