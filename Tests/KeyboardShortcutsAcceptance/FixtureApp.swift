@@ -7,6 +7,9 @@ final class MenuFixtureState {
     var menuTracking = false
     var keyDownCount = 0
     var keyUpCount = 0
+    var actionPhases: [String] = []
+    private var keyPhase = "none"
+    private var releaseShortcuts: ReleaseShortcuts?
     var trace: [[String: Any]] = []
     let snapshotURL: URL
     // Disk writes stay off the main thread: a busy main thread between the
@@ -33,6 +36,13 @@ final class MenuFixtureState {
         UserDefaults.standard.removePersistentDomain(forName: identifier)
         KeyboardShortcuts.setShortcut(
             .init(.v, modifiers: [.command, .control, .option, .shift]), for: .togglePanel)
+        if let index = arguments.firstIndex(of: "-release-action"),
+            arguments.indices.contains(index + 1)
+        {
+            registerReleaseAction(gated: arguments[index + 1] != "plain")
+            writeSnapshot()
+            return
+        }
         KeyboardShortcuts.onKeyDown(for: .togglePanel) { [weak self] in
             guard let self else { return }
             keyDownCount += 1
@@ -44,6 +54,33 @@ final class MenuFixtureState {
             record("up-callback", event: NSApp.currentEvent)
         }
         writeSnapshot()
+    }
+
+    /// One action per press through Gancho's gate (or a bare key-up handler as
+    /// the negative control), with the main thread busy after each key-down.
+    private func registerReleaseAction(gated: Bool) {
+        KeyboardShortcuts.onKeyDown(for: .togglePanel) { [weak self] in
+            self?.keyDownCount += 1
+            self?.keyPhase = "press"
+            let end = DispatchTime.now().uptimeNanoseconds + 20_000_000
+            while DispatchTime.now().uptimeNanoseconds < end {}
+        }
+        KeyboardShortcuts.onKeyUp(for: .togglePanel) { [weak self] in
+            self?.keyUpCount += 1
+            self?.keyPhase = "release"
+        }
+        let action = { [weak self] in
+            guard let self else { return }
+            actionPhases.append(keyPhase)
+            writeSnapshot()
+        }
+        if gated {
+            let shortcuts = ReleaseShortcuts()
+            shortcuts.onRelease(.togglePanel, perform: action)
+            releaseShortcuts = shortcuts
+        } else {
+            KeyboardShortcuts.onKeyUp(for: .togglePanel, action: action)
+        }
     }
 
     func record(_ phase: String, event: NSEvent? = nil, mode: RunLoop.Mode? = nil) {
@@ -77,7 +114,8 @@ final class MenuFixtureState {
             "shortcutKeyCode": shortcut?.carbonKeyCode ?? -1,
             "shortcutModifiers": shortcut?.carbonModifiers ?? -1,
             "menuTracking": menuTracking,
-            "keyDownCount": keyDownCount, "keyUpCount": keyUpCount, "trace": trace
+            "keyDownCount": keyDownCount, "keyUpCount": keyUpCount, "trace": trace,
+            "actionPhases": actionPhases
         ]
         let data: Data
         do {

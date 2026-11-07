@@ -11,13 +11,16 @@ command -v python3 >/dev/null
 case "${SHORTCUT_ACCEPTANCE_SCOPE:-menu}" in
 menu)
 	shortcut_scheme=ShortcutMenuFixture
-	shortcut_testing=ShortcutMenuUITests/ShortcutMenuUITests/testConsumedMenuShortcutIsDeliveredOnceWithoutRequeue
+	shortcut_testing=(
+		ShortcutMenuUITests/ShortcutMenuUITests/testConsumedMenuShortcutIsDeliveredOnceWithoutRequeue
+		ShortcutMenuUITests/ShortcutMenuUITests/testReleaseActionRunsOncePerPressWhileAMenuTracksABusyMainThread
+	)
 	shortcut_result=native-menu
-	shortcut_expected_tests=1
+	shortcut_expected_tests=2
 	;;
 recorder)
 	shortcut_scheme=ShortcutRecorderFixture
-	shortcut_testing=ShortcutRecorderUITests
+	shortcut_testing=(ShortcutRecorderUITests)
 	shortcut_result=native-recorder
 	shortcut_expected_tests=8
 	;;
@@ -54,12 +57,14 @@ TEST_RUNNER_SHORTCUT_RECORDER_SNAPSHOT="$(read_manifest recorderSnapshotPath)"
 export TEST_RUNNER_SHORTCUT_MENU_VERSION TEST_RUNNER_SHORTCUT_MENU_REVISION
 export TEST_RUNNER_SHORTCUT_MENU_BUNDLE_ID TEST_RUNNER_SHORTCUT_MENU_SNAPSHOT
 export TEST_RUNNER_SHORTCUT_RECORDER_BUNDLE_ID TEST_RUNNER_SHORTCUT_RECORDER_SNAPSHOT
+# `plain` swaps Gancho's release gate for a bare key-up handler (negative control).
+export TEST_RUNNER_SHORTCUT_RELEASE_ACTION="${SHORTCUT_RELEASE_ACTION:-gated}"
 
 xcodebuild -project "$shortcut_output/ShortcutMenuFixture.xcodeproj" \
 	-scheme "$shortcut_scheme" -configuration Debug -destination 'platform=macOS' \
 	-derivedDataPath "$shortcut_output/DerivedData" -disableAutomaticPackageResolution \
 	-parallel-testing-enabled NO -maximum-concurrent-test-device-destinations 1 \
-	-only-testing:"$shortcut_testing" \
+	"${shortcut_testing[@]/#/-only-testing:}" \
 	-resultBundlePath "$shortcut_output/$shortcut_result.xcresult" test \
 	2>&1 | tee "$shortcut_output/$shortcut_result.log"
 
