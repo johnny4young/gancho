@@ -66,6 +66,78 @@ final class ShortcutMenuUITests: XCTestCase {
         try await verifyMenuClosedWithoutReplay(at: snapshotPath)
     }
 
+    /// Gancho's release-triggered actions must run once per press while a menu
+    /// tracks, even when the main thread is busy between key-down and key-up.
+    /// `SHORTCUT_RELEASE_ACTION=plain` registers a bare key-up handler instead,
+    /// the negative control.
+    @MainActor
+    func testReleaseActionRunsOncePerPressWhileAMenuTracksABusyMainThread() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        let snapshotPath = try XCTUnwrap(environment["SHORTCUT_MENU_SNAPSHOT"])
+        let bundleIdentifier = try XCTUnwrap(environment["SHORTCUT_MENU_BUNDLE_ID"])
+        let mode = environment["SHORTCUT_RELEASE_ACTION"] ?? "gated"
+        let app = XCUIApplication(bundleIdentifier: bundleIdentifier)
+        app.launchArguments = ["-fixture-snapshot", snapshotPath, "-release-action", mode]
+        app.launch()
+        defer { app.terminate() }
+        guard try await waitForElement(app.windows["Shortcut Menu Fixture"], seconds: 8) else {
+            XCTFail("The fixture window did not appear")
+            return
+        }
+        let initial = try await waitForSnapshot(at: snapshotPath) { $0["actionPhases"] != nil }
+        try requireRegisteredChord(initial)
+
+        let chord: XCUIElement.KeyModifierFlags = [.command, .control, .option, .shift]
+        let outsidePresses = 3
+        let menuPresses = 5
+        for _ in 0..<outsidePresses {
+            try requireForeground(app, bundleIdentifier: bundleIdentifier)
+            app.typeKey("v", modifierFlags: chord)
+        }
+        let outside = try await waitForSnapshot(at: snapshotPath) {
+            ($0["actionPhases"] as? [String])?.count == outsidePresses
+        }
+        XCTAssertEqual(
+            outside["actionPhases"] as? [String],
+            Array(repeating: "release", count: outsidePresses))
+
+        try requireForeground(app, bundleIdentifier: bundleIdentifier)
+        app.buttons["open-menu-button"].click()
+        let tracking = try await waitForSnapshot(at: snapshotPath) {
+            $0["menuTracking"] as? Bool == true
+        }
+        guard tracking["menuTracking"] as? Bool == true else {
+            XCTFail("The fixture is not tracking its popup menu")
+            return
+        }
+        for _ in 0..<menuPresses {
+            try requireForeground(app, bundleIdentifier: bundleIdentifier)
+            app.typeKey("v", modifierFlags: chord)
+            try await Task.sleep(for: .milliseconds(150))
+        }
+        let total = outsidePresses + menuPresses
+        let during = try await waitForSnapshot(at: snapshotPath) {
+            ($0["actionPhases"] as? [String])?.count == total
+        }
+        try attach(during, name: "release-actions-while-menu-tracks")
+        XCTAssertEqual(during["keyDownCount"] as? Int, total)
+        let phases = during["actionPhases"] as? [String] ?? []
+        XCTAssertEqual(phases.count, total)
+        // The plain control records every action as a release, so only a lost one can fail it.
+        if mode != "plain" {
+            XCTAssertEqual(
+                Array(phases.dropFirst(outsidePresses)),
+                Array(repeating: "press", count: menuPresses))
+        }
+
+        try requireForeground(app, bundleIdentifier: bundleIdentifier)
+        app.typeKey(.escape, modifierFlags: [])
+        _ = try await waitForSnapshot(at: snapshotPath) { $0["menuTracking"] as? Bool == false }
+        try await Task.sleep(for: .seconds(1))
+        let closed = try readSnapshot(snapshotPath)
+        XCTAssertEqual((closed["actionPhases"] as? [String])?.count, total)
+    }
+
     @MainActor
     private func verifyMenuClosedWithoutReplay(at path: String) async throws {
         _ = try await waitForSnapshot(at: path) { $0["menuTracking"] as? Bool == false }

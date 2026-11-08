@@ -7,7 +7,11 @@ on:
       - project.yml
       - Makefile
       - Dependencies/Package.resolved
+      - Apps/GanchoMac/GlobalShortcuts.swift
+      - Apps/GanchoMac/ReleaseShortcuts.swift
       - Apps/GanchoMac/ShortcutRecorder.swift
+      - Packages/GanchoKit/Sources/ClipboardCore/ReleaseShortcutGate.swift
+      - Packages/GanchoKit/Sources/ClipboardCore/ShortcutConflicts.swift
       - Tests/KeyboardShortcutsAcceptance/**
       - scripts/test-keyboard-shortcuts-menu.sh
       - scripts/import-hosted-signing-certificate.sh

@@ -64,6 +64,8 @@ def prepare(repo, output, checkout):
                 "sources": [
                     {"path": str(sources / "FixtureApp.swift")},
                     {"path": str(repo / "Apps/GanchoMac/GlobalShortcuts.swift")},
+                    {"path": str(repo / "Apps/GanchoMac/ReleaseShortcuts.swift")},
+                    {"path": str(repo / "Packages/GanchoKit/Sources/ClipboardCore/ReleaseShortcutGate.swift")},
                 ],
                 "info": {"path": "FixtureInfo.plist", "properties": {
                     "NSPrincipalClass": "MenuFixtureApplication",
@@ -131,7 +133,9 @@ def prepare(repo, output, checkout):
             str(path.relative_to(repo)): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in [
                 repo / "Apps/GanchoMac/GlobalShortcuts.swift",
+                repo / "Apps/GanchoMac/ReleaseShortcuts.swift",
                 repo / "Apps/GanchoMac/ShortcutRecorder.swift",
+                repo / "Packages/GanchoKit/Sources/ClipboardCore/ReleaseShortcutGate.swift",
                 repo / "Packages/GanchoKit/Sources/ClipboardCore/ShortcutConflicts.swift",
             ]
         },

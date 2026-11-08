@@ -18,6 +18,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   mirror and Homebrew cask metadata with the published v0.11.1 DMG.
   Physical-device acceptance remains pending; the published app, tag and
   checksum are unchanged.
+- On the Mac, a shortcut for Private Mode, screen text, cyclic paste, the paste
+  stack, the last transform or a text recipe no longer gets lost while a Gancho
+  menu is open. It runs when you press it there, instead of on release, which
+  the menu could swallow. Elsewhere it still runs on release.
 
 ## [0.11.1] - 2026-11-07
 

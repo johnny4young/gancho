@@ -212,6 +212,7 @@ final class AppModel {
     @ObservationIgnored private var stackIdleTask: Task<Void, Never>?
     @ObservationIgnored private let stackStrip = PasteStackRunStripController()
     @ObservationIgnored var registeredRecipeShortcuts: Set<UUID> = []
+    @ObservationIgnored let releaseShortcuts = ReleaseShortcuts()
 
     /// Optional anonymous diagnostics are off until the user explicitly
     /// consents. Withdrawing consent tears down the transport immediately.
@@ -615,25 +616,25 @@ final class AppModel {
         }
         // Intents resolve the SAME model instance the UI uses.
         AppDependencyManager.shared.add(dependency: self)
-        KeyboardShortcuts.onKeyUp(for: .togglePrivateMode) { [weak self] in
+        releaseShortcuts.onRelease(.togglePrivateMode) { [weak self] in
             self?.togglePrivateMode()
         }
-        KeyboardShortcuts.onKeyUp(for: .cyclicPaste) { [weak self] in
+        releaseShortcuts.onRelease(.cyclicPaste) { [weak self] in
             self?.cyclicPaste()
         }
-        KeyboardShortcuts.onKeyUp(for: .copyScreenText) { [weak self] in
+        releaseShortcuts.onRelease(.copyScreenText) { [weak self] in
             self?.copyScreenText()
         }
-        KeyboardShortcuts.onKeyUp(for: .pasteFromStack) { [weak self] in
+        releaseShortcuts.onRelease(.pasteFromStack) { [weak self] in
             self?.pasteNextFromStack()
         }
-        KeyboardShortcuts.onKeyUp(for: .pasteStackSkip) { [weak self] in
+        releaseShortcuts.onRelease(.pasteStackSkip) { [weak self] in
             self?.skipInStack()
         }
-        KeyboardShortcuts.onKeyUp(for: .pasteStackBack) { [weak self] in
+        releaseShortcuts.onRelease(.pasteStackBack) { [weak self] in
             self?.backInStack()
         }
-        KeyboardShortcuts.onKeyUp(for: .pasteWithLastTransform) { [weak self] in
+        releaseShortcuts.onRelease(.pasteWithLastTransform) { [weak self] in
             self?.pasteClipboardThroughLastTransform()
         }
         Task { [weak self] in await self?.registerRecipeShortcuts() }

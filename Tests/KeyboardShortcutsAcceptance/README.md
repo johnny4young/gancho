@@ -61,6 +61,17 @@ execution. The fixture uses no global event tap or fixture-side event posting.
 Neither gate changes automation, Accessibility, or notification permissions;
 report an authorization or focus failure as a blocked gate.
 
+## Release actions during menu tracking
+
+The menu gate's second test registers its chord through Gancho's
+`ReleaseShortcuts` and `ReleaseShortcutGate`, compiled from the app sources,
+and keeps the main thread busy for 20 ms after every key-down. Three presses
+outside the menu must each run the action once, on release. Five presses while
+the menu tracks must each run it once, on the press, and closing the menu must
+not add any. With `SHORTCUT_RELEASE_ACTION=plain` the fixture registers a bare
+key-up handler instead; that negative control is expected to fail, because the
+menu dequeues key-ups that arrive while the main thread is busy.
+
 ## Recorder and persisted binding restoration
 
 The separate recorder host compiles Gancho's shortcut catalog, shared

@@ -67,7 +67,7 @@ extension AppModel {
             }
             registeredRecipeShortcuts.insert(recipe.id)
             let id = recipe.id
-            KeyboardShortcuts.onKeyUp(for: .recipe(id)) { [weak self] in
+            releaseShortcuts.onRelease(.recipe(id)) { [weak self] in
                 self?.runRecipeShortcut(id)
             }
         }
