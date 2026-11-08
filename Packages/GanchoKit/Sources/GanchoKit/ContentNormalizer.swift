@@ -24,12 +24,17 @@ public enum ContentNormalizer {
             components.host != nil
         else { return string }
 
-        if let items = components.queryItems, !items.isEmpty {
-            let kept = items.filter {
-                !trackingParameters.contains($0.name.lowercased())
-            }
-            components.queryItems = kept.isEmpty ? nil : kept
+        guard let items = components.percentEncodedQueryItems, !items.isEmpty else {
+            return string
         }
+        let kept = items.filter {
+            guard let name = $0.name.removingPercentEncoding else { return true }
+            return !trackingParameters.contains(name.lowercased())
+        }
+        guard kept.count != items.count else { return string }
+        // Decode names only for matching. Re-encoding values turns a literal
+        // encoded plus into a form-space and changes functional parameters.
+        components.percentEncodedQueryItems = kept.isEmpty ? nil : kept
         return components.string ?? string
     }
 
