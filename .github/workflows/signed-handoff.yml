@@ -11,7 +11,8 @@ on:
       - Makefile
       - Dependencies/Package.resolved
       - Apps/GanchoMac/*.entitlements
-      - Apps/GanchoMac/GanchoMenuBar*.swift
+      - Apps/GanchoMac/*MenuBar*.swift
+      - Packages/GanchoKit/Sources/*/MenuBar*.swift
       - Apps/GanchoMenuBarHelper/**
       - Apps/GanchoShared/**
       - Packages/GanchoKit/Sources/ClipboardCore/PasteBack*.swift
@@ -48,9 +49,9 @@ on:
 permissions:
   contents: read
 
-# A newer push supersedes a pull request's run; each merge to main keeps its own.
+# A newer push supersedes a pull request's or dispatch's run; each merge to main keeps its own.
 concurrency:
-  group: signed-handoff-${{ github.event.pull_request.number || github.run_id }}
+  group: signed-handoff-${{ github.event_name == 'push' && github.run_id || github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
