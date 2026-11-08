@@ -2,7 +2,7 @@
 
 Gancho's source floor is `macOS 26 / iOS 26`, and the Mac app builds for Apple
 Silicon only (`ARCHS[sdk=macosx*]: arm64` in `project.yml`; platforms in
-`Packages/GanchoKit/Package.swift`). The published v0.11.0 DMG and signed Sparkle
+`Packages/GanchoKit/Package.swift`). The published v0.11.1 DMG and signed Sparkle
 feed declare the same floor. v0.10.2 was the last universal DMG and requires
 macOS 15.4; Macs on Intel or macOS 15 keep it and are not offered later updates.
 

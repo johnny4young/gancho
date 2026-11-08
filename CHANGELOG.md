@@ -7,6 +7,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- On the Mac, a copy Gancho was still reading when a screen share started, or
+  when you turned on Private Mode, is no longer saved to history.
+- Align post-release documentation, the bilingual website, the Sparkle feed
+  mirror and Homebrew cask metadata with the published v0.11.1 DMG.
+  Physical-device acceptance remains pending; the published app, tag and
+  checksum are unchanged.
+
 ## [0.11.1] - 2026-11-07
 
 ### Changed
