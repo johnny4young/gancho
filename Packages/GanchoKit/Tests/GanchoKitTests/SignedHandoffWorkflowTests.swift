@@ -42,6 +42,23 @@ struct SignedHandoffWorkflowTests {
         }
     }
 
+    @Test("A failed or timed-out run on main opens one issue; pull requests never do")
+    func mainFailureOpensAnIssue() throws {
+        let source = try String(
+            contentsOf: LocalizationTests.repoRoot.appendingPathComponent(
+                ".github/workflows/signed-handoff.yml"),
+            encoding: .utf8)
+        let parts = source.components(separatedBy: "\n  report-main-failure:\n")
+        let job = try #require(parts.dropFirst().first, "no report job")
+        #expect(job.contains("needs: [signed-handoff]"))
+        #expect(job.contains("always() && github.event_name == 'push'"))
+        #expect(
+            job.contains(
+                #"contains(fromJSON('["failure","cancelled"]'), needs.signed-handoff.result)"#))
+        #expect(job.contains("issues: write"))
+        #expect(!parts[0].contains("issues: write"), "only the report job may write issues")
+    }
+
     @Test(
         "Helper, signing and paste-back changes run on the pull request; other app code on main",
         arguments: [

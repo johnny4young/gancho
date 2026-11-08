@@ -242,3 +242,33 @@ jobs:
         run: |
           security delete-keychain "$RUNNER_TEMP/gancho-handoff.keychain-db" 2>/dev/null || true
           rm -f "$RUNNER_TEMP/gancho-handoff.p12"
+
+  # Most app changes reach this check only after the merge; an issue keeps a red run on main in view.
+  report-main-failure:
+    name: Report a failed run on main
+    needs: [signed-handoff]
+    if: >-
+      always() && github.event_name == 'push' &&
+      contains(fromJSON('["failure","cancelled"]'), needs.signed-handoff.result)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESULT: ${{ needs.signed-handoff.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Signed handoff failed on main"
+          body="The signed handoff for ${GITHUB_SHA::12} finished with: ${RESULT}.
+
+          ${RUN_URL}"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
