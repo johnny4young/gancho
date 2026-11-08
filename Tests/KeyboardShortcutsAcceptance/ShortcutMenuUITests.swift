@@ -123,8 +123,12 @@ final class ShortcutMenuUITests: XCTestCase {
         XCTAssertEqual(during["keyDownCount"] as? Int, total)
         let phases = during["actionPhases"] as? [String] ?? []
         XCTAssertEqual(phases.count, total)
-        XCTAssertEqual(
-            Array(phases.dropFirst(outsidePresses)), Array(repeating: "press", count: menuPresses))
+        // The plain control records every action as a release, so only a lost one can fail it.
+        if mode != "plain" {
+            XCTAssertEqual(
+                Array(phases.dropFirst(outsidePresses)),
+                Array(repeating: "press", count: menuPresses))
+        }
 
         try requireForeground(app, bundleIdentifier: bundleIdentifier)
         app.typeKey(.escape, modifierFlags: [])

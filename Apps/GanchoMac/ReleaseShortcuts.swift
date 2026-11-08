@@ -11,11 +11,10 @@ import KeyboardShortcuts
 @MainActor
 final class ReleaseShortcuts {
     private var gate = ReleaseShortcutGate<KeyboardShortcuts.Name>()
-    private let notificationCenter: NotificationCenter
+    private let notificationCenter = NotificationCenter.default
     private var observers: [NSObjectProtocol] = []
 
-    init(notificationCenter: NotificationCenter = .default) {
-        self.notificationCenter = notificationCenter
+    init() {
         // The same synchronous notifications KeyboardShortcuts switches to raw
         // key events on, so the gate and the dependency agree on the mode.
         let changes = [
