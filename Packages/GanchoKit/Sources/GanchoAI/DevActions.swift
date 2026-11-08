@@ -352,7 +352,7 @@ public enum DevActions {
     }
 
     static func countStats(_ text: String) throws -> String {
-        let lineCount = text.isEmpty ? 0 : text.components(separatedBy: "\n").count
+        let lineCount = text.isEmpty ? 0 : logicalLines(in: text).count
         let wordCount = text.split(whereSeparator: { $0.isWhitespace }).count
         return """
             lines: \(lineCount)
@@ -496,11 +496,16 @@ public enum DevActions {
     }
 
     private static func splitLines(_ text: String) throws -> [String] {
-        let lines = text.components(separatedBy: "\n")
+        let lines = logicalLines(in: text).map(String.init)
         guard lines.count > 1 else {
             throw ActionError.notApplicable("needs more than one line")
         }
         return lines
+    }
+
+    /// Split newline graphemes, so CRLF is one separator and empty lines survive.
+    private static func logicalLines(in text: String) -> [Substring] {
+        text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
     }
 
     /// `body` is the text between `&` and `;` — named or numeric entity.

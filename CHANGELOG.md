@@ -9,6 +9,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Developer line actions now recognize CRLF and Unicode newlines: sorting,
+  deduplicating and reversing normalize line endings, and Count stats counts
+  every logical line.
 - On the Mac, a copy Gancho was still reading when a screen share started, or
   when you turned on Private Mode, is no longer saved to history.
 - Align post-release documentation, the bilingual website, the Sparkle feed
