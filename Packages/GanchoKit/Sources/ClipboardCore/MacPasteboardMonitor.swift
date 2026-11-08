@@ -91,10 +91,13 @@
         /// resync on resume).
         public var pausedForScreenShare = false {
             didSet {
-                guard pausedForScreenShare, !oldValue else { return }
-                beginPause()
-                // Set here too: a share can end before the next turn sees it.
-                wasPaused = true
+                guard pausedForScreenShare != oldValue else { return }
+                if pausedForScreenShare {
+                    beginPause()
+                } else if !preferences.isPrivateModePaused {
+                    // A share can start and end between turns; Private Mode resyncs when it ends.
+                    discardChangesWhilePaused()
+                }
             }
         }
 
@@ -302,11 +305,11 @@
         }
 
         /// Forgets pasteboard changes that happened while capture was paused
-        /// (private mode or screen lock) — metadata-only, nothing is read.
-        /// A share still running keeps its own resync for when it ends.
+        /// (private mode, a screen share or screen lock) — metadata-only,
+        /// nothing is read.
         private func discardChangesWhilePaused() {
             lastChangeCount = reader.currentChangeCount()
-            wasPaused = pausedForScreenShare
+            wasPaused = false
         }
 
         /// Replaces any in-flight read: the pasteboard only exposes its latest

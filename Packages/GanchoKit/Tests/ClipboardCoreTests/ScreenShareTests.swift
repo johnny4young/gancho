@@ -76,6 +76,43 @@
             #expect(pasteboard.readCalls == 0)
         }
 
+        @Test("A copy made after a share ends, before the next turn, is captured")
+        func copyAfterShareEndsIsCaptured() async {
+            let pasteboard = FakePasteboard()
+            let monitor = MacPasteboardMonitor(
+                reader: pasteboard, activity: FakeActivity(), frontmostApp: { nil })
+            var captures: [PasteboardCapture] = []
+            monitor.onCapture = { captures.append($0) }
+            _ = monitor.tick()
+
+            monitor.pausedForScreenShare = true
+            pasteboard.write(.text("visible to the meeting"), types: ["public.utf8-plain-text"])
+            monitor.pausedForScreenShare = false
+            pasteboard.write(.text("after the meeting"), types: ["public.utf8-plain-text"])
+            _ = monitor.tick()
+            await monitor.drainPendingRead()
+
+            #expect(captures.map(\.textRepresentation) == ["after the meeting"])
+        }
+
+        @Test("A share ending in Private Mode still lets Private Mode count the copy")
+        func shareEndingInPrivateModeKeepsCopyCount() {
+            let pasteboard = FakePasteboard()
+            let monitor = MacPasteboardMonitor(
+                reader: pasteboard, activity: FakeActivity(), frontmostApp: { nil })
+            var privateCopies = 0
+            monitor.onPrivateModeCopy = { privateCopies += 1 }
+            _ = monitor.tick()
+
+            monitor.preferences.isPrivateModePaused = true
+            monitor.pausedForScreenShare = true
+            pasteboard.write(.text("private"), types: ["public.utf8-plain-text"])
+            monitor.pausedForScreenShare = false
+            _ = monitor.tick()
+
+            #expect(privateCopies == 1)
+        }
+
         @Test("Leaving Private Mode during a share keeps the share's resync")
         func privateModeOffDuringShareNoBackfill() async {
             let pasteboard = FakePasteboard()
