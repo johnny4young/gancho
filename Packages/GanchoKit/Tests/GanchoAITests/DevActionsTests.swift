@@ -191,6 +191,31 @@ struct DevActionsTests {
         #expect(try DevActions.run(.reverseLines, on: input) == "c\nb\na\nb")
     }
 
+    @Test(
+        "Line actions recognize every Unicode newline",
+        arguments: ["\n", "\r\n", "\r", "\u{000B}", "\u{000C}", "\u{0085}", "\u{2028}", "\u{2029}"])
+    func lineActionsNewlines(separator: String) throws {
+        let input = ["b", "a", "b", "c"].joined(separator: separator)
+        #expect(try DevActions.run(.sortLines, on: input) == "a\nb\nb\nc")
+        #expect(try DevActions.run(.dedupeLines, on: input) == "b\na\nc")
+        #expect(try DevActions.run(.reverseLines, on: input) == "c\nb\na\nb")
+        #expect(try DevActions.run(.countStats, on: input).hasPrefix("lines: 4\n"))
+    }
+
+    @Test("Line deduplication ignores mixed newline spellings")
+    func lineOpsMixedNewlines() throws {
+        #expect(try DevActions.run(.dedupeLines, on: "a\r\nb\na") == "a\nb")
+    }
+
+    @Test("Line actions preserve leading, trailing and repeated empty lines")
+    func lineOpsEmptyLines() throws {
+        let input = "\r\nb\r\n\r\na\r\n"
+        #expect(try DevActions.run(.sortLines, on: input) == "\n\n\na\nb")
+        #expect(try DevActions.run(.dedupeLines, on: input) == "\nb\na")
+        #expect(try DevActions.run(.reverseLines, on: input) == "\na\n\nb\n")
+        #expect(try DevActions.run(.countStats, on: input).hasPrefix("lines: 5\n"))
+    }
+
     @Test("Line ops need more than one line")
     func lineOpsSingleLine() {
         for id in [DevActions.ActionID.sortLines, .dedupeLines, .reverseLines] {
