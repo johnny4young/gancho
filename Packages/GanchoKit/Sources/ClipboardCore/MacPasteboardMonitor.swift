@@ -67,12 +67,16 @@
                     return
                 }
                 if preferences.isPrivateModePaused {
-                    dropPendingRead()
+                    beginPause()
                 } else {
                     discardChangesWhilePaused()
                 }
             }
         }
+
+        /// Counts pauses (Private Mode or a screen share) as they start, so a
+        /// save queued before one can tell it must be dropped.
+        public private(set) var pausesStarted = 0
 
         /// Fires when `status` or `isIgnoringNextCopy` changes, so an owner can
         /// mirror them without polling.
@@ -86,7 +90,15 @@
         /// capture exactly like private mode (including the no-backfill
         /// resync on resume).
         public var pausedForScreenShare = false {
-            didSet { if pausedForScreenShare { dropPendingRead() } }
+            didSet {
+                guard pausedForScreenShare != oldValue else { return }
+                if pausedForScreenShare {
+                    beginPause()
+                } else if !preferences.isPrivateModePaused {
+                    // A share can start and end between turns; Private Mode resyncs when it ends.
+                    discardChangesWhilePaused()
+                }
+            }
         }
 
         /// When the monitor last read pasteboard CONTENT (the Privacy
@@ -100,7 +112,7 @@
         private var pollTask: Task<Void, Never>?
         private var pendingRead: Task<Void, Never>?
         private var lastChangeCount: Int
-        /// True while paused (lock or private mode); the first turn after
+        /// True while paused (lock, private mode or a share); the first turn after
         /// resuming discards whatever happened to the pasteboard meanwhile.
         private var wasPaused = false
         /// Armed by `ignoreNextCopy()`; consumed by the next change.
@@ -285,13 +297,16 @@
         }
 
         /// Drops the read now rather than on the next turn (`status` still
-        /// follows then); the cancelled task stays so `drainPendingRead()` waits.
-        private func dropPendingRead() {
+        /// follows then) and counts the pause; the cancelled task stays so
+        /// `drainPendingRead()` waits.
+        private func beginPause() {
             pendingRead?.cancel()
+            pausesStarted += 1
         }
 
         /// Forgets pasteboard changes that happened while capture was paused
-        /// (private mode or screen lock) — metadata-only, nothing is read.
+        /// (private mode, a screen share or screen lock) — metadata-only,
+        /// nothing is read.
         private func discardChangesWhilePaused() {
             lastChangeCount = reader.currentChangeCount()
             wasPaused = false

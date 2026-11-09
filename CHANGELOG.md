@@ -14,6 +14,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   every logical line.
 - On the Mac, a copy Gancho was still reading when a screen share started, or
   when you turned on Private Mode, is no longer saved to history.
+- On the Mac, a copy made during a short screen share that ended before Gancho
+  checked the clipboard again is no longer saved, and a copy waiting behind an
+  earlier save when a share starts or you turn on Private Mode is dropped.
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.11.1 DMG.
   Physical-device acceptance remains pending; the published app, tag and
