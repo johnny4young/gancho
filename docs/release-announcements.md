@@ -2,7 +2,7 @@
 
 Ready-to-paste announcement texts for every published Gancho release, newest
 first. One entry per release: a short post for X/Bluesky with its character
-count stated, and for feature releases a Hacker News and a Reddit text. Every
+count stated as X counts it (each link is 23), and for feature releases a Hacker News and a Reddit text. Every
 text leads with the concrete thing that shipped and names the limits the
 audience would find in five minutes anyway. Copy from here when posting; this
 file is a working record, not the changelog.
@@ -15,7 +15,7 @@ licensed; Pro is a one-time direct purchase. Site: https://gancho.app.
 
 Windows you open from the menu bar or a notice come up in front of the app you're using, with the keyboard, and Gancho does less work while it waits.
 
-### X / Bluesky — 254 characters
+### X / Bluesky — 259 characters
 
 Gancho 0.11.1 (macOS 26, Apple Silicon): Settings, the Library, Pro and the other windows you open from the menu bar now come up in front of the app you're using, with the keyboard, and Gancho wakes up less often while idle. Free, MIT. https://gancho.app
 
@@ -32,7 +32,7 @@ A rebuilt panel with paste runs, one Transform list and a visible record wheneve
 
 ![The Gancho panel with search modes, board and kind chips, and a link peek above its action dock](https://gancho.app/assets/v0.11.0-release.png)
 
-### X / Bluesky — 273 characters
+### X / Bluesky — 278 characters
 
 Gancho 0.11.0 (macOS): rebuilt panel and peek, paste runs that show "3 of 5", one Transform list, snippets that fill themselves, and a HUD that names any local AI client reading your clips. Now needs Apple Silicon and macOS 26; older Macs stay on 0.10.2. https://gancho.app
 
@@ -87,7 +87,7 @@ Limits: Apple Silicon and macOS 26 only, and older Macs stay on 0.10.2. Secrets 
 
 Clips whose stored image or file was left under an earlier encryption key are repaired, restored from iCloud, or counted and removable in the Privacy Center.
 
-### X / Bluesky — 246 characters
+### X / Bluesky — 251 characters
 
 Gancho 0.10.2 (macOS): images and files left encrypted under an earlier key are repaired when you copy them again or restored from iCloud; the Privacy Center counts the rest and can remove them from this device only. Free, MIT. https://gancho.app
 
@@ -102,7 +102,7 @@ Gancho 0.10.2 (macOS): images and files left encrypted under an earlier key are 
 
 One clip whose saved data can't be read on a Mac no longer stops every iCloud upload behind it.
 
-### X / Bluesky — 231 characters
+### X / Bluesky — 236 characters
 
 Gancho 0.10.1 (macOS): one clip whose saved data can't be read no longer stops every iCloud upload with a repeating sync error. That clip is skipped and counted in Recent issues; everything else syncs. Free, MIT. https://gancho.app
 
@@ -119,7 +119,7 @@ Reviewed ways to reuse what you copied: text recipes you preview before copying,
 
 ![The Gancho panel, solid by default, with a link peek and developer actions collapsed](https://gancho.app/assets/v0.10.0-release.png)
 
-### X / Bluesky — 254 characters
+### X / Bluesky — 259 characters
 
 Gancho 0.10.0 (macOS): text recipes you preview before copying, off-by-default meaning suggestions, and one-hour read-only AI access to only the clips you pick. Panel opens solid on your newest clip. Recipes stay on the Mac. Free, MIT. https://gancho.app
 
@@ -175,7 +175,7 @@ Limits: macOS 15.4+ only, recipes aren't in backups yet, and cross-device sync i
 
 The panel's Text size preference now actually scales the panel; in 0.9.0 Small, Standard and Large looked the same.
 
-### X / Bluesky — 227 characters
+### X / Bluesky — 232 characters
 
 Gancho 0.9.1 (macOS): Settings › Panel › Text size now really scales the panel (in 0.9.0 it changed nothing), and two sync failures that used to pass silently now leave a content-free note in Recent problems. https://gancho.app
 
@@ -192,7 +192,7 @@ The Mac history panel was redesigned: one toolbar, rows that show what each clip
 
 ![The redesigned Gancho panel: one toolbar, kind-coloured rows and a link peek with an action dock](https://gancho.app/assets/v0.9.0-release.png)
 
-### X / Bluesky — 274 characters
+### X / Bluesky — 279 characters
 
 Gancho 0.9.0 (macOS): the clipboard panel redesigned. One toolbar, rows that show what each clip is, a peek with a hero card and an action dock, ⌘G gallery, optional ambient colour. Links are parsed on the Mac, never fetched. Free, MIT, encrypted history. https://gancho.app
 
@@ -246,7 +246,7 @@ Limits: macOS 15.4+ only (iOS apps not distributed yet), Liquid Glass needs macO
 
 Every path that hands a clip to another app now treats JWTs, card numbers and secrets as protected, even when a clip lost its sensitivity flag.
 
-### X / Bluesky — 274 characters
+### X / Bluesky — 279 characters
 
 Gancho 0.8.4 (macOS): protected clips stay protected on every way out. Drag-out, the menu bar, the iOS keyboard, sharing and exports re-check a clip before handing it over; shares and iCloud changes only advance once saved; the panel keeps your selection. https://gancho.app
 
@@ -263,7 +263,7 @@ Free local OCR from saved images or a screen region, read in place in the panel,
 
 ![Text recognized from an image beside the panel preview](https://gancho.app/assets/screen-ocr-peek.png)
 
-### X / Bluesky — 266 characters
+### X / Bluesky — 271 characters
 
 Gancho 0.8.3 (macOS): copy text out of images or a screen region with free, local OCR, read in place in the panel. Pro on the direct download ships with no signing key in the app: Lemon Squeezy is the authority, 30 days offline grace. macOS 15.4+. https://gancho.app
 
@@ -312,9 +312,9 @@ Free and MIT. Cross-device sync was still unverified on real hardware at release
 
 A filter that finds nothing no longer looks like an empty history, and the strings the automated check could not see are translated.
 
-### X / Bluesky — 279 characters
+### X / Bluesky — 264 characters
 
-Gancho 0.8.2 (macOS): a filter with no matches now says so and keeps Clear filters reachable (VoiceOver included) instead of showing the first-run message; Spanish strings the automated check missed are done; encrypted storage and input dependencies refreshed. https://gancho.app
+Gancho 0.8.2 (macOS): a filter with no matches now says so and keeps Clear filters reachable (VoiceOver included) instead of showing the first-run message; missed Spanish strings are done; encrypted storage and input dependencies refreshed. https://gancho.app
 
 ### Links
 
@@ -327,7 +327,7 @@ Gancho 0.8.2 (macOS): a filter with no matches now says so and keeps Clear filte
 
 A lifetime Pro purchase stays unlocked through StoreKit's transient entitlement gaps, and CloudKit recovery decisions became deterministic.
 
-### X / Bluesky — 225 characters
+### X / Bluesky — 230 characters
 
 Gancho 0.8.1 (macOS): a lifetime Pro purchase no longer relocks when StoreKit briefly omits it from current entitlements; sync recovery and pending-work planning moved into deterministic, tested components. https://gancho.app
 
@@ -346,7 +346,7 @@ Import a Maccy archive or CSV with a preview before anything is written, and giv
 
 ### X / Bluesky — 278 characters
 
-Gancho 0.8.0 (macOS): import your Maccy or CSV history with a dry-run preview (protected rows rejected, deduplicated in one transaction, exact totals). MCP clients now need an expiring, revocable grant with a board/time scope. The panel resizes and remembers. https://gancho.app
+Gancho 0.8.0 (macOS): import your Maccy or CSV history with a dry-run preview (protected rows rejected, deduped in one transaction, exact totals). MCP clients now need an expiring, revocable grant with a board/time scope. The panel resizes and remembers. https://gancho.app
 
 ### Hacker News
 
@@ -391,7 +391,7 @@ Select several clips at once on the Mac and act on all of them, and find snippet
 
 ![Gancho 0.7.0 on macOS](https://gancho.app/assets/v0.7.0-release.png)
 
-### X / Bluesky — 272 characters
+### X / Bluesky — 277 characters
 
 Gancho 0.7.0 (macOS): shift/⌘-click to select several clips, then stack, file or delete them with one Undo; drag a file selection to Finder. Snippets and pins in Spotlight with secrets redacted first. Boards load in pages; search p95 under 30 ms at 10k. https://gancho.app
 
@@ -432,7 +432,7 @@ Numbers: boards now load in pages, so a board with thousands of clips opens like
 
 Filter by the app a clip came from, edit titles and text, preview anything with ⌘Y, transform text on every device, and drag clips straight out of the panel.
 
-### X / Bluesky — 272 characters
+### X / Bluesky — 277 characters
 
 Gancho 0.6.0 (macOS + iOS): filter history by source app, edit clip titles and text, ⌘Y full read-only preview, offline text transforms (Title Case, sort lines, URL encode, SHA-256), boards with colour and emoji, drag clips out of the panel, ⌘B to file. https://gancho.app
 
@@ -473,7 +473,7 @@ Under the hood the FTS index now accelerates short prefixes, and the 100k-clip p
 
 The free tier grew to one year and 10,000 items, the paste stack became visible, and the direct-download build finally saves history.
 
-### X / Bluesky — 268 characters
+### X / Bluesky — 273 characters
 
 Gancho 0.5.0 (macOS): the free history window grows from 30 days / 2,000 items to 1 year / 10,000. The paste stack is visible in the panel footer (⌥⌘Return to queue), clips about to expire show a countdown, and the notarized build now saves history. https://gancho.app
 
@@ -492,9 +492,9 @@ Gancho 0.5.0 (macOS): the free history window grows from 30 days / 2,000 items t
 
 iCloud sync reacts to changes on other devices, and AI titles, OCR text and board membership travel with clips.
 
-### X / Bluesky — 276 characters
+### X / Bluesky — 275 characters
 
-Gancho 0.4.1 (macOS + iOS): a clip copied on one device shows up on the others without a manual refresh; AI titles, OCR text and board membership sync reliably; the type filter no longer stalls scrolling; content-free sync issues land in the Privacy Center. https://gancho.app
+Gancho 0.4.1 (macOS + iOS): a clip copied on one device shows up on the others without refreshing; AI titles, OCR text and board membership sync reliably; the type filter no longer stalls scrolling; content-free sync issues land in the Privacy Center. https://gancho.app
 
 ### Links
 
@@ -507,9 +507,9 @@ Gancho 0.4.1 (macOS + iOS): a clip copied on one device shows up on the others w
 
 Encrypted iCloud sync carries a clip's on-device enrichment with it, 18 offline Dev Actions, and a secret detector that knows eight more credential shapes.
 
-### X / Bluesky — 280 characters
+### X / Bluesky — 277 characters
 
-Gancho 0.4.0: encrypted iCloud sync (Pro) now carries AI titles and OCR text across devices. 18 new offline Dev Actions. The secret detector knows 8 more shapes (Slack webhooks, OpenAI keys, PGP blocks); exports skip sensitive clips and block formula injection. https://gancho.app
+Gancho 0.4.0: encrypted iCloud sync (Pro) carries AI titles and OCR text across devices. 18 offline Dev Actions. The secret detector knows 8 more shapes (Slack webhooks, OpenAI keys, PGP blocks); exports skip sensitive clips and block formula injection. https://gancho.app
 
 ### Hacker News
 
@@ -548,7 +548,7 @@ Features: encrypted iCloud sync (Pro) now carries the on-device enrichment a cli
 
 An Undo window for deleted clips on the Mac, a Pro screen on iPhone and iPad, and VoiceOver announcements for confirmations.
 
-### X / Bluesky — 267 characters
+### X / Bluesky — 272 characters
 
 Gancho 0.3.2: deleting a clip on the Mac now has an Undo window; iPhone and iPad get a Gancho Pro screen; VoiceOver announces confirmations; the sync indicator reads “Synced · N ago”; a licence that cannot reach the Keychain no longer looks active. https://gancho.app
 
@@ -563,7 +563,7 @@ Gancho 0.3.2: deleting a clip on the Mac now has an Undo window; iPhone and iPad
 
 Gancho Pro became purchasable from the direct-download Mac app.
 
-### X / Bluesky — 138 characters
+### X / Bluesky — 143 characters
 
 Gancho 0.3.1 (macOS): Gancho Pro can now be purchased from the direct-download app's paywall. Local history stays free. https://gancho.app
 
@@ -578,7 +578,7 @@ Gancho 0.3.1 (macOS): Gancho Pro can now be purchased from the direct-download a
 
 iPhone and iPad can back up and restore history, iPad gets hardware-keyboard shortcuts, and a content-free error log lands in the Privacy Center.
 
-### X / Bluesky — 216 characters
+### X / Bluesky — 221 characters
 
 Gancho 0.3.0: iPhone and iPad back up and restore your encrypted history from Settings; iPad hardware-keyboard shortcuts; a content-free “Recent issues” log in the Privacy Center on both platforms. https://gancho.app
 
@@ -593,7 +593,7 @@ Gancho 0.3.0: iPhone and iPad back up and restore your encrypted history from Se
 
 A more generous free tier, Shortcuts and Siri search, a taste of on-device AI for free users, and the release automation that every later version rides on.
 
-### X / Bluesky — 260 characters
+### X / Bluesky — 265 characters
 
 Gancho 0.2.0: free tier grows to 30 days / 2,000 items; the Search Clips intent takes a query for Shortcuts and Siri; the first 25 text clips get an on-device AI title for free; a ⌘/ shortcut cheat-sheet in the panel; tagged GitHub releases. https://gancho.app
 
@@ -608,7 +608,7 @@ Gancho 0.2.0: free tier grows to 30 days / 2,000 items; the Search Clips intent 
 
 The initial baseline: macOS capture, encrypted local storage, full-text search, retention, paste-back, pins, boards, snippets, and a local MCP/CLI, plus an iPhone/iPad companion.
 
-### X / Bluesky — 274 characters
+### X / Bluesky — 279 characters
 
 Gancho 0.1.0, first release: a privacy-first clipboard manager for Mac with encrypted local history, full-text search, retention, paste-back, pins, boards, snippets and a local MCP server + CLI. iPhone/iPad companion with share, keyboard and widgets. MIT. https://gancho.app
 
