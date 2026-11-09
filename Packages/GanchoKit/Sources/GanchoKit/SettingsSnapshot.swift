@@ -4,6 +4,8 @@ import Foundation
 /// a reinstall needs, versioned, content-free by construction — preferences
 /// only, never clips.
 public struct SettingsSnapshot: Sendable, Equatable, Codable {
+    public static let currentVersion = 1
+
     public var version: Int
     public var retention: RetentionPolicy
     /// App-level extras (panel position, dock visibility…) as a flat string
@@ -14,7 +16,7 @@ public struct SettingsSnapshot: Sendable, Equatable, Codable {
     public var capturePreferencesJSON: Data
 
     public init(
-        version: Int = 1,
+        version: Int = SettingsSnapshot.currentVersion,
         retention: RetentionPolicy,
         capturePreferencesJSON: Data,
         appSettings: [String: String] = [:]
@@ -32,6 +34,13 @@ public struct SettingsSnapshot: Sendable, Equatable, Codable {
     }
 
     public static func decode(_ data: Data) throws -> SettingsSnapshot {
-        try JSONDecoder().decode(SettingsSnapshot.self, from: data)
+        let snapshot = try JSONDecoder().decode(SettingsSnapshot.self, from: data)
+        guard snapshot.version == currentVersion else {
+            throw DecodingError.dataCorrupted(
+                .init(
+                    codingPath: [],
+                    debugDescription: "Unsupported settings snapshot version \(snapshot.version)"))
+        }
+        return snapshot
     }
 }
