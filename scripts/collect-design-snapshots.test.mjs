@@ -173,3 +173,11 @@ test('copying onto the same file fails, including hard-link and symbolic-link al
     assert.deepEqual(readFileSync(source), bytes);
   }
 });
+
+test('the collector remains directly executable through its Node shebang', (t) => {
+  const { exported, output } = fixture(t, []);
+  const result = spawnSync(script, [exported, output], { encoding: 'utf8', timeout: 5000 });
+  assert.equal(result.status, 1, result.error?.message);
+  assert.equal(result.stderr, '');
+  assert.equal(result.stdout, `✓ collected 0 design snapshot(s) into ${output}\n`);
+});
