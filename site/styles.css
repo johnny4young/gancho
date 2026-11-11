@@ -27,7 +27,7 @@
   --black:    #000000;
 
   /* Semantic: light. Neutral small text keeps >=4.5:1 on app/card/selection
-   * surfaces; check-site-contrast.py guards both automatic and explicit themes. */
+   * surfaces; check-site-contrast.test.mjs guards both automatic and explicit themes. */
   --text-primary:    rgba(0, 0, 0, 0.88);
   --text-secondary:  rgba(0, 0, 0, 0.68);
   --text-tertiary:   rgba(0, 0, 0, 0.6);

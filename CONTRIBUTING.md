@@ -8,6 +8,7 @@ changes first, then send a pull request.
 
 - An Apple Silicon Mac with macOS 26+ to run the app, Xcode 26+ to build
 - XcodeGen: `brew install xcodegen`
+- Node.js, the LTS line in `.nvmrc`, for `make site-check` (`fnm install`)
 
 ## Workflow
 
