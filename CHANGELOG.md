@@ -12,6 +12,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Developer line actions now recognize CRLF and Unicode newlines: sorting,
   deduplicating and reversing normalize line endings, and Count stats counts
   every logical line.
+- Removing URL tracking parameters now preserves the original escaping of
+  functional query parameters, keeping literal plus signs and distinct links intact.
 - On the Mac, a copy Gancho was still reading when a screen share started, or
   when you turned on Private Mode, is no longer saved to history.
 - On the Mac, a copy made during a short screen share that ended before Gancho
