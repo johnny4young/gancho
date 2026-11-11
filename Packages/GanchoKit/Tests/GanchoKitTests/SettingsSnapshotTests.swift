@@ -27,4 +27,18 @@ struct SettingsSnapshotTests {
         let keys = (object as? [String: Any])?.keys.sorted() ?? []
         #expect(keys == ["appSettings", "capturePreferencesJSON", "retention", "version"])
     }
+
+    @Test("An unsupported settings version cannot be imported", arguments: [-1, 0, 2, Int.max])
+    func rejectsUnsupportedVersions(_ version: Int) throws {
+        let snapshot = SettingsSnapshot(
+            version: version,
+            retention: RetentionPolicy(global: .day),
+            capturePreferencesJSON: Data(#"{"captureImages":false}"#.utf8),
+            appSettings: ["panel-position": "atCursor"])
+        let data = try snapshot.encoded()
+
+        #expect(throws: (any Error).self) {
+            try SettingsSnapshot.decode(data)
+        }
+    }
 }

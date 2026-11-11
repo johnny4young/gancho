@@ -353,6 +353,22 @@
             #expect(captures.isEmpty)
         }
 
+        @Test("Each pause start is counted once; ends and other settings are not")
+        func pausesStartedCountsStarts() {
+            let monitor = makeMonitor(pasteboard: FakePasteboard())
+            for pause in CapturePause.allCases { pause.engage(on: monitor) }
+            monitor.pausedForScreenShare = true
+            monitor.preferences.captureImages.toggle()
+            #expect(monitor.pausesStarted == 2)
+
+            monitor.pausedForScreenShare = false
+            monitor.preferences.isPrivateModePaused = false
+            #expect(monitor.pausesStarted == 2)
+
+            CapturePause.screenShare.engage(on: monitor)
+            #expect(monitor.pausesStarted == 3)
+        }
+
         @Test("Paused mode skips polling entirely; unlock resumes capture")
         func pausedSkipsPolling() async {
             let pasteboard = FakePasteboard()
