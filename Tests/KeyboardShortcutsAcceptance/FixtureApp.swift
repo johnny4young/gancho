@@ -39,7 +39,7 @@ final class MenuFixtureState {
         if let index = arguments.firstIndex(of: "-release-action"),
             arguments.indices.contains(index + 1)
         {
-            registerReleaseAction(gated: arguments[index + 1] != "plain")
+            registerReleaseAction(mode: arguments[index + 1])
             writeSnapshot()
             return
         }
@@ -56,9 +56,10 @@ final class MenuFixtureState {
         writeSnapshot()
     }
 
-    /// One action per press through Gancho's gate (or a bare key-up handler as
-    /// the negative control), with the main thread busy after each key-down.
-    private func registerReleaseAction(gated: Bool) {
+    /// One action per press through Gancho's gate (`gated`), its paste variant
+    /// that closes the menu (`paste`), or a bare key-up handler as the negative
+    /// control (`plain`), with the main thread busy after each key-down.
+    private func registerReleaseAction(mode: String) {
         KeyboardShortcuts.onKeyDown(for: .togglePanel) { [weak self] in
             self?.keyDownCount += 1
             self?.keyPhase = "press"
@@ -74,13 +75,17 @@ final class MenuFixtureState {
             actionPhases.append(keyPhase)
             writeSnapshot()
         }
-        if gated {
-            let shortcuts = ReleaseShortcuts()
-            shortcuts.onRelease(.togglePanel, perform: action)
-            releaseShortcuts = shortcuts
-        } else {
+        guard mode != "plain" else {
             KeyboardShortcuts.onKeyUp(for: .togglePanel, action: action)
+            return
         }
+        let shortcuts = ReleaseShortcuts()
+        if mode == "paste" {
+            shortcuts.onPaste(.togglePanel, perform: action)
+        } else {
+            shortcuts.onRelease(.togglePanel, perform: action)
+        }
+        releaseShortcuts = shortcuts
     }
 
     func record(_ phase: String, event: NSEvent? = nil, mode: RunLoop.Mode? = nil) {

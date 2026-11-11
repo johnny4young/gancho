@@ -14,9 +14,10 @@ menu)
 	shortcut_testing=(
 		ShortcutMenuUITests/ShortcutMenuUITests/testConsumedMenuShortcutIsDeliveredOnceWithoutRequeue
 		ShortcutMenuUITests/ShortcutMenuUITests/testReleaseActionRunsOncePerPressWhileAMenuTracksABusyMainThread
+		ShortcutMenuUITests/ShortcutMenuUITests/testPasteActionClosesTheTrackingMenuOnThePress
 	)
 	shortcut_result=native-menu
-	shortcut_expected_tests=2
+	shortcut_expected_tests=3
 	;;
 recorder)
 	shortcut_scheme=ShortcutRecorderFixture
@@ -59,6 +60,8 @@ export TEST_RUNNER_SHORTCUT_MENU_BUNDLE_ID TEST_RUNNER_SHORTCUT_MENU_SNAPSHOT
 export TEST_RUNNER_SHORTCUT_RECORDER_BUNDLE_ID TEST_RUNNER_SHORTCUT_RECORDER_SNAPSHOT
 # `plain` swaps Gancho's release gate for a bare key-up handler (negative control).
 export TEST_RUNNER_SHORTCUT_RELEASE_ACTION="${SHORTCUT_RELEASE_ACTION:-gated}"
+# `gated` swaps the paste registration for the plain release one (negative control).
+export TEST_RUNNER_SHORTCUT_PASTE_ACTION="${SHORTCUT_PASTE_ACTION:-paste}"
 
 xcodebuild -project "$shortcut_output/ShortcutMenuFixture.xcodeproj" \
 	-scheme "$shortcut_scheme" -configuration Debug -destination 'platform=macOS' \

@@ -65,17 +65,22 @@ public final class SpotlightCoordinator {
     /// delete collapses (via the coalescer) into a single reconcile. Awaiting
     /// the reconcile in the loop also serializes them, so two bursts can never
     /// race overlapping index writes.
-    public func start(subscribingTo bus: StoreChangeBus) {
+    /// Returns the owned task so a caller can await its termination after stop
+    /// or replacement; callers that only start observation can ignore it.
+    @discardableResult
+    public func start(subscribingTo bus: StoreChangeBus) -> Task<Void, Never> {
         task?.cancel()
         let stream = bus.subscribe()
         let coalescer = self.coalescer
-        task = Task(priority: .utility) { [weak self] in
+        let subscription = Task(priority: .utility) { [weak self] in
             for await batch in coalescer.batches(of: stream) {
                 guard let self else { return }
                 guard Self.reactsTo(batch) else { continue }
                 await self.reconcileNow()
             }
         }
+        task = subscription
+        return subscription
     }
 
     /// Run the reconcile once for the current state and route a failure to the

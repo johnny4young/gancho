@@ -11,6 +11,7 @@ import KeyboardShortcuts
 @MainActor
 final class ReleaseShortcuts {
     private var gate = ReleaseShortcutGate<KeyboardShortcuts.Name>()
+    private weak var trackingMenu: NSMenu?
     private let notificationCenter = NotificationCenter.default
     private var observers: [NSObjectProtocol] = []
 
@@ -24,12 +25,14 @@ final class ReleaseShortcuts {
         for (notification, tracking) in changes {
             let observer = notificationCenter.addObserver(
                 forName: notification, object: nil, queue: nil
-            ) { [weak self] _ in
+            ) { [weak self] notification in
                 guard Thread.isMainThread else {
-                    Task { @MainActor [weak self] in self?.gate.setMenuTracking(tracking) }
+                    Task { @MainActor [weak self] in self?.setMenu(nil, tracking: tracking) }
                     return
                 }
-                MainActor.assumeIsolated { self?.gate.setMenuTracking(tracking) }
+                // On the main thread, checked above.
+                nonisolated(unsafe) let menu = tracking ? notification.object as? NSMenu : nil
+                MainActor.assumeIsolated { self?.setMenu(menu, tracking: tracking) }
             }
             observers.append(observer)
         }
@@ -46,5 +49,19 @@ final class ReleaseShortcuts {
         KeyboardShortcuts.onKeyUp(for: name) { [weak self] in
             if self?.gate.keyUp(name) == true { action() }
         }
+    }
+
+    /// Like `onRelease`, but closes a Gancho menu first: while it tracks, it
+    /// holds the keyboard, and the paste would only post once it closed.
+    func onPaste(_ name: KeyboardShortcuts.Name, perform action: @escaping () -> Void) {
+        onRelease(name) { [weak self] in
+            if self?.gate.isMenuTracking == true { self?.trackingMenu?.cancelTracking() }
+            action()
+        }
+    }
+
+    private func setMenu(_ menu: NSMenu?, tracking: Bool) {
+        gate.setMenuTracking(tracking)
+        trackingMenu = menu
     }
 }

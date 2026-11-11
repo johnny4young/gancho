@@ -619,13 +619,13 @@ final class AppModel {
         releaseShortcuts.onRelease(.togglePrivateMode) { [weak self] in
             self?.togglePrivateMode()
         }
-        releaseShortcuts.onRelease(.cyclicPaste) { [weak self] in
+        releaseShortcuts.onPaste(.cyclicPaste) { [weak self] in
             self?.cyclicPaste()
         }
         releaseShortcuts.onRelease(.copyScreenText) { [weak self] in
             self?.copyScreenText()
         }
-        releaseShortcuts.onRelease(.pasteFromStack) { [weak self] in
+        releaseShortcuts.onPaste(.pasteFromStack) { [weak self] in
             self?.pasteNextFromStack()
         }
         releaseShortcuts.onRelease(.pasteStackSkip) { [weak self] in
@@ -634,7 +634,7 @@ final class AppModel {
         releaseShortcuts.onRelease(.pasteStackBack) { [weak self] in
             self?.backInStack()
         }
-        releaseShortcuts.onRelease(.pasteWithLastTransform) { [weak self] in
+        releaseShortcuts.onPaste(.pasteWithLastTransform) { [weak self] in
             self?.pasteClipboardThroughLastTransform()
         }
         Task { [weak self] in await self?.registerRecipeShortcuts() }
@@ -1005,8 +1005,14 @@ final class AppModel {
         PasteBackWorkflow(
             effects: .init(
                 hidePanel: { [panel] in panel.hide() },
-                // One beat for focus to return to the app the user was in.
-                waitForFocusToReturn: { try? await Task.sleep(for: .milliseconds(80)) },
+                // One beat for focus to return to the app the user was in, once
+                // no menu of ours would take the ⌘V.
+                waitForFocusToReturn: { [pasteBack] in
+                    if pasteBack.canPostPaste {
+                        await GanchoMenuBarHelperLauncher.menuClearance.clear()
+                    }
+                    try? await Task.sleep(for: .milliseconds(80))
+                },
                 paste: { [pasteBack] content, asPlainText in
                     pasteBack.paste(content, asPlainText: asPlainText)
                 },

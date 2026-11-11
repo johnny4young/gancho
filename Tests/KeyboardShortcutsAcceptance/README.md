@@ -72,6 +72,13 @@ not add any. With `SHORTCUT_RELEASE_ACTION=plain` the fixture registers a bare
 key-up handler instead; that negative control is expected to fail, because the
 menu dequeues key-ups that arrive while the main thread is busy.
 
+The third test registers the chord through `ReleaseShortcuts.onPaste`, the
+registration Gancho's paste shortcuts use. One press outside the menu runs on
+release; one press while the menu tracks runs on the press and closes the menu
+without Escape, so the paste's ⌘V reaches the app being pasted into. With
+`SHORTCUT_PASTE_ACTION=gated` the fixture registers the plain release action;
+that negative control is expected to fail, because the menu stays open.
+
 ## Recorder and persisted binding restoration
 
 The separate recorder host compiles Gancho's shortcut catalog, shared
