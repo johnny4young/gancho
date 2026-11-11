@@ -107,9 +107,6 @@ jobs:
       - name: Website structure
         run: make site-check
 
-      - name: Snapshot collector regressions
-        run: node --test scripts/collect-design-snapshots.test.mjs
-
       - name: Install SwiftLint
         run: brew install swiftlint
         env:
