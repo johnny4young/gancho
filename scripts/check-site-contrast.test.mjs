@@ -1,182 +1,126 @@
+// Neutral small-text pairs from source colors, alpha composited in sRGB, not full WCAG:
+// https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html
 import assert from 'node:assert/strict';
-import { after, test } from 'node:test';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { spawnSync } from 'node:child_process';
-import { PAIRS, checks, color, contrast, luminance, over, themeTokens, tokens } from './check-site-contrast.mjs';
+import { readFileSync } from 'node:fs';
+import { test } from 'node:test';
 
-const scratch = mkdtempSync(join(tmpdir(), 'gancho-contrast-'));
-after(() => rmSync(scratch, { recursive: true, force: true }));
+const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const CSS = read('site/styles.css');
+const HTML = read('site/index.html');
 
-function fixture(tertiary = '#444444') {
-  const light = `--surface-app: #ffffff; --surface-card: #ffffff;
-    --surface-selection: rgba(0, 0, 0, 0.08); --text-primary: #000000;
-    --text-secondary: #222222; --text-tertiary: ${tertiary};`;
-  const dark = `--surface-app: #000000; --surface-card: #000000;
-    --surface-selection: rgba(255, 255, 255, 0.08); --text-primary: #ffffff;
-    --text-secondary: #dddddd; --text-tertiary: #bbbbbb;`;
-  return {
-    css: `:root { ${light} }
-      @media (prefers-color-scheme: dark) { :root { ${dark} } }
-      :root[data-theme="light"] { ${light} }
-      :root[data-theme="dark"] { ${dark} }`,
-    html: `.price-fine { color: var(--text-tertiary); }
-.price-tier { color: var(--text-tertiary); }
-.price-note { color: var(--text-secondary); }
-.foot-note { color: var(--text-tertiary); }
-.sa-note { color: var(--text-tertiary); }
-.ph-search { color: var(--text-tertiary); background: var(--surface-selection); }
-.ic-card .tier { color: var(--text-tertiary); background: var(--surface-selection); }
-.price-card { background: var(--surface-card); }
-.ic-card { background: var(--surface-card); }
-.phone-scr { background: var(--surface-app); }
-body { background: var(--surface-app); }`,
+function block(source, pattern, name) {
+  const match = source.match(pattern);
+  assert.ok(match, `Missing ${name}`);
+  return match[1];
+}
+
+function tokens(body) {
+  return Object.fromEntries([...body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2]]));
+}
+
+function themeTokens() {
+  const base = tokens(block(CSS, /:root\s*\{([^{}]+)\}/, ':root tokens'));
+  const marker = '@media (prefers-color-scheme: dark)';
+  assert.ok(CSS.includes(marker), 'Missing automatic dark theme');
+  const automatic = CSS.slice(CSS.indexOf(marker) + marker.length);
+  const themes = {
+    'automatic-light': base,
+    'automatic-dark': { ...base, ...tokens(block(automatic, /:root\s*\{([^{}]+)\}/, 'dark tokens')) },
   };
+  for (const theme of ['light', 'dark']) {
+    const pattern = new RegExp(`:root\\[data-theme="${theme}"\\]\\s*\\{([^{}]+)\\}`);
+    themes[`explicit-${theme}`] = { ...base, ...tokens(block(CSS, pattern, `${theme} theme`)) };
+  }
+  return themes;
 }
 
-function cli({ css, html }, args = [], symlink = false) {
-  const root = mkdtempSync(join(scratch, 'site-'));
-  mkdirSync(join(root, 'scripts')); mkdirSync(join(root, 'site'));
-  const script = join(root, 'scripts/check-site-contrast.mjs');
-  copyFileSync(new URL('./check-site-contrast.mjs', import.meta.url), script);
-  if (css !== undefined) writeFileSync(join(root, 'site/styles.css'), css);
-  writeFileSync(join(root, 'site/index.html'), html);
-  const entry = symlink ? join(root, 'linked-checker.mjs') : script;
-  if (symlink) symlinkSync(script, entry);
-  return spawnSync(process.execPath, [entry, ...args], {
-    cwd: scratch, encoding: 'utf8', timeout: 5_000, maxBuffer: 128 * 1024,
-    env: { PATH: process.env.PATH, TMPDIR: scratch },
-  });
+function color(value, palette) {
+  value = value.trim();
+  if (value.startsWith('var(')) {
+    const name = value.slice(4, -1);
+    assert.ok(name in palette, `Unknown token ${name}`);
+    return color(palette[name], palette);
+  }
+  if (value.startsWith('#')) {
+    assert.match(value, /^#[\da-f]{6}$/i, `Unsupported hex color: ${value}`);
+    return [1, 3, 5].map((i) => Number.parseInt(value.slice(i, i + 2), 16) / 255).concat(1);
+  }
+  const match = value.match(/^rgba\(([^)]+)\)$/);
+  assert.ok(match, `Unsupported color: ${value}`);
+  const components = match[1].split(',').map(Number);
+  assert.ok(components.length === 4 && components.every(Number.isFinite), `Invalid rgba color: ${value}`);
+  return [...components.slice(0, 3).map((c) => c / 255), components[3]];
 }
 
-test('reference contrast values and alpha compositing match the specified formula', () => {
+function over(foreground, background) {
+  const alpha = foreground[3];
+  return foreground.slice(0, 3).map((c, i) => c * alpha + background[i] * (1 - alpha)).concat(1);
+}
+
+function luminance(rgb) {
+  const linear = rgb.slice(0, 3).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+}
+
+function contrast(foreground, background) {
+  const values = [luminance(over(foreground, background)), luminance(background)];
+  return (Math.max(...values) + 0.05) / (Math.min(...values) + 0.05);
+}
+
+function style(selector) {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return block(HTML, new RegExp(`^\\s*${escaped}\\s*\\{([^{}]+)\\}`, 'm'), `style for ${selector}`);
+}
+
+// Bounded source pairs: no brand/syntax colors, gradients or blur.
+const PAIRS = [
+  ['.price-fine', '--text-tertiary', '--surface-card', false],
+  ['.price-tier', '--text-tertiary', '--surface-card', false],
+  ['.price-note', '--text-secondary', '--surface-card', false],
+  ['.foot-note', '--text-tertiary', '--surface-app', false],
+  ['.sa-note', '--text-tertiary', '--surface-app', false],
+  ['.ph-search', '--text-tertiary', '--surface-app', true],
+  ['.ic-card .tier', '--text-tertiary', '--surface-card', true],
+];
+
+test('formula matches known values', () => {
   const black = [0, 0, 0, 1], white = [1, 1, 1, 1];
-
   assert.equal(contrast(black, white), 21);
   assert.equal(contrast(white, black), 21);
   assert.equal(contrast(black, black), 1);
   assert.ok(Math.abs(contrast([0, 0, 0, 0.5], white) - 3.976653) < 0.0000005);
-  assert.deepEqual(over([0, 0, 0, 0.5], white), [0.5, 0.5, 0.5, 1]);
 });
 
-test('the sRGB breakpoint uses the linear branch at 0.04045', () => {
-  assert.ok(Math.abs(luminance([0.04045, 0.04045, 0.04045]) - 0.0031308049535603713) < 1e-15);
+test('pairs still describe the actual small-text styles', () => {
+  for (const [selector, foreground, , selected] of PAIRS) {
+    const body = style(selector);
+    assert.ok(body.includes(`color: var(${foreground})`), selector);
+    if (selected) assert.ok(body.includes('background: var(--surface-selection)'), selector);
+  }
+  for (const [selector, background] of [['.price-card', '--surface-card'], ['.ic-card', '--surface-card'],
+    ['.phone-scr', '--surface-app'], ['body', '--surface-app']]) {
+    assert.ok(style(selector).includes(`background: var(${background})`), selector);
+  }
 });
 
-test('all four themes retain base tokens and apply their own overlays', () => {
-  const css = fixture().css.replace('--text-tertiary: #444444;', '--alias: var(--text-tertiary); --text-tertiary: #444444;');
-
-  const themes = themeTokens(css);
-
-  assert.deepEqual(Object.keys(themes), ['automatic-light', 'automatic-dark', 'explicit-light', 'explicit-dark']);
-  assert.equal(themes['automatic-light']['--surface-app'], '#ffffff');
-  assert.equal(themes['automatic-dark']['--surface-app'], '#000000');
-  assert.equal(themes['explicit-light']['--surface-app'], '#ffffff');
-  assert.equal(themes['explicit-dark']['--surface-app'], '#000000');
-  assert.deepEqual(color(themes['automatic-dark']['--alias'], themes['automatic-dark']), [187 / 255, 187 / 255, 187 / 255, 1]);
+test('primary, secondary and tertiary hierarchy is preserved', () => {
+  for (const [theme, palette] of Object.entries(themeTokens())) {
+    for (const surface of ['--surface-app', '--surface-card']) {
+      const background = color(palette[surface], palette);
+      const [primary, secondary, tertiary] = ['--text-primary', '--text-secondary', '--text-tertiary']
+        .map((token) => contrast(color(palette[token], palette), background));
+      assert.ok(primary > secondary && secondary > tertiary, `${theme} ${surface}`);
+    }
+  }
 });
 
-test('duplicate tokens keep the last declaration, including recursive variables', () => {
-  const palette = tokens('--a: #ffffff; --a: #000000; --b: var(--a); --c: var(--b);');
-
-  assert.deepEqual(color('var(--c)', palette), [0, 0, 0, 1]);
-});
-
-test('the same seven selected and unselected pairs remain in scope', () => {
-  assert.deepEqual(PAIRS.map(([selector, , , selected]) => [selector, selected]), [
-    ['.price-fine', false], ['.price-tier', false], ['.price-note', false],
-    ['.foot-note', false], ['.sa-note', false], ['.ph-search', true], ['.ic-card .tier', true],
-  ]);
-});
-
-test('a valid fixture passes all four legacy checks', () => {
-  const { css, html } = fixture();
-  const run = checks(css, html);
-
-  assert.doesNotThrow(run.test_formula_known_values);
-  assert.doesNotThrow(run.test_pairs_still_describe_the_actual_small_text_styles);
-  assert.doesNotThrow(run.test_primary_secondary_tertiary_hierarchy_is_preserved);
-  assert.doesNotThrow(run.test_small_text_pairs_meet_four_point_five_without_rounding);
-});
-
-test('selected surfaces are composited before contrast is checked', () => {
-  const { css, html } = fixture('#767676');
-
-  assert.ok(contrast(color('#767676', {}), [1, 1, 1, 1]) > 4.5);
-  assert.throws(() => checks(css, html).test_small_text_pairs_meet_four_point_five_without_rounding(), AggregateError);
-});
-
-test('a ratio immediately below 4.5 fails even when formatted as 4.500000', () => {
-  const { css, html } = fixture('rgba(118.65635798027955, 118.65635798027955, 118.65635798027955, 1)');
-  const transparentSelection = css.replaceAll('rgba(0, 0, 0, 0.08)', 'rgba(0, 0, 0, 0)');
-
-  assert.throws(() => checks(transparentSelection, html).test_small_text_pairs_meet_four_point_five_without_rounding(), AggregateError);
-});
-
-test('a ratio immediately above 4.5 passes on unselected surfaces', () => {
-  const { css, html } = fixture('rgba(118.65635598027955, 118.65635598027955, 118.65635598027955, 1)');
-  const transparentSelection = css.replaceAll('rgba(0, 0, 0, 0.08)', 'rgba(0, 0, 0, 0)');
-
-  assert.doesNotThrow(() => checks(transparentSelection, html).test_small_text_pairs_meet_four_point_five_without_rounding());
-});
-
-test('missing selectors, changed declarations, hierarchy and missing themes fail closed', () => {
-  const { css, html } = fixture();
-
-  assert.throws(() => checks(css, html.replace('.price-fine', '.missing')).test_pairs_still_describe_the_actual_small_text_styles(), AggregateError);
-  assert.throws(() => checks(css, html.replace('color: var(--text-tertiary)', 'color: red')).test_pairs_still_describe_the_actual_small_text_styles(), AggregateError);
-  assert.throws(() => checks(css.replaceAll('--text-secondary: #222222', '--text-secondary: #000000'), html).test_primary_secondary_tertiary_hierarchy_is_preserved(), AggregateError);
-  assert.throws(() => themeTokens(css.replace('data-theme="dark"', 'data-theme="missing"')));
-  assert.throws(() => color('hsl(0, 0%, 0%)', {}), /Unsupported color/);
-  assert.throws(() => color('rgba(0x10, 0, 0, 1)', {}), /Invalid rgba/);
-  assert.throws(() => over([0, 0, 0, 1], [1, 1, 1, 0.5]), /opaque backing/);
-});
-
-test('CLI success keeps stdout empty and reports four checks on stderr from any cwd', () => {
-  const result = cli(fixture());
-
-  assert.equal(result.status, 0);
-  assert.equal(result.stdout, '');
-  assert.match(result.stderr, /^\.\.\.\.\n-{70}\nRan 4 tests in \d+\.\d{3}s\n\nOK\n$/);
-});
-
-test('CLI contrast failure stays nonzero with diagnostics on stderr', () => {
-  const result = cli(fixture('#aaaaaa'));
-
-  assert.equal(result.status, 1);
-  assert.equal(result.stdout, '');
-  assert.match(result.stderr, /FAIL: test_small_text_pairs_meet_four_point_five_without_rounding/);
-  assert.match(result.stderr, /FAILED/);
-});
-
-test('CLI invoked through a symlink still runs its checks against the target site', () => {
-  const result = cli(fixture(), [], true);
-
-  assert.equal(result.status, 0);
-  assert.equal(result.stdout, '');
-  assert.match(result.stderr, /Ran 4 tests/);
-});
-
-test('missing CSS fails instead of reporting a successful empty run', () => {
-  const result = cli({ html: fixture().html });
-
-  assert.equal(result.status, 1);
-  assert.equal(result.stdout, '');
-  assert.match(result.stderr, /ENOENT/);
-});
-
-test('CLI quiet and verbose modes retain output channels and invalid arguments exit 2', () => {
-  const quiet = cli(fixture(), ['-q']);
-  const verbose = cli(fixture(), ['-v']);
-  const invalid = cli(fixture(), ['--unknown']);
-
-  assert.equal(quiet.status, 0);
-  assert.equal(quiet.stdout, '');
-  assert.match(quiet.stderr, /^-{70}\nRan 4 tests/);
-  assert.equal(verbose.status, 0);
-  assert.equal(verbose.stdout, '');
-  assert.match(verbose.stderr, /test_formula_known_values ... ok/);
-  assert.equal(invalid.status, 2);
-  assert.equal(invalid.stdout, '');
+test('small-text pairs meet 4.5:1 without rounding', () => {
+  for (const [theme, palette] of Object.entries(themeTokens())) {
+    for (const [selector, foreground, background, selected] of PAIRS) {
+      let surface = color(palette[background], palette);
+      if (selected) surface = over(color(palette['--surface-selection'], palette), surface);
+      const ratio = contrast(color(palette[foreground], palette), surface);
+      assert.ok(ratio >= 4.5, `${theme} ${selector}: ${ratio.toFixed(6)}:1`);
+    }
+  }
 });

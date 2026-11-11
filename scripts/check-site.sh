@@ -89,6 +89,5 @@ fi
 
 ./scripts/check-product-truth.sh
 node --test scripts/check-site-contrast.test.mjs >&2
-node scripts/check-site-contrast.mjs
 
 printf '✓ site/ structural checks passed\n'
