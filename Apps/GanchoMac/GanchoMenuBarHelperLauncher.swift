@@ -1,4 +1,6 @@
 import AppKit
+import ApplicationServices
+import GanchoAppCore
 import ServiceManagement
 
 /// Launches and stops the external menu-bar helper.
@@ -165,5 +167,74 @@ enum GanchoMenuBarHelperLauncher {
         app.bundleIdentifier == helperBundleID
             || app.executableURL?.lastPathComponent == executableName
             || app.localizedName == executableName
+    }
+}
+
+extension GanchoMenuBarHelperLauncher {
+    /// Closes the helper's own menu before a paste posts ⌘V into it.
+    static var menuClearance: MenuClearance {
+        var helper: pid_t?
+        return MenuClearance(
+            effects: .init(
+                isMenuOpen: {
+                    helper = processShowingMenu()
+                    return helper != nil
+                },
+                closeMenu: { helper.map(closeMenu(in:)) },
+                pause: { try? await Task.sleep(for: .milliseconds(50)) }))
+    }
+
+    /// The helper, when it has a menu on screen. Reads only each window's level
+    /// and owner, never its title or content.
+    private static func processShowingMenu() -> pid_t? {
+        let level = Int(CGWindowLevelForKey(.popUpMenuWindow))
+        let windows =
+            CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID)
+            as? [[String: Any]] ?? []
+        for window in windows where window[kCGWindowLayer as String] as? Int == level {
+            guard let owner = window[kCGWindowOwnerPID as String] as? pid_t,
+                let app = NSRunningApplication(processIdentifier: owner), isHelper(app)
+            else { continue }
+            return owner
+        }
+        return nil
+    }
+
+    /// Accessibility, which posting the paste already needs, reaches the menu
+    /// while it tracks.
+    private static func closeMenu(in helper: pid_t) {
+        for menu in menus(under: AXUIElementCreateApplication(helper), depth: 0) {
+            AXUIElementPerformAction(menu, kAXCancelAction as CFString)
+        }
+    }
+
+    private static func menus(under element: AXUIElement, depth: Int) -> [AXUIElement] {
+        // The timeout is per element; children would wait the ~6 s default.
+        AXUIElementSetMessagingTimeout(element, 0.25)
+        var role: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role) == .success,
+            role as? String == kAXMenuRole
+        {
+            return [element]
+        }
+        guard depth < 4 else { return [] }
+        var found: [AXUIElement] = []
+        for relation in [kAXExtrasMenuBarAttribute, kAXChildrenAttribute] {
+            var related: CFTypeRef?
+            guard
+                AXUIElementCopyAttributeValue(element, relation as CFString, &related)
+                    == .success, let related
+            else { continue }
+            let children: [AXUIElement]
+            if let list = related as? [AXUIElement] {
+                children = list
+            } else if CFGetTypeID(related) == AXUIElementGetTypeID() {
+                children = [unsafeDowncast(related, to: AXUIElement.self)]
+            } else {
+                continue
+            }
+            for child in children { found += menus(under: child, depth: depth + 1) }
+        }
+        return found
     }
 }

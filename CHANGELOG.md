@@ -25,6 +25,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   stack, the last transform or a text recipe no longer gets lost while a Gancho
   menu is open. It runs when you press it there, instead of on release, which
   the menu could swallow. Elsewhere it still runs on release.
+- On the Mac, pasting with a shortcut while a Gancho menu is open now closes the
+  menu and pastes right away. Before, the paste waited until you closed Gancho's
+  menu, and with the menu-bar icon's own menu (opened with VoiceOver or the
+  keyboard) the clipboard changed but nothing was pasted.
 
 ## [0.11.1] - 2026-11-07
 
