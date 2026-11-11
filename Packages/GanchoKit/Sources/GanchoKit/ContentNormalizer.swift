@@ -16,7 +16,7 @@ public enum ContentNormalizer {
 
     /// Strips tracking parameters from an absolute http(s) URL string.
     /// Non-URLs and relative strings come back untouched; remaining query
-    /// order is preserved (the URL stays functionally identical).
+    /// items keep their order and original escaping.
     public static func normalizeURL(_ string: String) -> String {
         guard var components = URLComponents(string: string),
             let scheme = components.scheme?.lowercased(),
@@ -24,11 +24,16 @@ public enum ContentNormalizer {
             components.host != nil
         else { return string }
 
-        if let items = components.queryItems, !items.isEmpty {
+        // Percent-encoded items: re-encoding decoded values would turn an
+        // encoded plus into a form-space. Names are decoded only to match.
+        if let items = components.percentEncodedQueryItems, !items.isEmpty {
             let kept = items.filter {
-                !trackingParameters.contains($0.name.lowercased())
+                guard let name = $0.name.removingPercentEncoding else { return true }
+                return !trackingParameters.contains(name.lowercased())
             }
-            components.queryItems = kept.isEmpty ? nil : kept
+            if kept.count != items.count {
+                components.percentEncodedQueryItems = kept.isEmpty ? nil : kept
+            }
         }
         return components.string ?? string
     }

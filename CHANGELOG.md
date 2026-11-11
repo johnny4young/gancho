@@ -12,6 +12,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Developer line actions now recognize CRLF and Unicode newlines: sorting,
   deduplicating and reversing normalize line endings, and Count stats counts
   every logical line.
+- Removing URL tracking parameters now preserves the original escaping of
+  functional query parameters, keeping literal plus signs and distinct links intact.
 - On the Mac, a copy Gancho was still reading when a screen share started, or
   when you turned on Private Mode, is no longer saved to history.
 - On the Mac, a copy made during a short screen share that ended before Gancho
@@ -25,6 +27,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   stack, the last transform or a text recipe no longer gets lost while a Gancho
   menu is open. It runs when you press it there, instead of on release, which
   the menu could swallow. Elsewhere it still runs on release.
+- On the Mac, pasting with a shortcut while a Gancho menu is open now closes the
+  menu and pastes right away. Before, the paste waited until you closed Gancho's
+  menu, and with the menu-bar icon's own menu (opened with VoiceOver or the
+  keyboard) the clipboard changed but nothing was pasted.
 
 ## [0.11.1] - 2026-11-07
 

@@ -138,6 +138,58 @@ final class ShortcutMenuUITests: XCTestCase {
         XCTAssertEqual((closed["actionPhases"] as? [String])?.count, total)
     }
 
+    /// A paste shortcut pressed while a Gancho menu tracks runs on the press and
+    /// closes that menu, so its ⌘V can post. `SHORTCUT_PASTE_ACTION=gated`
+    /// registers the plain release action instead, the negative control.
+    @MainActor
+    func testPasteActionClosesTheTrackingMenuOnThePress() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        let snapshotPath = try XCTUnwrap(environment["SHORTCUT_MENU_SNAPSHOT"])
+        let bundleIdentifier = try XCTUnwrap(environment["SHORTCUT_MENU_BUNDLE_ID"])
+        let mode = environment["SHORTCUT_PASTE_ACTION"] ?? "paste"
+        let app = XCUIApplication(bundleIdentifier: bundleIdentifier)
+        app.launchArguments = ["-fixture-snapshot", snapshotPath, "-release-action", mode]
+        app.launch()
+        defer { app.terminate() }
+        guard try await waitForElement(app.windows["Shortcut Menu Fixture"], seconds: 8) else {
+            XCTFail("The fixture window did not appear")
+            return
+        }
+        let initial = try await waitForSnapshot(at: snapshotPath) { $0["actionPhases"] != nil }
+        try requireRegisteredChord(initial)
+        let chord: XCUIElement.KeyModifierFlags = [.command, .control, .option, .shift]
+
+        try requireForeground(app, bundleIdentifier: bundleIdentifier)
+        app.typeKey("v", modifierFlags: chord)
+        let outside = try await waitForSnapshot(at: snapshotPath) {
+            ($0["actionPhases"] as? [String])?.count == 1
+        }
+        XCTAssertEqual(outside["actionPhases"] as? [String], ["release"])
+
+        try requireForeground(app, bundleIdentifier: bundleIdentifier)
+        app.buttons["open-menu-button"].click()
+        let tracking = try await waitForSnapshot(at: snapshotPath) {
+            $0["menuTracking"] as? Bool == true
+        }
+        guard tracking["menuTracking"] as? Bool == true else {
+            XCTFail("The fixture is not tracking its popup menu")
+            return
+        }
+        try requireForeground(app, bundleIdentifier: bundleIdentifier)
+        app.typeKey("v", modifierFlags: chord)
+        let pressed = try await waitForSnapshot(at: snapshotPath) {
+            ($0["actionPhases"] as? [String])?.count == 2 && $0["menuTracking"] as? Bool == false
+        }
+        try attach(pressed, name: "paste-action-closed-the-menu")
+        XCTAssertEqual(pressed["actionPhases"] as? [String], ["release", "press"])
+        XCTAssertEqual(
+            pressed["menuTracking"] as? Bool, false, "The press must close the menu without Escape")
+
+        try await Task.sleep(for: .seconds(1))
+        let settled = try readSnapshot(snapshotPath)
+        XCTAssertEqual((settled["actionPhases"] as? [String])?.count, 2)
+    }
+
     @MainActor
     private func verifyMenuClosedWithoutReplay(at path: String) async throws {
         _ = try await waitForSnapshot(at: path) { $0["menuTracking"] as? Bool == false }
