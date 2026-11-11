@@ -65,11 +65,15 @@ struct SpotlightCoordinatorTests {
                 reconciles += 1
                 return true
             }, onFailure: {})
-        coordinator.start(subscribingTo: bus)
+        let subscription = coordinator.start(subscribingTo: bus)
+        // Await the worker as well as its effects, so the runtime can track
+        // this test's dependency on utility-priority work and teardown joins it.
+        async let completed: Void = subscription.value
         for _ in 0..<10 { bus.post(.curation) }
         let reconciled = await waitUntil { reconciles > 0 }
         coordinator.stop()
         await barrier.release()
+        await completed
         #expect(reconciled, "the subscriber must process the posted burst")
         #expect(reconciles == 1, "a single burst must drive exactly one reconcile")
     }
@@ -82,15 +86,19 @@ struct SpotlightCoordinatorTests {
             coalescer: SpotlightCoordinator.defaultCoalescer,
             reconcile: { true }, onFailure: {})
 
-        coordinator.start(subscribingTo: firstBus)
+        let previousSubscription = coordinator.start(subscribingTo: firstBus)
+        async let previousCompleted: Void = previousSubscription.value
         #expect(firstBus.subscriberCount == 1)
-        coordinator.start(subscribingTo: secondBus)
+        let currentSubscription = coordinator.start(subscribingTo: secondBus)
+        async let currentCompleted: Void = currentSubscription.value
 
         let unsubscribed = await waitUntil { firstBus.subscriberCount == 0 }
+        await previousCompleted
         #expect(unsubscribed, "the canceled subscription must terminate")
         #expect(firstBus.subscriberCount == 0)
         #expect(secondBus.subscriberCount == 1)
         coordinator.stop()
+        await currentCompleted
     }
 
     @Test("A board-only burst drives no reconcile")
@@ -103,10 +111,12 @@ struct SpotlightCoordinatorTests {
                 reconciles += 1
                 return true
             }, onFailure: {})
-        coordinator.start(subscribingTo: bus)
+        let subscription = coordinator.start(subscribingTo: bus)
+        async let completed: Void = subscription.value
         bus.post(.boards)
         try? await Task.sleep(for: .milliseconds(50))
         coordinator.stop()
+        await completed
         #expect(reconciles == 0)
     }
 
