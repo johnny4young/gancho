@@ -173,10 +173,14 @@ enum GanchoMenuBarHelperLauncher {
 extension GanchoMenuBarHelperLauncher {
     /// Closes the helper's own menu before a paste posts ⌘V into it.
     static var menuClearance: MenuClearance {
-        MenuClearance(
+        var helper: pid_t?
+        return MenuClearance(
             effects: .init(
-                isMenuOpen: { processShowingMenu() != nil },
-                closeMenu: { processShowingMenu().map(closeMenu(in:)) },
+                isMenuOpen: {
+                    helper = processShowingMenu()
+                    return helper != nil
+                },
+                closeMenu: { helper.map(closeMenu(in:)) },
                 pause: { try? await Task.sleep(for: .milliseconds(50)) }))
     }
 
@@ -199,14 +203,14 @@ extension GanchoMenuBarHelperLauncher {
     /// Accessibility, which posting the paste already needs, reaches the menu
     /// while it tracks.
     private static func closeMenu(in helper: pid_t) {
-        let application = AXUIElementCreateApplication(helper)
-        AXUIElementSetMessagingTimeout(application, 0.25)
-        for menu in menus(under: application, depth: 0) {
+        for menu in menus(under: AXUIElementCreateApplication(helper), depth: 0) {
             AXUIElementPerformAction(menu, kAXCancelAction as CFString)
         }
     }
 
     private static func menus(under element: AXUIElement, depth: Int) -> [AXUIElement] {
+        // The timeout is per element; children would wait the ~6 s default.
+        AXUIElementSetMessagingTimeout(element, 0.25)
         var role: CFTypeRef?
         if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role) == .success,
             role as? String == kAXMenuRole
