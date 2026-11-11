@@ -71,6 +71,18 @@ struct ContentNormalizerURLTests {
                 != ContentNormalizer.canonicalText(encodedSpace, kind: .url))
     }
 
+    @Test("Unescaped characters get one canonical form with or without a tracker")
+    func escapesUnicodeConsistently() {
+        let plain = ContentNormalizer.normalizeURL("https://example.invalid/wiki/Niño?q=a b")
+        #expect(plain == "https://example.invalid/wiki/Ni%C3%B1o?q=a%20b")
+        #expect(
+            ContentNormalizer.normalizeURL(
+                "https://example.invalid/wiki/Niño?q=a b&utm_source=x") == plain)
+        #expect(
+            ContentNormalizer.normalizeURL("https://example.invalid/wiki/Niño")
+                == "https://example.invalid/wiki/Ni%C3%B1o")
+    }
+
     @Test("Unicode query data and tracking-only controls retain their behavior")
     func unicodeAndTrackingOnly() {
         #expect(
