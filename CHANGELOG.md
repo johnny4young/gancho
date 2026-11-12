@@ -49,13 +49,17 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On the Mac, Gancho checks that its menu-bar icon is still there when something
   could have removed it, and every 5 seconds otherwise, instead of every
   0.75 seconds.
+- Measured at rest with capture paused, on Debug builds of a busy Mac (so the
+  figures are indicative): the first change above took Gancho from about 4.4 to
+  2.5 wakeups per second, and the other two from about 2.8 to 0.8.
 
 ### Fixed
 
 - When history can't be saved to disk, the Library still shows how many clips a
   view holds, and the panel's All clips chip shows its count.
 - Exporting an archive no longer holds every exported file in memory while it
-  checks the export against its manifest.
+  checks the export against its manifest: checking a 256 MiB file used to add
+  257 MiB to Gancho's memory footprint, and now adds none.
 - On the Mac, Settings, Library, Privacy Center, Welcome and the clipboard access
   window open on top of other apps and take the keyboard, instead of behind the
   app you were using. So do Gancho Pro and the recognized-text review, opened
