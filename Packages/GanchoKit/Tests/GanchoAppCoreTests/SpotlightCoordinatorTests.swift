@@ -120,15 +120,14 @@ struct SpotlightCoordinatorTests {
         #expect(reconciles == 0)
     }
 
-    /// Task.yield() may immediately resume a higher-priority test instead of
-    /// the utility-priority subscriber. Suspend between condition checks so
-    /// the producer gets scheduled; a deadline still fails a lost event.
+    /// Suspend between checks so the utility-priority subscriber gets
+    /// scheduled. No wall-clock deadline: a stalled test process would expire
+    /// it before the subscriber runs. The suite's time limit fails a lost event.
     private func waitUntil(_ condition: @MainActor () -> Bool) async -> Bool {
-        let deadline = ContinuousClock.now + .seconds(5)
-        while !condition(), ContinuousClock.now < deadline {
+        while !condition() {
             do { try await Task.sleep(for: .milliseconds(10)) } catch { return false }
         }
-        return condition()
+        return true
     }
 
 }
