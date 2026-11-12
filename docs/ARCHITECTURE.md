@@ -647,6 +647,11 @@ assertion or disable screenshots to turn a failed capture into a pass.
    platform idioms are not polish; they are part of the product surface.
 6. **No backend by default.** A future backend must be a sync implementation,
    not a prerequisite for the product to function.
+7. **Swift on Apple platforms (decided 2026-11-05).** A review of every app's
+   stack measured SwiftUI against Electron, Go and Rust UI stacks on Apple
+   Silicon; none used less memory. Gancho stays Swift, and non-Apple clients
+   follow the portability strategy above. The measurements are in the
+   maintainer's private research report, not in this repository.
 
 ## Performance signposts and SLOs
 
