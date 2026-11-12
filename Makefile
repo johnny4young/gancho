@@ -142,7 +142,7 @@ capture-snapshots: project ## Capture real app surfaces into build/design-snapsh
 		-scheme $(SCHEME_MAC) -only-testing:GanchoUITests/DesignV4SnapshotUITests \
 		-resultBundlePath $(SNAPSHOT_RESULT_BUNDLE) $(TEST_UI_SIGNING_FLAGS)
 	./scripts/export-xcresult-attachments.sh $(SNAPSHOT_RESULT_BUNDLE) build/design-snapshot-attachments
-	python3 -I scripts/collect-design-snapshots.py build/design-snapshot-attachments build/design-snapshots
+	node scripts/collect-design-snapshots.mjs build/design-snapshot-attachments build/design-snapshots
 
 test-snapshots: capture-snapshots ## Capture real app surfaces and compare them with swift-snapshot-testing
 	swift test $(SWIFT_PACKAGE_FLAGS) --package-path Tests/DesignSnapshots
