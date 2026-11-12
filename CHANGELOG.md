@@ -31,6 +31,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   menu and pastes right away. Before, the paste waited until you closed Gancho's
   menu, and with the menu-bar icon's own menu (opened with VoiceOver or the
   keyboard) the clipboard changed but nothing was pasted.
+- Importing a settings file whose format version Gancho doesn't support now
+  fails with the usual import error, instead of applying settings it can't
+  interpret.
 
 ## [0.11.1] - 2026-11-07
 
