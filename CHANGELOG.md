@@ -16,9 +16,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   check and screen-lock check no longer ask the system about every running app,
   or about the lock state four times a second.
 - Measured with 20 copies on Debug builds of a busy Mac (indicative figures):
-  each copy went from about 295 to 42 ms of processor time, and memory after
-  the burst from about 121 to 56 MB. At rest, a Release build went from about
-  7 to 1.3 ms of processor time per second.
+  each copy went from about 295 to 46 ms of processor time, and memory after
+  the burst from about 121 to 64 MB. At rest, a Release build went from about
+  7 to 1.3 ms of processor time per second. The panel still opens in about
+  50 ms; right after a burst of copies, the first open takes about 100 ms.
 
 ### Fixed
 

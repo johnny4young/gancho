@@ -55,6 +55,12 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// clears the flag of a newer drag.
     private var dragOutGeneration = 0
 
+    /// A hidden panel leaves its window while the store changes, then rejoins
+    /// it once changes stop, catching up in one update and opening at full speed.
+    private static let quietBeforeRejoin: Duration = .seconds(60)
+    private var storeChangeWatch: Task<Void, Never>?
+    private var rejoin: Task<Void, Never>?
+
     var isVisible: Bool {
         panel?.isVisible == true
     }
@@ -113,12 +119,14 @@ final class PanelController: NSObject, NSWindowDelegate {
             guard let self, let model else { return }
             self.toggle(model: model)
         }
-        // Build the hosting view while idle so the first open only orders it in,
-        // then park it once its first update has run.
+        // Build the hosting view while idle so the first open only orders it in.
         DispatchQueue.main.async { [weak self, weak model] in
             guard let self, let model, !Self.isUITestLaunch else { return }
-            let panel = self.ensurePanel(model: model)
-            DispatchQueue.main.async { panel.parkContent() }
+            _ = self.ensurePanel(model: model)
+        }
+        let changes = model.storeChanges.subscribe()
+        storeChangeWatch = Task { [weak self] in
+            for await _ in changes { self?.storeDidChange() }
         }
     }
 
@@ -180,6 +188,17 @@ final class PanelController: NSObject, NSWindowDelegate {
             print("panel-first-frame: \(ContinuousClock.now - start)")
         }
         firstFrameClock = nil
+    }
+
+    private func storeDidChange() {
+        guard let panel, !panel.isVisible else { return }
+        panel.parkContent()
+        rejoin?.cancel()
+        rejoin = Task { [weak self] in
+            try? await Task.sleep(for: Self.quietBeforeRejoin)
+            guard !Task.isCancelled, let panel = self?.panel, !panel.isVisible else { return }
+            panel.restoreContent()
+        }
     }
 
     func hide() {
@@ -509,14 +528,13 @@ extension NSRect {
 final class KeyPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 
-    /// SwiftUI keeps re-rendering a hosting view in an ordered-out window, so
-    /// the content leaves the window while hidden and returns before it shows.
+    /// SwiftUI keeps re-rendering a hosting view in an ordered-out window; parked
+    /// content is out of the window and always returns before the panel shows.
     private var parkedContent: NSView?
 
     override func orderOut(_ sender: Any?) {
         let wasVisible = isVisible
         super.orderOut(sender)
-        parkContent()
         if wasVisible {
             NotificationCenter.default.post(name: .ganchoPanelDidHide, object: self)
         }
@@ -543,7 +561,7 @@ final class KeyPanel: NSPanel {
         contentView = NSView(frame: content.frame)
     }
 
-    private func restoreContent() {
+    func restoreContent() {
         guard let content = parkedContent else { return }
         parkedContent = nil
         contentView = content
