@@ -33,7 +33,7 @@ public struct MeaningRetrieval: Sendable {
         }
         let worker = Task.detached(priority: .userInitiated) { () throws -> [Float] in
             try Task.checkCancellation()
-            guard let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets else {
+            guard let embedder = SharedSentenceEmbedder.shared.ifAvailable else {
                 throw MeaningSearchError.unavailable
             }
             let vector = try embedder.vector(for: query.text)

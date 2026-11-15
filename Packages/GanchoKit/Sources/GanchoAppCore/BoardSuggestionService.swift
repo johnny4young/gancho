@@ -11,10 +11,10 @@ import GanchoKit
 /// user toggle and the concrete-store downcast); everything reachable through
 /// the store facets lives here so it is `swift test`-able for the first time.
 ///
-/// Stateless and `Sendable`: it constructs a `ContextualSentenceEmbedder`
-/// per call exactly as the inlined code did, touches only the async store and
-/// the pure `BoardSuggester` vote, and never crosses an actor boundary with a
-/// non-`Sendable` value — so it needs no `@MainActor` isolation. On CI the
+/// Stateless and `Sendable`: it embeds through `SharedSentenceEmbedder`, touches
+/// only the async store and the pure `BoardSuggester` vote, and never crosses an
+/// actor boundary with a non-`Sendable` value — so it needs no `@MainActor`
+/// isolation. On CI the
 /// embedder reports `hasAvailableAssets == false`, so the semantic path yields
 /// nil there; the pre-embedder guards remain unit-testable.
 public struct BoardSuggestionService: Sendable {
@@ -40,7 +40,7 @@ public struct BoardSuggestionService: Sendable {
         guard !candidates.isEmpty else { return nil }
 
         guard case .text(let text)? = try? await store.content(for: item.id),
-            let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
+            let embedder = SharedSentenceEmbedder.shared.ifAvailable,
             let vector = try? embedder.vector(for: String(text.prefix(1_000)))
         else { return nil }
         let neighbors =

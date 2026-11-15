@@ -113,10 +113,12 @@ final class PanelController: NSObject, NSWindowDelegate {
             guard let self, let model else { return }
             self.toggle(model: model)
         }
-        // Build the hosting view while idle so the first open only orders it in.
+        // Build the hosting view while idle so the first open only orders it in,
+        // then park it once its first update has run.
         DispatchQueue.main.async { [weak self, weak model] in
             guard let self, let model, !Self.isUITestLaunch else { return }
-            _ = self.ensurePanel(model: model)
+            let panel = self.ensurePanel(model: model)
+            DispatchQueue.main.async { panel.parkContent() }
         }
     }
 
@@ -507,12 +509,44 @@ extension NSRect {
 final class KeyPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 
+    /// SwiftUI keeps re-rendering a hosting view in an ordered-out window, so
+    /// the content leaves the window while hidden and returns before it shows.
+    private var parkedContent: NSView?
+
     override func orderOut(_ sender: Any?) {
         let wasVisible = isVisible
         super.orderOut(sender)
+        parkContent()
         if wasVisible {
             NotificationCenter.default.post(name: .ganchoPanelDidHide, object: self)
         }
+    }
+
+    override func makeKeyAndOrderFront(_ sender: Any?) {
+        restoreContent()
+        super.makeKeyAndOrderFront(sender)
+    }
+
+    override func orderFront(_ sender: Any?) {
+        restoreContent()
+        super.orderFront(sender)
+    }
+
+    override func orderFrontRegardless() {
+        restoreContent()
+        super.orderFrontRegardless()
+    }
+
+    func parkContent() {
+        guard !isVisible, parkedContent == nil, let content = contentView else { return }
+        parkedContent = content
+        contentView = NSView(frame: content.frame)
+    }
+
+    private func restoreContent() {
+        guard let content = parkedContent else { return }
+        parkedContent = nil
+        contentView = content
     }
 
     /// The panel is created once and reused (reopening is an `orderFront`), so

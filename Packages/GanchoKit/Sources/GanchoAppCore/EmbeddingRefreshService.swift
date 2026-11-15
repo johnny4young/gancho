@@ -51,12 +51,7 @@ public struct EmbeddingRefreshService: Sendable {
     /// the thermal/power gates.
     public init() {
         self.init(
-            makeEmbedder: {
-                guard let embedder = ContextualSentenceEmbedder(),
-                    embedder.hasAvailableAssets
-                else { return nil }
-                return embedder
-            },
+            makeEmbedder: { SharedSentenceEmbedder.shared.ifAvailable },
             isEnvironmentSuitable: {
                 let process = ProcessInfo.processInfo
                 let thermal = process.thermalState

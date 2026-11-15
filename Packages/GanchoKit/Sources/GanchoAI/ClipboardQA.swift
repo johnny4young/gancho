@@ -35,7 +35,7 @@ public struct ClipboardQA: Sendable {
         // only secrets must still fall through to FTS, or the user gets a false
         // "no match" while non-sensitive full-text hits exist.
         var clips: [ClipItem] = []
-        if useSemantic, let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
+        if useSemantic, let embedder = SharedSentenceEmbedder.shared.ifAvailable,
             let vector = try? embedder.vector(for: String(trimmed.prefix(1_000)))
         {
             clips =

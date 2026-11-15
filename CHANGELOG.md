@@ -7,6 +7,19 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- On the Mac, each copy costs Gancho far less work. Titles, search and board
+  suggestions share one loaded language model instead of loading it for every
+  clip, and the hidden history panel no longer redraws itself on every copy.
+- On the Mac, Gancho does less work at rest: its menu-bar check, screen-share
+  check and screen-lock check no longer ask the system about every running app,
+  or about the lock state four times a second.
+- Measured with 20 copies on Debug builds of a busy Mac (indicative figures):
+  each copy went from about 295 to 42 ms of processor time, and memory after
+  the burst from about 121 to 56 MB. At rest, a Release build went from about
+  7 to 1.3 ms of processor time per second.
+
 ### Fixed
 
 - Developer line actions now recognize CRLF and Unicode newlines: sorting,
