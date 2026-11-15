@@ -13,6 +13,7 @@ public protocol UserActivitySource: Sendable {
 
 #if os(macOS)
     import CoreGraphics
+    import Synchronization
 
     /// Real implementation backed by Quartz event timestamps and the session
     /// dictionary. Neither call requires Accessibility or Input Monitoring
@@ -37,6 +38,63 @@ public protocol UserActivitySource: Sendable {
         }
 
         public func isScreenLocked() -> Bool {
+            ScreenLockState.shared.isLocked()
+        }
+    }
+
+    /// The session's lock state. Reading the session dictionary is a
+    /// WindowServer round trip, so an unlocked answer is reused until the lock
+    /// notification arrives or `revalidateAfter` passes; a locked one is
+    /// re-read on every call so an unlock is seen at once.
+    final class ScreenLockState: Sendable {
+        static let shared = ScreenLockState()
+
+        private struct Cached {
+            var isLocked: Bool
+            var readAt: ContinuousClock.Instant
+        }
+
+        private let cached = Mutex<Cached?>(nil)
+        private let observer = Mutex<(any NSObjectProtocol)?>(nil)
+        private let revalidateAfter: Duration
+        private let readSession: @Sendable () -> Bool
+
+        init(
+            revalidateAfter: Duration = .seconds(30),
+            readSession: @escaping @Sendable () -> Bool = ScreenLockState.sessionIsLocked
+        ) {
+            self.revalidateAfter = revalidateAfter
+            self.readSession = readSession
+        }
+
+        func isLocked(now: ContinuousClock.Instant = .now) -> Bool {
+            observeLockNotifications()
+            if let last = cached.withLock({ $0 }), !last.isLocked,
+                now - last.readAt < revalidateAfter
+            {
+                return false
+            }
+            let isLocked = readSession()
+            cached.withLock { $0 = Cached(isLocked: isLocked, readAt: now) }
+            return isLocked
+        }
+
+        /// Drops the cached answer, as the lock notification does.
+        func invalidate() {
+            cached.withLock { $0 = nil }
+        }
+
+        private func observeLockNotifications() {
+            observer.withLock { observer in
+                guard observer == nil else { return }
+                observer = DistributedNotificationCenter.default().addObserver(
+                    forName: Notification.Name("com.apple.screenIsLocked"), object: nil,
+                    queue: nil
+                ) { [weak self] _ in self?.invalidate() }
+            }
+        }
+
+        static func sessionIsLocked() -> Bool {
             guard
                 let session = CGSessionCopyCurrentDictionary() as? [String: Any]
             else { return false }

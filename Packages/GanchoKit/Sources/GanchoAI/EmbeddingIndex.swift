@@ -2,10 +2,10 @@ import Accelerate
 import Foundation
 import GanchoKit
 import NaturalLanguage
+import Synchronization
 
 /// Sentence-level text embedding boundary. Implementations are NOT required
-/// to be thread-safe — callers own serialization (the product wraps the
-/// embedder in an actor next to the store).
+/// to be thread-safe; `SharedSentenceEmbedder` serializes the product's calls.
 public protocol TextEmbedding {
     /// Vector width. `NLContextualEmbedding` multilingual models emit 512.
     var dimension: Int { get }
@@ -43,6 +43,11 @@ public final class ContextualSentenceEmbedder: TextEmbedding {
         _ = try await embedding.requestAssets()
     }
 
+    /// Frees the model; the next `vector(for:)` loads it again.
+    public func unload() {
+        embedding.unload()
+    }
+
     public func vector(for text: String) throws -> [Float] {
         guard embedding.hasAvailableAssets else { throw EmbeddingError.assetsUnavailable }
         let result = try embedding.embeddingResult(for: text, language: nil)
@@ -56,6 +61,99 @@ public final class ContextualSentenceEmbedder: TextEmbedding {
         }
         guard tokenCount > 0 else { throw EmbeddingError.noVectors }
         return vDSP.divide(sum, Double(tokenCount)).map(Float.init)
+    }
+}
+
+/// An embedder whose model can be freed and reloaded on demand.
+protocol ReloadableTextEmbedding: TextEmbedding {
+    var hasAvailableAssets: Bool { get }
+    func unload()
+}
+
+extension ContextualSentenceEmbedder: ReloadableTextEmbedding {}
+
+/// The process-wide contextual embedder. Building an `NLContextualEmbedding`
+/// loads its tokenizer and weights, which costs several times one embedding, so
+/// capture, search, board suggestions and the refresh pass share this one. Calls
+/// are serialized, and the model unloads after `idleUnload` without use.
+public final class SharedSentenceEmbedder: TextEmbedding, Sendable {
+    public static let shared = SharedSentenceEmbedder()
+
+    private struct State {
+        var embedder: (any ReloadableTextEmbedding)?
+        var lastUse = ContinuousClock.now
+        var isLoaded = false
+        var unloadArmed = false
+    }
+
+    private let state = Mutex(State())
+    private let idleUnload: Duration
+    private let makeEmbedder: @Sendable () -> (any ReloadableTextEmbedding)?
+
+    init(
+        idleUnload: Duration = .seconds(180),
+        makeEmbedder: @escaping @Sendable () -> (any ReloadableTextEmbedding)? = {
+            ContextualSentenceEmbedder()
+        }
+    ) {
+        self.idleUnload = idleUnload
+        self.makeEmbedder = makeEmbedder
+    }
+
+    /// This embedder when the model assets are on device, else nil.
+    public var ifAvailable: SharedSentenceEmbedder? {
+        hasAvailableAssets ? self : nil
+    }
+
+    public var hasAvailableAssets: Bool {
+        state.withLock { resolved(&$0)?.hasAvailableAssets ?? false }
+    }
+
+    public var dimension: Int {
+        state.withLock { resolved(&$0)?.dimension ?? 0 }
+    }
+
+    public func vector(for text: String) throws -> [Float] {
+        let vector = try state.withLock { state throws -> [Float] in
+            guard let embedder = resolved(&state) else { throw EmbeddingError.assetsUnavailable }
+            state.lastUse = .now
+            state.isLoaded = true
+            return try embedder.vector(for: text)
+        }
+        armIdleUnload()
+        return vector
+    }
+
+    private func resolved(_ state: inout State) -> (any ReloadableTextEmbedding)? {
+        if state.embedder == nil { state.embedder = makeEmbedder() }
+        return state.embedder
+    }
+
+    private func armIdleUnload() {
+        let shouldArm = state.withLock { state in
+            guard !state.unloadArmed else { return false }
+            state.unloadArmed = true
+            return true
+        }
+        guard shouldArm else { return }
+        Task.detached(priority: .background) { [self] in await unloadWhenIdle() }
+    }
+
+    private func unloadWhenIdle() async {
+        var wait = idleUnload
+        while true {
+            try? await Task.sleep(for: wait, tolerance: idleUnload / 10)
+            let remaining = state.withLock { state -> Duration in
+                let idle = ContinuousClock.now - state.lastUse
+                guard idle >= idleUnload else { return idleUnload - idle }
+                if state.isLoaded { state.embedder?.unload() }
+                state.isLoaded = false
+                state.unloadArmed = false
+                return .zero
+            }
+            if remaining == .zero { return }
+            wait = remaining
+        }
     }
 }
 

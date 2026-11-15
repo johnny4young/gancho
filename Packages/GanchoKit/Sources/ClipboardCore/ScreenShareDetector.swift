@@ -25,22 +25,19 @@
             "ScreenSharingAgent": "Screen Sharing"  // Apple Screen Sharing host agent
         ]
 
-        private let runningProcessNames: @Sendable () -> [String]
+        private let runningProcessNames: @MainActor @Sendable () -> [String]
 
-        public init(
-            runningProcessNames: @escaping @Sendable () -> [String] = {
-                NSWorkspace.shared.runningApplications.compactMap(\.localizedName)
-            }
-        ) {
-            self.runningProcessNames = runningProcessNames
+        public init(runningProcessNames: (@MainActor @Sendable () -> [String])? = nil) {
+            self.runningProcessNames =
+                runningProcessNames ?? { WorkspaceRunningApplicationNames.shared.current() }
         }
 
-        public func isScreenSharePresumed() -> Bool {
+        @MainActor public func isScreenSharePresumed() -> Bool {
             sharingAppName() != nil
         }
 
         /// The app presumed to be sharing the screen, or nil when none is.
-        public func sharingAppName() -> String? {
+        @MainActor public func sharingAppName() -> String? {
             runningProcessNames().lazy.compactMap { Self.shareHelpers[$0] }.first
         }
 

@@ -18,11 +18,16 @@ final class GanchoMenuBarLifecycleGuard {
 
     func monitorExternalHelper() {
         stop()
-        // The list `isHelperRunning()` reads, so a helper exit is always announced.
+        // The list `runningHelper()` reads, so a helper exit is always announced.
         runningApplicationsObservation = ScreenShareDetector.observeRunningApplications {
             [weak self] in self?.watchdog?.affordanceMayHaveChanged()
         }
-        startWatchdog { GanchoMenuBarHelperLauncher.isHelperRunning() }
+        var helper: NSRunningApplication?
+        startWatchdog {
+            if let known = helper, !known.isTerminated { return true }
+            helper = GanchoMenuBarHelperLauncher.runningHelper()
+            return helper != nil
+        }
     }
 
     func monitorInProcessStatusItem(_ controller: StatusItemController) {

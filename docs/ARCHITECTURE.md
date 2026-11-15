@@ -101,7 +101,10 @@ widget refresh, feedback, and Live Activity state.
 
 On macOS, `CaptureLifecycleController` owns the monitor lifecycle rather than
 pasteboard content: start/stop/ignore commands, observable status mirroring,
-capture-preference persistence, and the periodic screen-share auto-pause check.
+capture-preference persistence, and the event-driven screen-share auto-pause
+check. That check reads app names from an index kept from the workspace's
+insertions and removals, because reading a running app's properties is a
+LaunchServices round trip per app.
 `AppModel` remains the observable facade and retains platform composition such
 as monitor construction, denylist callbacks, windows, and presentation effects.
 `PanelCapturePresentation` converts that content-free runtime state into a
@@ -567,7 +570,10 @@ CloudKit acceptance remain separate from deterministic local fault injection.
    transformations where the user approves the outbound content.
 
 Model seams live in `GanchoAI`; UI and storage should not depend on any concrete
-AI provider.
+AI provider. Every product embedding goes through `SharedSentenceEmbedder`: one
+`NLContextualEmbedding` per process, serialized, whose model unloads after three
+idle minutes. Building the embedding loads its tokenizer and weights, which
+costs several times one embedding.
 
 ## Extension-safe storage
 
@@ -661,7 +667,7 @@ or values, enforced by `SignpostHygieneTests`):
 
 | Interval (signpost) | Budget (warm p95) | Where it begins → ends |
 | --- | ---: | --- |
-| `panel-to-first-frame` | < 100 ms | `PanelController.show()` → `.ganchoPanelDidShow` handled by the prewarmed `PanelView` (first `onAppear` when built lazily) |
+| `panel-to-first-frame` | < 100 ms | `PanelController.show()` → the first of `PanelView.onAppear` (when a parked hosting view rejoins the panel) and the `.ganchoPanelDidShow` handler |
 | `query-to-results` | < 75 ms | search field change → results applied |
 | `launch-to-store-ready` | — (cold) | `AppModel.init` start → durable store ready |
 | `paste-dispatch` | < 100 ms | paste action → `⌘V` event posted (target-app time excluded) |
@@ -761,6 +767,16 @@ engine routing or result timeout. Native translation tests assert that the
 panel's frame stays unchanged across delivery, while display-preference tests
 cover resizing and relaunch persistence. See Apple's
 [`NSHostingView.sizingOptions` documentation](https://developer.apple.com/documentation/swiftui/nshostingview/sizingoptions).
+
+SwiftUI keeps evaluating a hosting view in an ordered-out window, so every
+capture, title or embedding write re-rendered the hidden panel. While the panel
+is hidden, a store change takes its hosting view out of the window, and the view
+rejoins after 60 quiet seconds, catching up in one update. It always rejoins
+before the panel orders in. The view and its state survive. Each rejoin runs
+`onAppear` and restarts the panel's `.task` work. Reattaching costs a full
+update: in `make bench-ui`, opening a parked panel took about 99 ms against
+about 45 ms for an attached one, so a burst of copies parks the panel and an
+idle panel stays attached.
 
 ### Exact cosine ranking
 

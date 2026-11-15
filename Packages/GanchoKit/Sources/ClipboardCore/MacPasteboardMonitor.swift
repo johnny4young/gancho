@@ -165,7 +165,8 @@
                 while !Task.isCancelled {
                     guard let self else { return }
                     let interval = self.tick()
-                    try? await Task.sleep(for: interval)
+                    // Tolerance lets the system coalesce this wakeup with others.
+                    try? await Task.sleep(for: interval, tolerance: interval / 10)
                 }
             }
         }

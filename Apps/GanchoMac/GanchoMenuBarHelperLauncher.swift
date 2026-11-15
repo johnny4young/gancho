@@ -149,8 +149,15 @@ enum GanchoMenuBarHelperLauncher {
     /// helper (launchd may decline to respawn, the sandbox may block the child,
     /// the helper may crash) and fall back to the in-process item if not.
     static func isHelperRunning() -> Bool {
+        runningHelper() != nil
+    }
+
+    /// The running menu-bar helper other than this process. Each property read
+    /// on a running app is a LaunchServices round trip, so callers that check
+    /// often keep the result and ask it `isTerminated` instead.
+    static func runningHelper() -> NSRunningApplication? {
         let currentProcessID = ProcessInfo.processInfo.processIdentifier
-        return NSWorkspace.shared.runningApplications.contains {
+        return NSWorkspace.shared.runningApplications.first {
             $0.processIdentifier != currentProcessID && isHelper($0)
         }
     }

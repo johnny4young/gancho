@@ -31,12 +31,7 @@ public struct EnrichmentService: Sendable {
     private let annotator: any ClipAnnotating
 
     public init() {
-        self.init(makeEmbedder: {
-            guard let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets else {
-                return nil
-            }
-            return embedder
-        })
+        self.init(makeEmbedder: { SharedSentenceEmbedder.shared.ifAvailable })
     }
 
     init(
@@ -82,7 +77,7 @@ public struct EnrichmentService: Sendable {
                     id: item.id, title: annotation.title, expectedText: text)) == true
             if wroteTitle { await onTitleWritten() }
         }
-        // Semantic vector (the embedder caches its model after the first call).
+        // Semantic vector.
         if plan.runs(.embedding), case .text(let text)? = content,
             let embeddingStore = store as? any ContentBoundEmbeddingStoring,
             let embedder = makeEmbedder(),
