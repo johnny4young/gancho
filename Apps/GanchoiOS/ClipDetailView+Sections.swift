@@ -5,39 +5,31 @@ import SwiftUI
 import UIKit
 
 extension ClipDetailView {
-    /// Kind, source app, device and age — where the clip came from, first.
+    /// Kind, source app, device and age, as one line of small caps.
+    var provenanceCaption: some View {
+        var parts = [Text(LocalizedStringKey(item.kind.rawValue))]
+        if requiresMasking { parts.append(Text("Masked")) }
+        if let bundleID = item.sourceAppBundleID, !bundleID.isEmpty {
+            parts.append(Text(verbatim: SourceApp.fallbackName(forBundleID: bundleID)))
+        }
+        if let device = item.sourceDeviceName, !device.isEmpty {
+            parts.append(Text(verbatim: device))
+        }
+        parts.append(Text(.currentDate, format: .reference(to: item.createdAt, maxFieldCount: 1)))
+        return parts.dropFirst().reduce(parts[0]) { Text("\($0) · \($1)") }
+            .font(dataFont(11, .caption2, weight: .medium))
+            .textCase(.uppercase)
+            .tracking(0.8)
+            .accessibilityIdentifier("detail-provenance")
+    }
+
+    /// Where the clip came from, first.
     var provenanceRow: some View {
         Section {
-            FlowLayout(spacing: 6) {
-                let tint = GanchoTokens.Palette.kindTint(for: item.kind)
-                Label {
-                    Text(LocalizedStringKey(item.kind.rawValue))
-                } icon: {
-                    Image(systemName: item.kind.symbolName)
-                }
-                .font(.caption.weight(.bold))
-                .padding(.horizontal, GanchoTokens.Spacing.xs)
-                .padding(.vertical, 3)
-                .ganchoTintedPill(tint, wash: 0.16)
-                if requiresMasking {
-                    metaChip(Text("Masked"), systemImage: "lock.fill")
-                }
-                if let bundleID = item.sourceAppBundleID, !bundleID.isEmpty {
-                    metaChip(
-                        Text(verbatim: SourceApp.fallbackName(forBundleID: bundleID)),
-                        systemImage: "app.dashed")
-                }
-                if let device = item.sourceDeviceName, !device.isEmpty {
-                    metaChip(Text(verbatim: device), systemImage: "desktopcomputer")
-                }
-                metaChip(
-                    Text(.currentDate, format: .reference(to: item.createdAt, maxFieldCount: 1)),
-                    systemImage: "clock")
-            }
-            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
-            .listRowBackground(Color.clear)
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("detail-provenance")
+            provenanceCaption
+                .foregroundStyle(GanchoTokens.Palette.ink3)
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
+                .listRowBackground(Color.clear)
         }
     }
 
@@ -97,51 +89,20 @@ extension ClipDetailView {
         }
     }
 
-    /// Copy is the one primary: iOS can't paste into another app, so copying
-    /// for the user to paste is the realizable path. Then the four others.
+    /// Board and Snippet, quiet under the content; the dock holds the rest.
     var actionsSection: some View {
         Section {
-            VStack(spacing: GanchoTokens.Spacing.xs) {
+            HStack(spacing: GanchoTokens.Spacing.xs) {
                 Button {
-                    Task { await model.copyToPasteboard(item) }
-                    dismiss()
+                    showMoveSheet = true
                 } label: {
-                    HStack(spacing: GanchoTokens.Spacing.xs) {
-                        if item.kind == .image {
-                            Label("Copy image", systemImage: "doc.on.clipboard")
-                        } else {
-                            Label("Copy", systemImage: "doc.on.clipboard")
-                        }
-                        if showsCopyShortcut {
-                            KeyCap("⌘⏎", role: .onAccent).accessibilityHidden(true)
-                        }
-                    }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, minHeight: 50)
-                    .ganchoPrimaryVerb(
-                        in: RoundedRectangle(
-                            cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
+                    quietAction("Board", systemImage: "rectangle.stack")
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("detail-copy")
-                HStack(spacing: 10) {
-                    ShareLink(item: model.shareItem(for: item), preview: SharePreview("Gancho")) {
-                        actionLabel("Share", systemImage: "square.and.arrow.up")
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!ClipSafeDelivery.isEligible(item))
-                    actionButton(
-                        item.isPinned ? "Pinned" : "Pin",
-                        systemImage: item.isPinned ? "pin.fill" : "pin"
-                    ) {
-                        Task { await model.togglePin(item) }
-                    }
-                    actionButton("Board", systemImage: "rectangle.stack") { showMoveSheet = true }
-                        .accessibilityIdentifier("detail-board")
-                    snippetButton
-                }
+                .accessibilityIdentifier("detail-board")
+                snippetButton
             }
-            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
+            .buttonStyle(.plain)
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
             .listRowBackground(Color.clear)
         }
     }
@@ -149,41 +110,28 @@ extension ClipDetailView {
     /// Always in the row so it never jumps: off for non-text and masked clips,
     /// shown as set once the clip is a snippet.
     private var snippetButton: some View {
-        let applies = isTextLike && !requiresMasking
-        return actionButton(
-            "Snippet",
-            systemImage: isSnippet ? "text.badge.checkmark" : "textformat"
-        ) {
+        let applies = isTextLike && !requiresMasking && !isSnippet
+        return Button {
             Task { if await model.saveAsSnippet(item) { isSnippet = true } }
+        } label: {
+            quietAction("Snippet", systemImage: isSnippet ? "text.badge.checkmark" : "textformat")
+                .opacity(applies ? 1 : ButtonStates.disabledOpacity)
         }
-        .disabled(!applies || isSnippet)
+        .disabled(!applies)
         .accessibilityValue(isSnippet ? Text("Saved") : Text(verbatim: ""))
         .accessibilityIdentifier("detail-save-snippet")
     }
 
-    private func actionButton(
-        _ title: LocalizedStringKey, systemImage: String, _ run: @escaping () -> Void
-    ) -> some View {
-        Button(action: run) { actionLabel(title, systemImage: systemImage) }
-            .buttonStyle(.plain)
+    private func quietAction(_ title: LocalizedStringKey, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.subheadline.weight(.medium))
+            .padding(.horizontal, GanchoTokens.Spacing.sm)
+            .frame(minHeight: 36)
+            .ganchoChip(selected: false)
+            .contentShape(Capsule())
     }
 
-    private func actionLabel(_ title: LocalizedStringKey, systemImage: String) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: systemImage)
-                .font(.system(size: 20))
-                .frame(maxWidth: .infinity, minHeight: 46)
-                .background(
-                    .quaternary,
-                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                )
-                .foregroundStyle(.primary)
-            Text(title).font(.caption).foregroundStyle(.secondary)
-        }
-    }
-
-    /// The boards this clip is on, + Add, and the auto-board suggestion as a
-    /// chip that adds on tap and dismisses with its ×.
+    /// The boards this clip is on, and + Add.
     var boardsSection: some View {
         Section("Boards") {
             FlowLayout(spacing: 6) {
@@ -210,45 +158,54 @@ extension ClipDetailView {
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("Add to board"))
                 .accessibilityIdentifier("detail-add-to-board")
-                if let board = suggestedBoard { suggestionChip(board) }
             }
             .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
             .listRowBackground(Color.clear)
         }
     }
 
-    private func suggestionChip(_ board: Pinboard) -> some View {
-        HStack(spacing: 6) {
-            Button {
-                Task {
-                    guard await model.setBoardMembership(item, board: board, member: true)
-                    else { return }
-                    boardIDs = await model.boardMembership(for: item)
+    /// The board this clip seems to belong on: adds on tap, dismisses with its ×.
+    func suggestionRow(_ board: Pinboard) -> some View {
+        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
+        return Section {
+            HStack(spacing: GanchoTokens.Spacing.xs) {
+                Button {
+                    Task {
+                        guard await model.setBoardMembership(item, board: board, member: true)
+                        else { return }
+                        boardIDs = await model.boardMembership(for: item)
+                        suggestedBoard = nil
+                    }
+                } label: {
+                    Label {
+                        Text("Add to \(board.name)? \(Text("Add").bold())")
+                    } icon: {
+                        Image(systemName: "tray")
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                Button {
                     suggestedBoard = nil
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.bold))
+                        .frame(
+                            minWidth: GanchoTokens.HitTarget.touch,
+                            minHeight: GanchoTokens.HitTarget.touch)
                 }
-            } label: {
-                Label {
-                    Text("Add to \(board.name)? \(Text("Add").bold())")
-                } icon: {
-                    Image(systemName: "sparkles")
-                }
+                .accessibilityLabel(Text("Dismiss"))
             }
             .buttonStyle(.plain)
-            Button {
-                suggestedBoard = nil
-            } label: {
-                Image(systemName: "xmark").font(.caption2.weight(.bold))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text("Dismiss"))
+            .font(.subheadline)
+            .foregroundStyle(GanchoTokens.Palette.ink2)
+            .padding(.leading, GanchoTokens.Spacing.sm)
+            .background(GanchoTokens.Palette.controlFill, in: shape)
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+            .listRowBackground(Color.clear)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("board-suggestion")
         }
-        .font(.subheadline)
-        .foregroundStyle(GanchoTokens.Palette.ink2)
-        .padding(.horizontal, GanchoTokens.Spacing.sm)
-        .frame(minHeight: 30)
-        .background(GanchoTokens.Palette.selectionWash, in: Capsule())
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("board-suggestion")
     }
 
     func metaChip(_ text: Text, systemImage: String?) -> some View {

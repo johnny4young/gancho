@@ -72,9 +72,9 @@ private struct ZoomableImageView: View {
     }
 }
 
-/// Per-kind detail, Copy first: provenance, the title, the content (a link as
-/// its hero), one full-width Copy, then Share · Pin · Board · Snippet, smart
-/// actions as chips, and the boards it is on.
+/// Per-kind detail: a colour or an image fills the top as the hero, then
+/// provenance, the title, the content (a link as its own hero), Board ·
+/// Snippet, smart actions and boards. Copy and Pin · Share · Delete stay docked.
 struct ClipDetailView: View {
     @Environment(IOSAppModel.self) var model
     @Environment(\.dismiss) var dismiss
@@ -148,35 +148,25 @@ struct ClipDetailView: View {
             ? ClipLinkParts(text: fullText.isEmpty ? item.preview : fullText) : nil
     }
 
+    /// A colour clip's value, when it parses and isn't masked.
+    var colorValue: ColorValue? {
+        item.kind == .color && !requiresMasking ? ColorValue.parse(item.preview) : nil
+    }
+
+    var heroImage: Image? {
+        guard item.kind == .image, !requiresMasking else { return nil }
+        return model.detailImages.cached(for: item) ?? model.thumbnails.cached(for: item)
+    }
+
     var body: some View {
-        List {
-            provenanceRow
-            ClipTitleEditor(title: item.title, prominent: true) { title in
-                await model.updateClipTitle(item, title: title)
+        GeometryReader { proxy in
+            VStack(spacing: 0) {
+                // A share of the height, so a medium sheet keeps its list.
+                hero(maxHeight: proxy.size.height * 0.42)
+                detailList
             }
-            .id(item.id)
-            if let linkParts, !editingLink {
-                linkHero(linkParts)
-            } else if editableText != nil {
-                ClipTextEditor(
-                    text: editableTextBinding, kind: item.kind, startsEditing: editingLink
-                ) { text in
-                    let saved = await model.updateClipText(item, text: text)
-                    if saved { editingLink = false }
-                    return saved
-                }
-                .id(item.id)
-            } else {
-                contentSection
-            }
-            actionsSection
-            ClipImageTextSection(
-                item: item, revealed: $ocrRevealed, copiedLine: ocrCopiedLine, links: ocrLinks,
-                onLine: tapRecognizedLine)
-            smartActionsSection
-            boardsSection
         }
-        .listSectionSpacing(.compact)
+        .safeAreaInset(edge: .bottom, spacing: 0) { actionBar }
         .navigationTitle(Text(verbatim: ""))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showMoveSheet) {
@@ -256,6 +246,39 @@ struct ClipDetailView: View {
         .presentationDragIndicator(.visible)
     }
 
+    private var detailList: some View {
+        List {
+            if colorValue == nil { provenanceRow }
+            ClipTitleEditor(title: item.title, prominent: true) { title in
+                await model.updateClipTitle(item, title: title)
+            }
+            .id(item.id)
+            if let colorValue { colorFormats(colorValue) }
+            if let linkParts, !editingLink {
+                linkHero(linkParts)
+            } else if editableText != nil {
+                ClipTextEditor(
+                    text: editableTextBinding, kind: item.kind, startsEditing: editingLink
+                ) { text in
+                    let saved = await model.updateClipText(item, text: text)
+                    if saved { editingLink = false }
+                    return saved
+                }
+                .id(item.id)
+            } else {
+                contentSection
+            }
+            if let board = suggestedBoard { suggestionRow(board) }
+            actionsSection
+            ClipImageTextSection(
+                item: item, revealed: $ocrRevealed, copiedLine: ocrCopiedLine, links: ocrLinks,
+                onLine: tapRecognizedLine)
+            smartActionsSection
+            boardsSection
+        }
+        .listSectionSpacing(.compact)
+    }
+
     private var editableTextBinding: Binding<String> {
         Binding(
             get: { editableText ?? fullText },
@@ -265,31 +288,15 @@ struct ClipDetailView: View {
             })
     }
 
-    /// The clip itself — image, text, or a masked secret kept behind Reveal.
+    /// The clip itself: text, or a masked secret kept behind Reveal. An image
+    /// with its picture loaded is the hero instead.
     @ViewBuilder private var contentSection: some View {
+        if heroImage == nil { textContentSection }
+    }
+
+    private var textContentSection: some View {
         Section {
-            if item.kind == .image, !requiresMasking,
-                let thumbnail = model.detailImages.cached(for: item)
-                    ?? model.thumbnails.cached(for: item)
-            {
-                thumbnail
-                    .resizable()
-                    .scaledToFit()
-                    .overlay {
-                        ClipImageTextRegions(
-                            item: item, revealed: ocrRevealed, copiedLine: ocrCopiedLine,
-                            links: ocrLinks, onLine: tapRecognizedLine)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: 340, alignment: .center)
-                    .clipShape(
-                        RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                    )
-                    .contentShape(Rectangle())
-                    .clipDragSource(item, model: model, enabled: allowsDragOut)
-                    .onTapGesture { showFullImage = true }
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityHint(Text("Open full screen to zoom"))
-            } else if requiresMasking, !revealed {
+            if requiresMasking, !revealed {
                 Text(ClipSafePresentation.masked)
                     .font(item.kind == .code ? .body.monospaced() : .body)
                     .foregroundStyle(.secondary)
