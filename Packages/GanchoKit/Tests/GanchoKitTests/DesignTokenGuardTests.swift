@@ -57,7 +57,8 @@ struct DesignTokenGuardTests {
             #"ganchoPrimaryVerb\(|PrimaryVerb\.ui"#,
             [
                 "Apps/GanchoMac/PeekActionButton.swift", "Apps/GanchoiOS/CaptureView.swift",
-                "Apps/GanchoiOS/ClipDetailView+Sections.swift",
+                "Apps/GanchoiOS/ClipDetailView+Hero.swift",
+                "Apps/GanchoKeyboard/KeyboardView.swift",
                 "Apps/GanchoShare/ShareSheetView.swift",
                 "Apps/GanchoWidgets/RecentClipsLargeView.swift",
                 "Apps/GanchoWidgets/ClipLiveActivity.swift"

@@ -34,4 +34,30 @@ struct KindMixTests {
         #expect(mix.reduce(0) { $0 + $1.count } == perKind.values.reduce(0, +))
         #expect(ClipKindFilter.mix(of: [:]).isEmpty)
     }
+
+    @Test("Captions name text and leave the other uncovered kinds as a last bare count")
+    func captionsSplitTheUncoveredBucket() {
+        let perKind: [ClipContentKind: Int] = [
+            .color: 9, .image: 6, .url: 5, .text: 2, .richText: 1, .fileReference: 1
+        ]
+        let mix = ClipKindFilter.captionedMix(of: perKind)
+        #expect(
+            mix == [
+                KindMixCaption(label: .filter(.colors), count: 9),
+                KindMixCaption(label: .filter(.images), count: 6),
+                KindMixCaption(label: .filter(.links), count: 5),
+                KindMixCaption(label: .text, count: 3),
+                KindMixCaption(label: .other, count: 1)
+            ])
+        #expect(mix.reduce(0) { $0 + $1.count } == perKind.values.reduce(0, +))
+    }
+
+    @Test("Text re-sorts by its own count; the unnamed count stays last however large")
+    func captionsResortAfterTheSplit() {
+        let mix = ClipKindFilter.captionedMix(of: [.email: 7, .text: 1, .url: 2, .code: 1])
+        #expect(mix.map(\.label) == [.filter(.links), .filter(.code), .text, .other])
+        #expect(ClipKindFilter.captionedMix(of: [.email: 2]).map(\.label) == [.other])
+        #expect(ClipKindFilter.captionedMix(of: [.richText: 2]).map(\.label) == [.text])
+        #expect(ClipKindFilter.captionedMix(of: [:]).isEmpty)
+    }
 }

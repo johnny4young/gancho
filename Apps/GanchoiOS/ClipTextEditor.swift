@@ -67,7 +67,7 @@ struct ClipTextEditor: View {
                     .accessibilityIdentifier("detail-cancel-content")
                 Spacer()
                 Button("Save") { save() }
-                    .ganchoButtonStyle(.primary)
+                    .ganchoButtonStyle(.secondary)
                     .disabled(isSaving || isBlank)
                     .accessibilityIdentifier("detail-save-content")
             }

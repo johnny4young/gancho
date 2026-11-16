@@ -40,7 +40,10 @@ struct KeyboardView: View {
                 .transition(.opacity)
             }
             if model.expanded {
-                if !model.boards.isEmpty { boardRow }
+                HStack(spacing: 8) {
+                    if model.boards.isEmpty { Spacer(minLength: 0) } else { boardRow }
+                    savePill
+                }
                 expandedList
             } else {
                 compactRow
@@ -55,7 +58,7 @@ struct KeyboardView: View {
     // MARK: - Board filter (expanded mode)
 
     /// A tap-friendly board strip — All · Favorites · synced boards — shown only
-    /// in the roomier expanded layout so the compact one-row strip stays minimal.
+    /// in the roomier expanded layout, beside Save clipboard.
     private var boardRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
@@ -116,9 +119,9 @@ struct KeyboardView: View {
                 Spacer(minLength: 0)
             }
 
-            // Action cluster: clearly spaced, with the primary save tinted.
+            // The expanded layout names Save beside the boards instead.
             HStack(spacing: 8) {
-                saveButton
+                if !model.expanded { saveButton }
                 iconButton(
                     model.expanded ? "chevron.down" : "chevron.up",
                     label: "Toggle size", action: model.toggleExpand)
@@ -144,6 +147,29 @@ struct KeyboardView: View {
         .buttonStyle(PressableScale())
         .foregroundStyle(GanchoTokens.Palette.ink2)
         .accessibilityLabel("Save clipboard")
+    }
+
+    private var savePill: some View {
+        Button(action: model.saveClipboard) {
+            HStack(spacing: 5) {
+                if model.saving {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Image(systemName: "square.and.arrow.down").font(.caption2)
+                }
+                Text("Save clipboard").font(.caption.weight(.medium))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .foregroundStyle(GanchoTokens.Palette.ink)
+            .overlay(
+                Capsule().strokeBorder(
+                    GanchoTokens.Palette.ink3, lineWidth: GanchoTokens.Stroke.hairline)
+            )
+            .contentShape(.capsule)
+        }
+        .buttonStyle(PressableScale())
+        .fixedSize()
     }
 
     private func iconButton(
@@ -174,17 +200,17 @@ struct KeyboardView: View {
                             model.insert(entry)
                         } label: {
                             HStack(spacing: 6) {
-                                Image(systemName: entry.kind.symbolName)
+                                Image(systemName: ClipTile.symbolName(for: entry.kind))
                                     .font(.caption2)
-                                    .foregroundStyle(GanchoTokens.Palette.kindTint(for: entry.kind))
+                                    .foregroundStyle(GanchoTokens.Palette.ink2)
                                 Text(entry.displayText)
                                     .lineLimit(1)
                                     .font(.callout)
-                                if isInserted { insertedPill }
+                                if isInserted { insertedCaption }
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 9)
-                            .background(rowFill(isInserted, idle: .fill.tertiary), in: .capsule)
+                            .background(rowFill(isInserted), in: .capsule)
                             .contentShape(.capsule)
                         }
                         .buttonStyle(PressableScale())
@@ -194,16 +220,17 @@ struct KeyboardView: View {
                     // fuller, searchable list (the chevron in the control bar
                     // alone wasn't discoverable).
                     Button(action: model.toggleExpand) {
-                        Image(systemName: "chevron.up")
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                            .background(.fill.quaternary, in: .capsule)
-                            .contentShape(.capsule)
+                        HStack(spacing: 4) {
+                            Text("Show all clips")
+                            Image(systemName: "chevron.right").imageScale(.small)
+                        }
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(GanchoTokens.Palette.ink2)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        .contentShape(.capsule)
                     }
                     .buttonStyle(PressableScale())
-                    .accessibilityLabel(Text("Show all clips"))
                 }
             }
             .padding(.horizontal, 2)
@@ -239,30 +266,41 @@ struct KeyboardView: View {
         .environment(\.defaultMinListRowHeight, 0)
     }
 
+    /// The clip the next tap would most likely want, with the keyboard's one
+    /// accent: the hook that inserts it.
     private func upNextRow(_ entry: WidgetClipEntry) -> some View {
         let isInserted = model.inserted.contains(entry.id)
-        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
         return Button {
             model.insert(entry)
         } label: {
-            HStack(spacing: GanchoTokens.Spacing.xs) {
-                Text("Up next")
-                    .font(.caption2.weight(.heavy))
-                    .textCase(.uppercase)
-                    .foregroundStyle(GanchoTokens.Palette.ink2)
-                Text(entry.displayText)
-                    .lineLimit(1)
-                    .font(.callout)
-                    .foregroundStyle(.primary)
+            HStack(spacing: 10) {
+                keyboardTile(for: entry)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Up next")
+                        .font(.caption2.monospaced().weight(.medium))
+                        .textCase(.uppercase)
+                        .tracking(0.8)
+                        .foregroundStyle(GanchoTokens.Palette.ink3)
+                    Text(entry.displayText)
+                        .lineLimit(1)
+                        .font(.callout)
+                        .foregroundStyle(GanchoTokens.Palette.ink)
+                }
                 Spacer(minLength: 0)
-                if isInserted { insertedPill }
+                if isInserted { insertedCaption }
+                HookMark()
+                    .frame(width: 16, height: 16)
+                    .frame(width: 32, height: 32)
+                    .ganchoPrimaryVerb(in: Circle())
+                    .accessibilityHidden(true)
             }
-            .padding(.horizontal, 10)
-            .frame(minHeight: 44)
-            .background(rowFill(isInserted, idle: .fill.quaternary), in: shape)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 52)
+            .background(rowFill(isInserted), in: shape)
             .overlay(
                 shape.strokeBorder(
-                    GanchoTokens.Palette.ink2, lineWidth: GanchoTokens.Stroke.hairline)
+                    GanchoTokens.Palette.ink, lineWidth: GanchoTokens.Stroke.hairline)
             )
             .contentShape(shape)
         }
@@ -272,6 +310,7 @@ struct KeyboardView: View {
         .listRowBackground(Color.clear)
         .accessibilityValue(isInserted ? Text("Inserted") : Text(verbatim: ""))
         .accessibilityIdentifier("keyboard-up-next")
+        .task(id: entry.id) { await model.ensureThumbnail(entry) }
     }
 
     /// One history row with its swipe actions: Copy (→ pasteboard, so it can be
@@ -313,11 +352,11 @@ struct KeyboardView: View {
                     metadataLine(for: entry)
                 }
                 Spacer(minLength: 0)
-                if isInserted { insertedPill }
+                if isInserted { insertedCaption }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(rowFill(isInserted, idle: .fill.quaternary), in: .rect(cornerRadius: 12))
+            .background(rowFill(isInserted), in: .rect(cornerRadius: 12))
             .contentShape(.rect)
         }
         .buttonStyle(PressableScale())
@@ -326,21 +365,19 @@ struct KeyboardView: View {
     }
 
     /// Marks a row already typed into the current field.
-    private var insertedPill: some View {
+    private var insertedCaption: some View {
         HStack(spacing: 3) {
             Image(systemName: "checkmark").imageScale(.small)
             Text("Inserted").textCase(.lowercase)
         }
-        .font(.caption2.weight(.semibold))
-        .padding(.horizontal, 7)
-        .frame(minHeight: 18)
-        .ganchoInverseBadge()
+        .font(.caption2.weight(.medium))
+        .foregroundStyle(GanchoTokens.Palette.ink3)
         .accessibilityHidden(true)
     }
 
-    private func rowFill(_ isInserted: Bool, idle: some ShapeStyle) -> AnyShapeStyle {
-        isInserted
-            ? AnyShapeStyle(GanchoTokens.Palette.selectionWash) : AnyShapeStyle(idle)
+    /// Rows are cards on the keyboard; an inserted one takes the wash.
+    private func rowFill(_ isInserted: Bool) -> Color {
+        isInserted ? GanchoTokens.Palette.selectionWash : GanchoTokens.Palette.surface(.panel)
     }
 
     private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {
@@ -368,26 +405,32 @@ struct KeyboardView: View {
             .foregroundStyle(.tertiary)
     }
 
-    /// Leading tile: the image clip's thumbnail when one is loaded, otherwise the
-    /// kind glyph on a tint-washed rounded square (matches the app's history row).
+    /// Leading tile, as the app's rows draw it: an image's thumbnail, a
+    /// colour's swatch, otherwise the kind's glyph on the neutral fill.
     @ViewBuilder private func keyboardTile(for entry: WidgetClipEntry) -> some View {
         let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        let outline = shape.strokeBorder(.separator, lineWidth: 0.5)
         if let thumbnail = model.thumbnail(for: entry.id) {
             thumbnail
                 .resizable()
                 .scaledToFill()
                 .frame(width: 30, height: 30)
                 .clipShape(shape)
-                .overlay(shape.strokeBorder(.separator, lineWidth: 0.5))
+                .overlay(outline)
+        } else if entry.kind == .color, !entry.isSensitive,
+            let value = ColorValue.parse(entry.displayText)
+        {
+            shape.fill(Color(Color.Resolved(value)))
+                .frame(width: 30, height: 30)
+                .overlay(outline)
         } else {
-            let tint = GanchoTokens.Palette.kindTint(for: entry.kind)
             shape
-                .fill(tint.opacity(0.18))
+                .fill(GanchoTokens.Palette.controlFill)
                 .frame(width: 30, height: 30)
                 .overlay {
-                    Image(systemName: entry.kind.symbolName)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(tint)
+                    Image(systemName: ClipTile.symbolName(for: entry.kind))
+                        .font(.system(size: 13))
+                        .foregroundStyle(GanchoTokens.Palette.ink2)
                 }
         }
     }

@@ -1556,7 +1556,8 @@ struct PanelView: View {
             PanelGalleryCard(
                 item: item, isSelected: search.isSelected(item.id),
                 previewsHidden: model.previewsHidden,
-                shortcutNumber: shortcutNumber, thumbnails: model.thumbnails)
+                shortcutNumber: shortcutNumber, thumbnails: model.thumbnails,
+                sensitiveLifetime: model.retentionPolicy.sensitiveLifetime)
         }
     }
 
