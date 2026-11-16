@@ -37,6 +37,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   the words you searched for, and the preview's actions are one line: Paste as
   the single filled button, then Plain, Pin, Board and Stack with their keys,
   and an Actions list that also holds whatever a narrow panel has no room for.
+- On the Mac, an empty history shows Gancho's hook and the three keys that
+  make the whole loop, and a search that finds nothing lists what the other
+  modes found, with the best one a single ↓ away and previewed beside it.
 - On the Mac, time left is a ring and privacy is redaction: a secret's preview
   counts down on a dial (⌘R reveals it for 10 s), and Private Mode shows its
   time left on the same ring and draws hidden rows and previews as bars and

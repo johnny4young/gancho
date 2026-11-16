@@ -495,12 +495,15 @@ struct PanelView: View {
     /// The three-key lesson fills the peek column of a first-run panel.
     private var showsFirstRunStage: Bool {
         PanelFirstRunStage.isShown(
-            // The stored total, not just the list: rows still loading must not
-            // flash the lesson over a non-empty history.
-            historyEmpty: scopeCounts.total == 0 && search.filtered.isEmpty,
-            narrowed: !search.query.isEmpty || search.hasActiveFilter,
+            historyEmpty: historyIsEmpty, narrowed: isNarrowed,
             hasPastedBack: firstPasteBackAt != nil)
     }
+
+    /// The stored total, not just the list: rows still loading must not flash
+    /// the lesson over a non-empty history.
+    private var historyIsEmpty: Bool { scopeCounts.total == 0 && search.filtered.isEmpty }
+
+    private var isNarrowed: Bool { !search.query.isEmpty || search.hasActiveFilter }
 
     /// The colour the ambient wash takes: an image's average, otherwise the
     /// kind's tint; nil when the wash is off, legibility settings veto it, or
@@ -931,6 +934,8 @@ struct PanelView: View {
             chip: model.captureChip(frontApp: model.pasteTarget.appName),
             privateModeStart: model.preferences.privateModeStartedAt,
             privateModeShortcut: privateModeShortcut,
+            awaitsFirstCopy: PanelFirstRunStage.awaitsFirstCopy(
+                historyEmpty: historyIsEmpty, narrowed: isNarrowed),
             alternativeHint: bestAlternative?.alternative.footerHint,
             offersEyedropper: offersEyedropper && !stackIsShown,
             stackIsOpen: stackBinding,
@@ -1553,13 +1558,13 @@ struct PanelView: View {
     /// The first-run empty-state hint. Normally "⌘C to start", but when capture
     /// is actually blocked it names the cause instead of misleading the user into
     /// thinking a copy will land (the banner above offers the one-tap fix).
-    private var firstRunCaptureHint: LocalizedStringKey {
+    private var firstRunCaptureHint: LocalizedStringKey? {
         switch capturePresentation.notice {
         case .privateMode: "Private Mode is on — resume it above to start saving."
         case .denied: "Clipboard access is off — turn it on above to start."
         case .screenShare: "Capture is paused while sharing your screen."
         case .paused: "Capture is paused — resume it above to start saving."
-        default: "⌘C in any app to start"
+        default: nil
         }
     }
 

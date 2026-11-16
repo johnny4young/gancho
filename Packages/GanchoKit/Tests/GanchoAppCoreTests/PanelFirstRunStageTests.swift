@@ -25,6 +25,13 @@ struct PanelFirstRunStageTests {
         #expect(PanelFirstRunStage.keycaps(for: "").isEmpty)
     }
 
+    @Test("The footer waits for a first copy only while the history itself is empty")
+    func awaitsFirstCopy() {
+        #expect(PanelFirstRunStage.awaitsFirstCopy(historyEmpty: true, narrowed: false))
+        #expect(!PanelFirstRunStage.awaitsFirstCopy(historyEmpty: true, narrowed: true))
+        #expect(!PanelFirstRunStage.awaitsFirstCopy(historyEmpty: false, narrowed: false))
+    }
+
     @Test("Paste-back methods stamp the first paste; a drag or a copy does not")
     func pasteBackMethods() {
         #expect(

@@ -20,19 +20,26 @@
             badged ? badgedHook : plainHook
         }
 
+        /// The same hook drawn at another size, for surfaces that show the mark large.
+        public static func mark(side: CGFloat) -> NSImage {
+            hook(width: side, notch: false, side: side)
+        }
+
         private static let plainHook = hook(width: hookSide, notch: false)
         private static let badgedHook = hook(width: badgedWidth, notch: true)
 
         /// gancho's hook from the design's SVG path (viewBox 0 0 96 96) in
         /// AppKit's y-up space, with the menu-bar strokes (13 / 9) so it holds
         /// at 18 pt.
-        private static func hook(width: CGFloat, notch: Bool) -> NSImage {
+        private static func hook(
+            width: CGFloat, notch: Bool, side: CGFloat = hookSide
+        ) -> NSImage {
             let image = NSImage(
-                size: NSSize(width: width, height: hookSide), flipped: false
+                size: NSSize(width: width, height: side), flipped: false
             ) { _ in
                 NSGraphicsContext.saveGraphicsState()
                 let transform = NSAffineTransform()
-                transform.scale(by: hookSide / 96)
+                transform.scale(by: side / 96)
                 transform.concat()
                 NSColor.black.set()
 

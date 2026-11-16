@@ -35,6 +35,34 @@ public struct PanelAlternativeResult: Sendable, Equatable {
     }
 }
 
+/// What the list says while nothing matches, and which alternative ↓ takes.
+public enum PanelNoMatches {
+    public enum Caption: Equatable, Sendable {
+        /// A filter alone emptied the list: there is no query to quote back.
+        case filter
+        case query(String)
+        case scoped(query: String, scope: String)
+    }
+
+    public static func caption(query: String, scopeName: String?) -> Caption {
+        if query.isEmpty { return .filter }
+        if let scopeName { return .scoped(query: query, scope: scopeName) }
+        return .query(query)
+    }
+
+    /// The one washed row: the alternative ↓ applies, nil when none found anything.
+    public static func washed(in results: [PanelAlternativeResult]) -> PanelSearchAlternative? {
+        PanelAlternativeResult.best(of: results)?.alternative
+    }
+
+    /// "Try another word" only when no key and no button leads anywhere.
+    public static func suggestsAnotherWord(
+        hasActiveFilter: Bool, results: [PanelAlternativeResult]
+    ) -> Bool {
+        !hasActiveFilter && washed(in: results) == nil
+    }
+}
+
 extension PanelSearchModel {
     /// Runs the current query once per other mode, and outside the board when
     /// one is selected, in the panel's order. Meaning is asked only when its

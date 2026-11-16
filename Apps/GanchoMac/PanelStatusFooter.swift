@@ -13,6 +13,8 @@ struct PanelStatusFooter: View {
     var privateModeStart: Date?
     /// The recorded Private Mode shortcut; with none there is no "off" hint.
     let privateModeShortcut: String?
+    /// An empty history: the chip says what capture is waiting for.
+    var awaitsFirstCopy = false
     /// "↓ use fuzzy" while a query matches nothing and an alternative does.
     var alternativeHint: LocalizedStringKey?
     /// "I eyedropper" while the selected clip is a visible image.
@@ -23,7 +25,8 @@ struct PanelStatusFooter: View {
 
     var body: some View {
         HStack(spacing: GanchoTokens.Spacing.md) {
-            PanelCaptureChipView(chip: chip, privateModeStart: privateModeStart)
+            PanelCaptureChipView(
+                chip: chip, awaitsFirstCopy: awaitsFirstCopy, privateModeStart: privateModeStart)
             SyncStatusView(status: syncStatus, isQuiet: true)
             PasteStackStrip(isOpen: $stackIsOpen)
             Spacer(minLength: 0)
@@ -68,6 +71,7 @@ struct PanelStatusFooter: View {
 /// time left as a ring, otherwise a colour and its cause.
 struct PanelCaptureChipView: View {
     let chip: PanelCaptureChip
+    var awaitsFirstCopy = false
     /// Private Mode's start: the ring empties from here to the deadline.
     var privateModeStart: Date?
     @Environment(\.panelTypeScale) private var typeScale
@@ -89,7 +93,10 @@ struct PanelCaptureChipView: View {
                 HStack(spacing: 7) {
                     LiveDot(size: 7 * typeScale)
                     Text("Capturing").panelFont(.caption2, .medium).lineLimit(1)
-                    if let app {
+                    if awaitsFirstCopy {
+                        Text("· waiting for your first copy").panelFont(.caption2).lineLimit(1)
+                            .foregroundStyle(GanchoTokens.Palette.ink3)
+                    } else if let app {
                         // The label still says the app is in front.
                         Text(verbatim: "· \(app)").panelFont(.caption2).lineLimit(1)
                             .foregroundStyle(GanchoTokens.Palette.ink3)
@@ -137,6 +144,7 @@ struct PanelCaptureChipView: View {
     /// The spoken label, also shown for the paused and denied pills.
     private func title(now: Date) -> LocalizedStringKey {
         switch chip {
+        case .capturing where awaitsFirstCopy: "Capturing · waiting for your first copy"
         case .capturing(let app?): "Capturing · \(app) in front"
         case .capturing: "Capturing"
         case .privateMode(let end?):
