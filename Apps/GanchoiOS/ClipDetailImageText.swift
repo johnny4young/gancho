@@ -13,7 +13,7 @@ struct ImageTextLineStyle {
 
     var tint: Color {
         if isHeld { return GanchoTokens.Palette.danger }
-        if isCopied { return GanchoTokens.Palette.ink }
+        if isCopied { return GanchoTokens.Palette.imageOverlay }
         if isLink { return GanchoTokens.Palette.kindTint(for: .url) }
         return Color(uiColor: .systemGray)
     }
@@ -78,7 +78,7 @@ struct ClipImageTextRegions: View {
             .overlay(alignment: .topLeading) {
                 Text(verbatim: "\(index + 1)")
                     .font(.system(size: 10, weight: .heavy))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(ContrastingForeground(on: style.tint))
                     .frame(width: 16, height: 16)
                     .background(style.tint, in: Circle())
                     // Pulled inside the image near an edge, where it would be clipped.

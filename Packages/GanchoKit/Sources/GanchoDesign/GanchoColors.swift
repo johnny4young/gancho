@@ -43,6 +43,9 @@ extension GanchoTokens {
         /// Tint for system controls (switches, progress, links). Mid graphite
         /// in dark: full ink would hide a switch's white knob.
         public static let controlTint = ColorPair.controlTint.color
+        /// Marks drawn over a screenshot follow the image, not the app's appearance:
+        /// a mid grey stays visible on dark and light images alike.
+        public static let imageOverlay = ColorPair.imageOverlay.color
 
         // MARK: Semantic status roles
 
@@ -77,8 +80,8 @@ extension GanchoTokens {
         /// Read once: a system-accent change is picked up on the next launch.
         static let accentIsBrand: Bool = {
             #if DEBUG
-                // Design snapshots pin the brand accent whatever this Mac's Theme colour is.
-                if CommandLine.arguments.contains("-ui-test-brand-accent") { return true }
+                // Design snapshots render the brand accent whatever this Mac's Theme colour is.
+                if CommandLine.arguments.contains("-ui-test-snapshot-dir") { return true }
             #endif
             #if canImport(AppKit)
                 return usesBrandAccent(
@@ -359,6 +362,7 @@ extension GanchoTokens {
         static let ink2 = ColorPair(light: (0x4F, 0x53, 0x51), dark: (0xB6, 0xB5, 0xAD))
         static let ink3 = ColorPair(light: (0x62, 0x66, 0x64), dark: (0x9A, 0x99, 0x92))
         static let controlTint = ColorPair(light: graphite, dark: (0x94, 0x93, 0x8C))
+        static let imageOverlay = ColorPair(light: (0x80, 0x80, 0x7C), dark: (0x80, 0x80, 0x7C))
 
         static let danger = ColorPair(
             light: StatusBytes.dangerLight, dark: StatusBytes.dangerDark)

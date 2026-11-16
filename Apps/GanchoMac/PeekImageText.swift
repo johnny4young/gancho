@@ -18,7 +18,7 @@ enum PeekImageText {
     }
 
     static func tint(masked: Bool) -> Color {
-        masked ? GanchoTokens.Palette.danger : GanchoTokens.Palette.ink
+        masked ? GanchoTokens.Palette.danger : GanchoTokens.Palette.imageOverlay
     }
 
     /// A click on a region or a row: reveal first when masked, otherwise copy

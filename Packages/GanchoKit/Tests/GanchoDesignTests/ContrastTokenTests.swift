@@ -130,6 +130,15 @@ struct ContrastTokenTests {
         #expect(Contrast.ratio(tint, resolved(0xFFFFFF, environment)) >= Contrast.largeText)
     }
 
+    @Test("Image overlays stay visible on black and on white images", arguments: appearances)
+    func imageOverlay(scheme: ColorScheme) {
+        let environment = environment(scheme)
+        let overlay = GanchoTokens.ColorPair.imageOverlay.resolved(scheme)
+        for image in [0x000000, 0xFFFFFF] {
+            #expect(Contrast.ratio(overlay, resolved(image, environment)) >= Contrast.largeText)
+        }
+    }
+
     @MainActor @Test("Danger reads as text on its surfaces", arguments: appearances)
     func dangerText(scheme: ColorScheme) {
         let environment = environment(scheme)
