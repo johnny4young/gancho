@@ -156,6 +156,7 @@ struct PeekTransformPopover: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: title(row)))
         .accessibilityValue(Text(verbatim: rowKey ?? ""))
+        .accessibilityAddTraits(isHighlighted ? .isSelected : [])
         .accessibilityIdentifier(row.panelIdentifier)
     }
 

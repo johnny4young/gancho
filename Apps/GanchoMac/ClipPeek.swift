@@ -61,7 +61,7 @@ struct ClipPeek: View {
     @State private var actionIndex = 0
     /// User-authored titles are edited inline; drafts never mutate the store
     /// until Save succeeds.
-    @State var presentedTitle: String
+    @State private var presentedTitle: String
     @State private var titleDraft: String
     @State private var isEditingTitle = false
     @State private var isSavingTitle = false
