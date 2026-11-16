@@ -13,7 +13,7 @@ struct ImageTextLineStyle {
 
     var tint: Color {
         if isHeld { return GanchoTokens.Palette.danger }
-        if isCopied { return GanchoTokens.Palette.ink }
+        if isCopied { return GanchoTokens.Palette.imageOverlay }
         if isLink { return GanchoTokens.Palette.kindTint(for: .url) }
         return Color(uiColor: .systemGray)
     }
