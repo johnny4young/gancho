@@ -190,8 +190,7 @@ public struct ClipCard: View {
         matchQuery: String? = nil
     ) {
         let protected = ClipSafePresentation.requiresMasking(item)
-        let masking: ClipRowContent.Masking =
-            previewsHidden ? .hidden : protected ? .storedMask : .none
+        let masking = ClipRowContent.Masking.for(item, previewsHidden: previewsHidden)
         self.item = item
         self.isSelected = isSelected
         self.previewsHidden = previewsHidden || protected

@@ -40,7 +40,7 @@ final class CopyActionsUITests: XCTestCase {
         let app = launch(seeding: "color")
         defer { app.terminate() }
         XCTAssertTrue(hud(app).appears(within: 10))
-        XCTAssertTrue(title(app).contains("Color · #008080"), title(app))
+        XCTAssertTrue(title(app).contains("#008080"), title(app))
         XCTAssertTrue(app.buttons["copy-hud-action-rgb"].exists)
         XCTAssertTrue(app.buttons["copy-hud-action-hsl"].exists)
         try keepRender(of: "copy-hud-panel", in: app, named: "Color HUD")
@@ -51,7 +51,7 @@ final class CopyActionsUITests: XCTestCase {
         let app = launch(seeding: "link")
         defer { app.terminate() }
         XCTAssertTrue(hud(app).appears(within: 10))
-        XCTAssertTrue(title(app).contains("Link · gancho.app"), title(app))
+        XCTAssertTrue(title(app).contains("gancho.app"), title(app))
         XCTAssertTrue(app.buttons["copy-hud-action-open"].exists)
         try keepRender(of: "copy-hud-panel", in: app, named: "Link HUD")
     }

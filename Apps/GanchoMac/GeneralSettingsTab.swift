@@ -33,7 +33,7 @@ struct GeneralSettingsTab: View {
                     Text("This shortcut is used by the system (\(shortcutWarning)).")
                 } icon: {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(GanchoTokens.Palette.ink2)
                 }
                 .font(.callout)
             }
@@ -70,7 +70,7 @@ struct GeneralSettingsTab: View {
                 Text("Last position").tag(PanelPosition.lastPosition)
             }
 
-            Section("Panel") {
+            SettingsSection("Panel") {
                 Picker("Text size", selection: textSizeBinding) {
                     Text("Small").tag(PanelTextSize.small)
                     Text("Standard").tag(PanelTextSize.standard)

@@ -110,6 +110,30 @@ struct ClipRowContentTests {
         #expect(hidden.details.isEmpty)
     }
 
+    @Test("Hidden previews mask every clip; otherwise only protected clips are masked")
+    func maskingFor() {
+        let plain = ClipItem(kind: .text, title: "", preview: "hello", contentHash: "a")
+        let secret = ClipItem(kind: .secret, title: "", preview: "●●●● 4Q2v", contentHash: "b")
+        #expect(ClipRowContent.Masking.for(plain, previewsHidden: true) == .hidden)
+        #expect(ClipRowContent.Masking.for(secret, previewsHidden: true) == .hidden)
+        #expect(ClipRowContent.Masking.for(secret, previewsHidden: false) == .storedMask)
+        #expect(ClipRowContent.Masking.for(plain, previewsHidden: false) == .none)
+    }
+
+    @Test("Floating surfaces drop a link's query and fragment but keep its path")
+    func withoutLinkQuery() {
+        let reset = row(.url, "https://www.gancho.app/reset/pass?token=abc123#step=2")
+        #expect(reset.headline.withoutLinkQuery == .link(host: "gancho.app", path: "/reset/pass"))
+        let fragment = row(.url, "https://auth.example.com/cb#access_token=xyz")
+        #expect(fragment.headline.withoutLinkQuery == .link(host: "auth.example.com", path: "/cb"))
+        let bare = row(.url, "https://example.com/?q=secret")
+        #expect(bare.headline.withoutLinkQuery == .link(host: "example.com", path: nil))
+        #expect(
+            row(.url, "https://example.com").headline.withoutLinkQuery
+                == .link(host: "example.com", path: nil))
+        #expect(row(.text, "a?b").headline.withoutLinkQuery == .text("a?b"))
+    }
+
     @Test("The selected row's key is Return; other rows keep ⌘1–⌘9")
     func shortcutKey() {
         #expect(ClipShortcutBadge.key(number: 3, isSelected: false) == .number(3))
