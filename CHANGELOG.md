@@ -44,6 +44,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   counts down on a dial (⌘R reveals it for 10 s), and Private Mode shows its
   time left on the same ring and draws hidden rows and previews as bars and
   hatch, with no indigo.
+- On the Mac, the paste stack opens in the preview: numbered clips with the
+  pasted ones checked and the next one marked, drag or VoiceOver actions to
+  reorder and remove, Return to paste the next and esc to end the run.
 - On the Mac, each copy costs Gancho far less work. Titles, search and board
   suggestions share one loaded language model instead of loading it for every
   clip, and the hidden history panel no longer redraws itself on every copy.

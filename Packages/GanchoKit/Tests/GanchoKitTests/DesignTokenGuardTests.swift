@@ -53,7 +53,9 @@ struct DesignTokenGuardTests {
             #"\bReturnKeyCap\("#,
             [
                 "Apps/GanchoMac/PeekLinkHero.swift", "Apps/GanchoMac/PeekTransformPopover.swift",
-                "Apps/GanchoMac/PanelFirstRunStageView.swift"
+                "Apps/GanchoMac/PanelFirstRunStageView.swift",
+                // The stack's next row is what Return pastes while it shows.
+                "Apps/GanchoMac/PeekPasteStack.swift"
             ]
         ),
         (#"\.ganchoCaret\("#, ["Apps/GanchoMac/PeekTransformPopover.swift"]),

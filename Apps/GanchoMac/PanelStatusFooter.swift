@@ -19,6 +19,8 @@ struct PanelStatusFooter: View {
     var alternativeHint: LocalizedStringKey?
     /// "I eyedropper" while the selected clip is a visible image.
     var offersEyedropper = false
+    /// The stack is showing in the peek.
+    @Binding var stackIsOpen: Bool
     let showKeyboardShortcuts: () -> Void
 
     var body: some View {
@@ -26,7 +28,7 @@ struct PanelStatusFooter: View {
             PanelCaptureChipView(
                 chip: chip, awaitsFirstCopy: awaitsFirstCopy, privateModeStart: privateModeStart)
             SyncStatusView(status: syncStatus, isQuiet: true)
-            PasteStackStrip()
+            PasteStackStrip(isOpen: $stackIsOpen)
             Spacer(minLength: 0)
             if let alternativeHint {
                 keyboardHint(alternativeHint, keys: ["↓"])

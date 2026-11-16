@@ -101,6 +101,8 @@ struct PanelView: View {
     /// The keyboard cheat-sheet overlay (⌘/ or the footer "?"): surfaces the
     /// power shortcuts (⌘P/⌘S/⌥⏎/⌘1-9) that the footer hints can't fit.
     @State private var showShortcuts = false
+    /// The paste stack takes the peek: on request, and whenever a run is on.
+    @State private var showsStack = false
     /// The ⌘B board picker overlay for the selected clip.
     @State private var showBoardPicker = false
     /// Where focus returns when the board picker closes (the list or the peek).
@@ -264,6 +266,7 @@ struct PanelView: View {
                 }
                 // An unsaved inline edit survives a trip to another app.
                 guard !peekIsEditingInline else { return }
+                showsStack = model.pasteStack.isRunActive
                 railFocus = nil
                 focus = .search
                 search.followNewestClip()
@@ -293,7 +296,11 @@ struct PanelView: View {
             HStack(alignment: .top, spacing: 0) {
                 listColumn
                     .frame(minWidth: 360, idealWidth: 440, maxWidth: .infinity)
-                if let selected = search.selectedItem {
+                if stackIsShown {
+                    Divider()
+                    PeekPasteStack(close: closeStack)
+                        .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
+                } else if let selected = search.selectedItem {
                     Divider()
                     peekColumn(for: selected)
                 } else if showsFirstRunStage {
@@ -368,6 +375,10 @@ struct PanelView: View {
                 cancelPendingPaste()
             }
             .onChange(of: search.meaningEnabled) { _, _ in Task { await search.refresh() } }
+            // A stack queued later opens only when asked.
+            .onChange(of: model.pasteStackEntries.isEmpty) { _, isEmpty in
+                if isEmpty { showsStack = false }
+            }
             .onChange(of: model.previewsHidden) { _, hidden in
                 if hidden { model.panel.closeLargePreview() }
             }
@@ -686,6 +697,13 @@ struct PanelView: View {
                 // keyword match takes Enter (you typed the snippet shortcut on
                 // purpose); else Enter pastes the selection (⌥Return = plain).
                 if railFocus != nil { return handleNav(.toggle) }
+                // Plain Return belongs to the stack while the peek shows it.
+                if stackIsShown,
+                    press.modifiers.isDisjoint(with: [.command, .option, .shift, .control])
+                {
+                    model.pasteNextFromStack()
+                    return .handled
+                }
                 // ⌥⌘Return with a selection queues it (never from stale rows);
                 // with none it falls through to the snippet/plain paste below.
                 if press.modifiers.contains(.command), press.modifiers.contains(.option),
@@ -709,6 +727,10 @@ struct PanelView: View {
                 // otherwise esc hides the panel.
                 if showShortcuts {
                     showShortcuts = false
+                    return .handled
+                }
+                if stackIsShown {
+                    closeStack()
                     return .handled
                 }
                 if search.isShowingContext {
@@ -915,7 +937,8 @@ struct PanelView: View {
             awaitsFirstCopy: PanelFirstRunStage.awaitsFirstCopy(
                 historyEmpty: historyIsEmpty, narrowed: isNarrowed),
             alternativeHint: bestAlternative?.alternative.footerHint,
-            offersEyedropper: offersEyedropper,
+            offersEyedropper: offersEyedropper && !stackIsShown,
+            stackIsOpen: stackBinding,
             showKeyboardShortcuts: { toggleKeyboardShortcuts() }
         )
         .onReceive(
@@ -1583,7 +1606,8 @@ struct PanelView: View {
             // context rows are picked by time, not by the query.
             matchQuery: !search.isShowingContext
                 && (search.searchMode == .exact || search.searchMode == .fuzzy)
-                ? search.query : nil)
+                ? search.query : nil,
+            marksReturn: !stackIsShown)
     }
 
     /// Pin/board assignment — the context-menu path; drag & drop arrives
@@ -1679,6 +1703,30 @@ struct PanelView: View {
                 .animation(
                     GanchoMotion.smooth(reduceMotion: reduceMotion), value: ambientTint)
         }
+    }
+
+    private var stackIsShown: Bool { showsStack && !model.pasteStackEntries.isEmpty }
+
+    /// The footer's toggle. Opening hands the keyboard back to the search
+    /// field; an inline edit in the peek is never swapped out from under it.
+    private var stackBinding: Binding<Bool> {
+        Binding(
+            get: { stackIsShown },
+            set: { open in
+                guard !peekIsEditingInline else { return }
+                showsStack = open
+                if open {
+                    cancelPendingPaste()
+                    railFocus = nil
+                    focus = .search
+                }
+            })
+    }
+
+    /// esc and the dock's last button: end an active run, then leave the stack.
+    private func closeStack() {
+        if model.pasteStack.isRunActive { model.endStackRun() }
+        showsStack = false
     }
 
     /// The peek offers Show context outside context mode only.
@@ -1855,7 +1903,7 @@ struct PanelView: View {
         if search.selectedBoardID != result.state.selectedBoardID {
             search.selectedBoardID = result.state.selectedBoardID
         }
-        if result.focusPeek { focus = .peek }
+        if result.focusPeek, !stackIsShown { focus = .peek }
         if let index = result.loadMoreAt { Task { await search.loadMoreIfNeeded(index) } }
         return result.handled ? .handled : .ignored
     }
