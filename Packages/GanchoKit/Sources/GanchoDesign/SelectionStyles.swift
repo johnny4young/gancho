@@ -1,5 +1,24 @@
 import SwiftUI
 
+/// A 1 pt rule in the hairline token: under a header, between two panes.
+public struct Hairline: View {
+    let axis: Axis
+
+    public init(_ axis: Axis = .horizontal) {
+        self.axis = axis
+    }
+
+    public var body: some View {
+        Rectangle()
+            .fill(GanchoTokens.Palette.hairline)
+            .frame(
+                width: axis == .vertical ? GanchoTokens.Stroke.hairline : nil,
+                height: axis == .horizontal ? GanchoTokens.Stroke.hairline : nil
+            )
+            .accessibilityHidden(true)
+    }
+}
+
 extension View {
     /// A chip with a resting fill: the control fill at rest, an inverse fill
     /// when selected, so the two never read as the same grey.

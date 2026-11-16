@@ -35,7 +35,7 @@ public struct ClipTile: View {
 
     public var body: some View {
         let masked = hidden || ClipSafePresentation.requiresMasking(item)
-        let shape = RoundedRectangle(cornerRadius: size * 8 / 34, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: size / 4, style: .continuous)
         Group {
             if item.kind == .image, !masked, let thumbnail {
                 thumbnail

@@ -11,6 +11,7 @@ import SwiftUI
 struct PanelResultsView<RowContent: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.ganchoOpaqueSurfaces) private var opaqueSurfaces
+    @Environment(\.panelTypeScale) private var typeScale
     @State private var listIsScrolling = false
 
     let query: String
@@ -72,9 +73,9 @@ struct PanelResultsView<RowContent: View>: View {
                 ScrollView {
                     switch layout {
                     case .list:
+                        // Rows touch: each is its own 50 pt, like the tiles in them.
                         LazyVStack(
-                            spacing: GanchoTokens.Spacing.xxs,
-                            pinnedViews: showsSections ? [.sectionHeaders] : []
+                            spacing: 0, pinnedViews: showsSections ? [.sectionHeaders] : []
                         ) {
                             if showsSections {
                                 groupedRows
@@ -82,7 +83,7 @@ struct PanelResultsView<RowContent: View>: View {
                                 flatRows
                             }
                         }
-                        .padding(.horizontal, GanchoTokens.Spacing.xxs)
+                        .padding(.horizontal, GanchoTokens.Spacing.xs)
                     case .gallery:
                         // Flat, in the same order as the grouped list: section
                         // headers would start new grid rows and break the
@@ -158,7 +159,8 @@ struct PanelResultsView<RowContent: View>: View {
             clipCount(items.count)
         }
         .peekCaps()
-        .padding(.horizontal, GanchoTokens.Spacing.xs)
+        .padding(.horizontal, 18)
+        .frame(height: 26 * typeScale)
         .accessibilityElement(children: .combine)
     }
 
@@ -190,8 +192,8 @@ struct PanelResultsView<RowContent: View>: View {
             clipCount(count)
         }
         .peekCaps()
-        .padding(.horizontal, GanchoTokens.Spacing.xs)
-        .padding(.vertical, GanchoTokens.Spacing.xxs)
+        .padding(.horizontal, 10)
+        .frame(height: 26 * typeScale)
         // Pinned over scrolling rows, so it wears the panel's own surface: no band.
         .background {
             if opaqueSurfaces {

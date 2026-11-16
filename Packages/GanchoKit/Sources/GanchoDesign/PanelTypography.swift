@@ -127,10 +127,11 @@ extension View {
     /// A fixed base size (glyphs, monograms, empty-state symbols) at the
     /// current type scale.
     public func panelFont(
-        size: CGFloat, _ weight: Font.Weight = .regular, design: Font.Design = .default
+        size: CGFloat, _ weight: Font.Weight = .regular, design: Font.Design = .default,
+        digits: Bool = false
     ) -> some View {
         modifier(
-            PanelFontModifier(style: nil, size: size, weight: weight, design: design, digits: false)
-        )
+            PanelFontModifier(
+                style: nil, size: size, weight: weight, design: design, digits: digits))
     }
 }

@@ -27,6 +27,8 @@ extension GanchoTokens {
         /// A translucent resting fill for chips, key caps and tiles, on any
         /// surface. `surface(.control)` is the opaque level controls sit on.
         public static let controlFill = ColorPair.controlFill.color
+        /// A card on the panel: the peek's stage.
+        public static let cardFill = ColorPair.card.color
         /// The selected row, tab, chip or pill. Selection is never the accent.
         public static let selectionWash = ColorPair.selection.color
         /// Primary text and glyphs, and the fill of an inverse surface.
@@ -36,6 +38,8 @@ extension GanchoTokens {
         /// Captions, counts and placeholders.
         public static let ink3 = ColorPair.ink3.color
         public static let hairline = ColorPair.hairline.color
+        /// A control's outline and the marks under text: twice the hairline.
+        public static let hairlineStrong = ColorPair.hairlineStrong.color
 
         public static var inverseFill: Color { ink }
         public static let inverseText = ColorPair.panel.color
@@ -363,6 +367,8 @@ extension GanchoTokens {
             light: graphite, dark: white, lightAlpha: 0.07, darkAlpha: 0.09)
         static let hairline = ColorPair(
             light: graphite, dark: white, lightAlpha: 0.10, darkAlpha: 0.085)
+        static let hairlineStrong = ColorPair(
+            light: graphite, dark: white, lightAlpha: 0.20, darkAlpha: 0.17)
         static let ink = ColorPair(light: graphite, dark: (0xF5, 0xF4, 0xEF))
         static let ink2 = ColorPair(light: (0x4F, 0x53, 0x51), dark: (0xB6, 0xB5, 0xAD))
         static let ink3 = ColorPair(light: StatusBytes.ink3, dark: (0x9A, 0x99, 0x92))

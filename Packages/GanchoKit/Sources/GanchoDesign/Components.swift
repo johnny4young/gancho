@@ -146,6 +146,38 @@ extension GanchoTokens.Palette {
     }
 }
 
+/// A row's measures. The Mac panel is drawn to fixed sizes: a 50 pt row with a
+/// 32 pt tile; iOS rows follow Dynamic Type instead.
+enum RowMetrics {
+    #if os(macOS)
+        static let tile: CGFloat = 32
+        static let gap: CGFloat = 11
+        static let height: CGFloat = 50
+        static let verticalPadding: CGFloat = 4
+        static let radius: CGFloat = 9
+    #else
+        static let tile: CGFloat = 34
+        static let gap = GanchoTokens.Spacing.sm
+        static let height: CGFloat = 0
+        static let verticalPadding = GanchoTokens.Spacing.xs
+        static let radius = GanchoTokens.Radius.md
+    #endif
+}
+
+extension View {
+    /// A row's text: the Mac's own point size, the system text style on iOS.
+    fileprivate func rowFont(
+        _ style: PanelTextStyle, mac size: CGFloat, _ weight: Font.Weight = .regular,
+        design: Font.Design = .default, digits: Bool = false
+    ) -> some View {
+        #if os(macOS)
+            panelFont(size: size, weight, design: design, digits: digits)
+        #else
+            panelFont(style, weight, design: design, digits: digits)
+        #endif
+    }
+}
+
 /// One clip row: its tile, the content in its native form over a quiet
 /// description (`ClipRowContent`), and a trailing meta column (source · time,
 /// markers, key cap). A protected clip shows its stored mask, never its content.
@@ -177,7 +209,7 @@ public struct ClipCard: View {
     /// Off while Return acts elsewhere: the selected row keeps its ⌘N.
     let marksReturn: Bool
     // Dynamic Type grows the tile on iOS; the panel's own scale on the Mac.
-    @ScaledMetric(relativeTo: .body) private var baseTileSize: CGFloat = 34
+    @ScaledMetric(relativeTo: .body) private var baseTileSize: CGFloat = RowMetrics.tile
     @Environment(\.panelTypeScale) private var typeScale
     private var tileSize: CGFloat { baseTileSize * typeScale }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -260,7 +292,7 @@ public struct ClipCard: View {
     private static let syntaxPreviewLimit = 240
 
     public var body: some View {
-        HStack(spacing: GanchoTokens.Spacing.sm) {
+        HStack(spacing: RowMetrics.gap) {
             leadingTile
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
@@ -276,9 +308,9 @@ public struct ClipCard: View {
             Spacer(minLength: GanchoTokens.Spacing.xs)
             trailingMeta
         }
-        // With the tile, a row is 50 pt at the standard text size.
-        .padding(.vertical, GanchoTokens.Spacing.xs)
+        .padding(.vertical, RowMetrics.verticalPadding)
         .padding(.horizontal, GanchoTokens.Spacing.xs + 1)
+        .frame(minHeight: RowMetrics.height * typeScale)
         .background {
             // Scoped to the highlight: an animated selection transaction would
             // also cross-fade the peek and animate the list's scroll-to.
@@ -323,18 +355,18 @@ public struct ClipCard: View {
     @ViewBuilder private var headline: some View {
         switch content.headline {
         case .text(let text):
-            marked(text).panelFont(.body, .medium)
+            marked(text).rowFont(.body, mac: 13.5, .medium)
         case .kindName(let kind):
-            Text(kind.cardName).panelFont(.body, .medium)
+            Text(kind.cardName).rowFont(.body, mac: 13.5, .medium)
         case .value(let value):
-            marked(value).panelFont(.callout, design: .monospaced)
+            marked(value).rowFont(.callout, mac: 12.5, design: .monospaced)
         case .code(let line):
             let tonal = GanchoTokens.Syntax.tonal(String(line.prefix(Self.syntaxPreviewLimit)))
             Text(matchQuery.map { ClipMatchHighlight.marked(tonal, query: $0) } ?? tonal)
-                .panelFont(.callout, design: .monospaced)
+                .rowFont(.callout, mac: 12.5, design: .monospaced)
         case .link(let host, let path):
             linkHeadline(host: host, path: path ?? "")
-                .panelFont(.body, .medium)
+                .rowFont(.body, mac: 13.5, .medium)
                 .truncationMode(.middle)
         }
     }
@@ -379,7 +411,7 @@ public struct ClipCard: View {
         }
         return
             line
-            .panelFont(.subheadline, digits: true)
+            .rowFont(.subheadline, mac: 11.5, digits: true)
             .foregroundStyle(GanchoTokens.Palette.ink3)
             .lineLimit(1)
     }
@@ -394,7 +426,7 @@ public struct ClipCard: View {
 
     @ViewBuilder private var hoverBackground: some View {
         if isHovered, !isSelected {
-            RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+            RoundedRectangle(cornerRadius: RowMetrics.radius, style: .continuous)
                 .fill(.quaternary.opacity(0.45))
         }
     }
@@ -403,7 +435,7 @@ public struct ClipCard: View {
     /// marker's scale-in is scoped here so a pin toggle never animates the
     /// row's reflow into the Pinned section.
     private var trailingMeta: some View {
-        VStack(alignment: .trailing, spacing: 3) {
+        VStack(alignment: .trailing, spacing: 4) {
             sourceTimeLine
             if let foreignDevice {
                 // Its own line: a full device name beside the app and age left
@@ -474,7 +506,7 @@ public struct ClipCard: View {
     /// than swapping it.
     @ViewBuilder private var selectionBackground: some View {
         if isSelected {
-            let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+            let shape = RoundedRectangle(cornerRadius: RowMetrics.radius, style: .continuous)
             shape
                 .fill(GanchoTokens.Palette.selectionWash)
                 .modifier(
@@ -500,7 +532,7 @@ public struct ClipCard: View {
                 }
                 Text(.currentDate, format: .reference(to: item.createdAt, maxFieldCount: 1))
             }
-            .panelFont(.caption2)
+            .rowFont(.caption2, mac: 10.5)
             .foregroundStyle(GanchoTokens.Palette.ink3)
             .lineLimit(1)
         }

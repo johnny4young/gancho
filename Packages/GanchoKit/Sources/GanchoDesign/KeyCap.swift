@@ -30,8 +30,7 @@ public struct KeyCap: View {
         case .neutral:
             cap(ink: GanchoTokens.Palette.ink2, fill: GanchoTokens.Palette.controlFill)
                 .overlay(
-                    shape.strokeBorder(
-                        GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline))
+                    shape.strokeBorder(GanchoTokens.Palette.hairlineStrong, lineWidth: 0.5))
         case .onAccent:
             cap(ink: OnAccentInk(), fill: Color.black.opacity(0.14))
         case .accent:
@@ -73,7 +72,8 @@ public struct KeyCap: View {
         #if os(iOS)
             return .system(.caption2, weight: weight)
         #else
-            return .system(size: 10.5 * scale, weight: weight)
+            // The system arrow is wider than the face's glyphs; a smaller size keeps caps even.
+            return .system(size: 8.5 * scale, weight: weight)
         #endif
     }
 
