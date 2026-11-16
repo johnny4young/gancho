@@ -223,7 +223,6 @@ extension LibraryView {
             }
             .id(value)
             .accessibilityAddTraits(selected ? .isSelected : [])
-            .accessibilityAction { requestSelection(value) }
     }
 
     private func rowCount(_ count: Int) -> some View {
