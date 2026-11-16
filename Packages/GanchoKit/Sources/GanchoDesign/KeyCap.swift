@@ -44,14 +44,37 @@ public struct KeyCap: View {
     }
 
     private func cap(ink: some ShapeStyle, fill background: some ShapeStyle) -> some View {
-        Text(verbatim: keys)
-            .font(font)
+        label
             .lineLimit(1)
             .fixedSize()
             .padding(.horizontal, 5 * scale)
             .frame(minWidth: 19 * scale, minHeight: 19 * scale)
             .foregroundStyle(ink)
             .background(background, in: shape)
+    }
+
+    /// Geist Mono draws the Return arrow as a hook, so that symbol takes the system face.
+    private var label: Text {
+        var text = AttributedString()
+        for character in keys {
+            var piece = AttributedString(String(character))
+            piece.font = Self.usesSystemFace(character) ? systemFont : font
+            text += piece
+        }
+        return Text(text)
+    }
+
+    nonisolated static func usesSystemFace(_ character: Character) -> Bool {
+        "↩⏎".contains(character)
+    }
+
+    private var systemFont: Font {
+        let weight: Font.Weight = fill == .neutral ? .medium : .semibold
+        #if os(iOS)
+            return .system(.caption2, weight: weight)
+        #else
+            return .system(size: 10.5 * scale, weight: weight)
+        #endif
     }
 
     private var font: Font {
