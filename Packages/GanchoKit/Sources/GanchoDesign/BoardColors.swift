@@ -82,7 +82,7 @@ public enum BoardIdentityEmoji: String, CaseIterable, Identifiable, Sendable {
 }
 
 /// One quiet identity color per board — a spine/dot accent over neutral cards,
-/// never a background wash (green stays the app accent). A user override wins;
+/// never a background wash. A user override wins;
 /// otherwise the board's id provides a stable automatic choice.
 public enum BoardColors {
     /// Stable identity color. The built-in Favorites board keeps the warm

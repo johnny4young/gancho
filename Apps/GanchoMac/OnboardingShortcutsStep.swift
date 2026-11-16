@@ -18,7 +18,7 @@ struct OnboardingShortcutsStep: View {
             ) {
                 Image(systemName: "keyboard")
                     .font(.system(size: 30))
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
             }
             VStack(spacing: 6) {
                 OnboardingShortcutRow(

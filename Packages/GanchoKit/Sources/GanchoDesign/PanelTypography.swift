@@ -8,9 +8,9 @@ import SwiftUI
     private typealias PlatformFont = UIFont
 #endif
 
-/// The panel's text styles. macOS SwiftUI does not scale text through
-/// `dynamicTypeSize`, so on the Mac each style is sized from the system's own
-/// point size times `panelTypeScale`; iOS keeps its Dynamic Type styles.
+/// The panel's text styles, set in the bundled faces. macOS SwiftUI does not
+/// scale text through `dynamicTypeSize`, so on the Mac each style is sized from
+/// the system's own point size times `panelTypeScale`; iOS keeps Dynamic Type.
 public enum PanelTextStyle: Sendable, CaseIterable {
     case title2, title3, headline, body, callout, subheadline, footnote, caption, caption2
 
@@ -22,6 +22,23 @@ public enum PanelTextStyle: Sendable, CaseIterable {
     public var defaultWeight: Font.Weight {
         self == .headline ? .semibold : .regular
     }
+
+    #if os(iOS)
+        /// The style's size at the default Dynamic Type setting, which a custom
+        /// face scales from.
+        var defaultSize: CGFloat {
+            switch self {
+            case .title2: 22
+            case .title3: 20
+            case .headline, .body: 17
+            case .callout: 16
+            case .subheadline: 15
+            case .footnote: 13
+            case .caption: 12
+            case .caption2: 11
+            }
+        }
+    #endif
 
     var textStyle: Font.TextStyle {
         switch self {
@@ -81,10 +98,30 @@ private struct PanelFontModifier: ViewModifier {
     }
 
     private var font: Font {
+        guard let role else {
+            #if os(iOS)
+                if let style { return Font.system(style.textStyle, design: design, weight: weight) }
+            #endif
+            return Font.system(
+                size: (style?.baseSize ?? size) * scale, weight: weight, design: design)
+        }
         #if os(iOS)
-            if let style { return Font.system(style.textStyle, design: design, weight: weight) }
+            if let style {
+                return GanchoType.font(
+                    role, size: style.defaultSize, weight: weight, relativeTo: style.textStyle)
+            }
         #endif
-        return Font.system(size: (style?.baseSize ?? size) * scale, weight: weight, design: design)
+        return GanchoType.font(role, size: (style?.baseSize ?? size) * scale, weight: weight)
+    }
+
+    /// Rounded has no bundled face and stays on the system font.
+    private var role: GanchoType.Role? {
+        switch design {
+        case .monospaced: .data
+        case .serif: .title
+        case .rounded: nil
+        default: .ui
+        }
     }
 }
 

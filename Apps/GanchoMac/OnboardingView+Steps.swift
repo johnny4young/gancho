@@ -46,7 +46,7 @@ extension OnboardingView {
         HStack(alignment: .firstTextBaseline, spacing: GanchoTokens.Spacing.xs) {
             Image(systemName: symbol)
                 .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
                 .frame(width: 14)
                 .accessibilityHidden(true)
             text.font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
@@ -68,7 +68,7 @@ extension OnboardingView {
                     .font(.system(size: 30))
                     .foregroundStyle(
                         accessibilityGranted
-                            ? AnyShapeStyle(GanchoTokens.Palette.accentInk)
+                            ? AnyShapeStyle(GanchoTokens.Palette.ink2)
                             : AnyShapeStyle(GanchoTokens.Palette.warningInk))
             }
             HStack(alignment: .top, spacing: GanchoTokens.Spacing.xs) {
@@ -113,10 +113,10 @@ extension OnboardingView {
         Group {
             if accessibilityGranted {
                 Label("Granted · Gancho can paste for you", systemImage: "checkmark")
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
             } else {
                 Label(
-                    "Not granted yet · turns green when you come back",
+                    "Not granted yet · updates when you come back",
                     systemImage: "exclamationmark.triangle"
                 )
                 .foregroundStyle(GanchoTokens.Palette.warningInk)
@@ -143,7 +143,7 @@ extension OnboardingView {
             ) {
                 Image(systemName: "clipboard")
                     .font(.system(size: 30))
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
             }
             liveList
             firstCopyStatus
@@ -185,7 +185,7 @@ extension OnboardingView {
             } else {
                 // No title claim: nothing records whether auto-titling or the user wrote it.
                 Label("Capturing", systemImage: "checkmark")
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
             }
         }
         .font(.system(size: 11.5, weight: .semibold))

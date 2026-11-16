@@ -13,7 +13,7 @@ struct ImageTextLineStyle {
 
     var tint: Color {
         if isHeld { return GanchoTokens.Palette.danger }
-        if isCopied { return GanchoTokens.Palette.accent }
+        if isCopied { return GanchoTokens.Palette.ink }
         if isLink { return GanchoTokens.Palette.kindTint(for: .url) }
         return Color(uiColor: .systemGray)
     }
@@ -223,7 +223,7 @@ struct ClipImageTextSection: View {
                 } label: {
                     Image(systemName: copiedLine == index ? "checkmark" : "doc.on.doc")
                         .font(.system(size: 16))
-                        .foregroundStyle(GanchoTokens.Palette.accentInk)
+                        .foregroundStyle(GanchoTokens.Palette.ink2)
                         .frame(width: 32, height: 32)
                         .contentShape(Rectangle())
                 }
@@ -327,10 +327,11 @@ struct ClipImageTextSection: View {
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .frame(minHeight: 30)
         .foregroundStyle(
-            primary ? AnyShapeStyle(GanchoTokens.Palette.accentInk) : AnyShapeStyle(.primary)
+            primary ? AnyShapeStyle(GanchoTokens.Palette.ink) : AnyShapeStyle(.primary)
         )
         .background(
-            primary ? AnyShapeStyle(GanchoTokens.Palette.accentTint) : AnyShapeStyle(.quaternary),
+            primary
+                ? AnyShapeStyle(GanchoTokens.Palette.selectionWash) : AnyShapeStyle(.quaternary),
             in: Capsule()
         )
         .contentShape(Capsule())

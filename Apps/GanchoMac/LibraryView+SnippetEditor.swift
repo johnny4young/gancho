@@ -106,7 +106,7 @@ extension LibraryView {
         HStack(spacing: 4) {
             Image(systemName: "bolt.fill")
                 .font(.caption2)
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
             TextField("Keyword", text: $draft.edited.keyword)
                 .textFieldStyle(.plain)
                 .font(.callout.monospaced())

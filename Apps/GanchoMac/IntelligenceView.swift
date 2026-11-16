@@ -28,7 +28,7 @@ struct IntelligenceView: View {
                 symbol: "wand.and.stars", tint: GanchoTokens.Palette.kindTint(for: .uuid),
                 title: "Tier 0 · Rules", sub: "<5 ms · always on"),
             .init(
-                symbol: "sparkles", tint: GanchoTokens.Palette.accent,
+                symbol: "sparkles", tint: GanchoTokens.Palette.ink2,
                 title: "Tier 1 · Apple Intelligence", sub: "Titles · fallback‑safe"),
             .init(
                 symbol: "lock", tint: GanchoTokens.Palette.kindTint(for: .secret),
@@ -53,7 +53,7 @@ struct IntelligenceView: View {
                 Spacer()
                 Label("On-device", systemImage: "lock.shield")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(GanchoTokens.Palette.brandText)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
             }
 
             pipeline
@@ -69,7 +69,7 @@ struct IntelligenceView: View {
                         "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, developer actions, and masking.",
                         alwaysOn: true)
                     toggleRow(
-                        "sparkles", GanchoTokens.Palette.accent, "Smarter titles",
+                        "sparkles", GanchoTokens.Palette.ink2, "Smarter titles",
                         // swiftlint:disable:next line_length
                         "Apple Intelligence writes a short, specific title on-device, falling back to heuristics on any failure — and never puts a secret in a title.",
                         isOn: $model.intelligence.intelligentTitles)
@@ -86,7 +86,7 @@ struct IntelligenceView: View {
                         "On-device OCR reads text out of image clips and adds it to the full-text index, so a screenshot is findable by the words inside it.",
                         isOn: $model.intelligence.searchableScreenshots)
                     toggleRow(
-                        "wand.and.sparkles", GanchoTokens.Palette.accent, "Smart paste",
+                        "wand.and.sparkles", GanchoTokens.Palette.ink2, "Smart paste",
                         // swiftlint:disable:next line_length
                         "Rewrite a clip before pasting — summarize, fix grammar, change tone, pull key points, or redact PII. Model-backed rewrites use Apple Intelligence on-device; deterministic redaction needs no model.",
                         isOn: $model.intelligence.smartPaste)
@@ -97,7 +97,7 @@ struct IntelligenceView: View {
                         "When a clip looks like ones you've filed before, gancho suggests the board it probably belongs to — one tap to file it. On-device, never automatic.",
                         isOn: $model.intelligence.autoBoard)
                     toggleRow(
-                        "arrow.up.to.line", GanchoTokens.Palette.brandGreen, "Up next",
+                        "arrow.up.to.line", GanchoTokens.Palette.ink2, "Up next",
                         // swiftlint:disable:next line_length
                         "Shows the clip you usually paste into the app in front above the list (⌘↩). Keeps a local paste log only while on; turning it off erases it.",
                         isOn: $model.intelligence.upNext, identifier: "intelligence-toggle-up-next")
@@ -127,7 +127,7 @@ struct IntelligenceView: View {
                         .font(.footnote)
                     } icon: {
                         Image(systemName: "lock.shield")
-                            .foregroundStyle(GanchoTokens.Palette.brandText)
+                            .foregroundStyle(GanchoTokens.Palette.ink2)
                     }
                 }
             }
@@ -210,10 +210,10 @@ struct IntelligenceView: View {
                 if alwaysOn {
                     Text("Always on")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(GanchoTokens.Palette.brandText)
+                        .foregroundStyle(GanchoTokens.Palette.ink2)
                         .padding(.horizontal, GanchoTokens.Spacing.xs)
                         .padding(.vertical, 2)
-                        .background(GanchoTokens.Palette.brandTint, in: Capsule())
+                        .background(GanchoTokens.Palette.control, in: Capsule())
                 }
             }
             Text(description).font(.caption).foregroundStyle(.secondary)

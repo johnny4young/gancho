@@ -145,7 +145,7 @@ struct CaptureToolbar: ToolbarContent {
     var body: some ToolbarContent {
         if layout == .phone {
             DefaultToolbarItem(kind: .search, placement: .bottomBar)
-            // The control's own green capsule would double the shared glass.
+            // The control's own filled capsule would double the shared glass.
             ToolbarItem(placement: .bottomBar) { pasteControl }
                 .sharedBackgroundVisibility(.hidden)
             ToolbarItem(placement: .topBarTrailing) {

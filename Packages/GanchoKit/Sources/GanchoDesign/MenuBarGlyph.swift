@@ -72,7 +72,8 @@
         /// The design's state colours, kept in step with `GanchoTokens` by a test.
         public static func fill(for badge: MenuBarBadge) -> NSColor {
             switch badge {
-            case .denied: NSColor(srgbRed: 0xD7 / 255, green: 0, blue: 0x15 / 255, alpha: 1)
+            case .denied:
+                NSColor(srgbRed: 0xC5 / 255, green: 0x30 / 255, blue: 0x1C / 255, alpha: 1)
             case .paused:
                 NSColor(srgbRed: 1, green: 0x9F / 255, blue: 0x0A / 255, alpha: 1)
             case .privateMode:

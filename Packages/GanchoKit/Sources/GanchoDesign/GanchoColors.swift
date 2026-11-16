@@ -6,40 +6,59 @@ import SwiftUI
     import UIKit
 #endif
 
-/// Semantic color tokens. gancho leans on the OS materials and spends color
-/// sparingly: ONE accent that follows the user's system Theme color, a fixed
-/// success green, and warning/danger status hues. Green is a fill, never a
-/// text colour: text on it uses `brandInk`, green text uses `accentInk`
-/// (docs/design-v4/specs/V4_System_Components.md).
+/// Semantic color tokens. gancho is neutral graphite with ONE accent, and the
+/// accent means "Return does this": it is internal to this module and reaches
+/// the apps only through the caret, the Return key cap, the primary verb and
+/// the live-capture dot. Everything else is ink on a neutral wash.
 extension GanchoTokens {
     public enum Palette {
-        // MARK: Brand green (Apple system green)
+        // MARK: Brand mark
 
-        /// gancho's brand green — the design's `--green-500`. It is BOTH the
-        /// fixed success tint and the accent fallback (see `accent`).
-        public static let brandGreen = dynamic(
-            light: ColorPair.brand.light, dark: ColorPair.brand.dark)
+        /// The green of the app icon and brand mark. Never an interface tint.
+        public static let brandGreen = dynamic(.brand)
 
         /// Deeper green for the region-selection cursor, not a global brand override.
         /// A cursor crosses other apps' light and dark content independently of our appearance.
         public static let regionSelectionCursor = Color(
             .sRGB, red: 0x2E / 255, green: 0xAD / 255, blue: 0x50 / 255, opacity: 1)
 
+        // MARK: Neutral graphite
+
+        /// The panel's solid surface, and the text on an inverse fill.
+        public static let panel = dynamic(.panel)
+        /// A card on the panel.
+        public static let card = dynamic(.card)
+        /// A control's resting fill: chips, key caps, tiles.
+        public static let control = dynamic(.control)
+        /// The selected row, tab, chip or pill. Selection is never the accent.
+        public static let selectionWash = dynamic(.selection)
+        /// Primary text and glyphs, and the fill of an inverse surface.
+        public static let ink = dynamic(.ink)
+        /// Secondary text, links and quiet glyphs.
+        public static let ink2 = dynamic(.ink2)
+        /// Captions, counts and placeholders.
+        public static let ink3 = dynamic(.ink3)
+        public static let hairline = dynamic(.hairline)
+
+        public static var inverseFill: Color { ink }
+        public static var inverseText: Color { panel }
+
+        /// Tint for system controls (switches, progress, links). Mid graphite
+        /// in dark: full ink would hide a switch's white knob.
+        public static let controlTint = dynamic(.controlTint)
+
         // MARK: Semantic status roles
 
-        /// Fixed success / "Synced" tint — ALWAYS green, regardless of the
-        /// system accent. It signals a state, not a theme preference, so it
-        /// must not follow `accent`.
-        public static var success: Color { brandGreen }
+        /// Success and "Synced" render neutral; pair it with a checkmark.
+        public static var success: Color { ink2 }
 
         /// Warning status (sync paused, permission missing) — `--warning`.
         public static let warning = dynamic(
             light: (0xFF, 0x9F, 0x0A), dark: (0xFF, 0x9F, 0x0A))
 
-        /// Danger status (sync failed, destructive). Darker than system red in
-        /// light and lighter in dark, so it reads as text on every surface.
-        public static let danger = dynamic(
-            light: (0xD7, 0x00, 0x15), dark: (0xFF, 0x69, 0x61))
+        /// Delete, access denied and a secret's last minute. Reads as text on
+        /// every surface.
+        public static let danger = dynamic(.danger)
 
         /// Indigo: Private Mode (never read as a pause or a failure) and search filter tokens.
         public static let indigo = dynamic(
@@ -49,30 +68,10 @@ extension GanchoTokens {
         public static let agent = dynamic(
             light: (0x2F, 0x7D, 0xE1), dark: (0x5A, 0xC8, 0xFA))
 
-        // MARK: Ink and text derived from the brand green
-
-        /// Text and glyphs on a brand-green fill (6.8:1 light, 8.5:1 dark).
-        public static let brandInk = dynamic(light: ColorPair.ink.light, dark: ColorPair.ink.dark)
-
-        /// Brand green as text on light surfaces; the brand itself in dark.
-        public static let brandText = dynamic(
-            light: ColorPair.text.light, dark: ColorPair.text.dark)
-
-        /// Quiet fill behind green text (chips, tertiary hover).
-        public static let brandTint = dynamic(
-            light: ColorPair.tint.light, dark: ColorPair.tint.dark)
-
-        /// The accent as text: the brand text green, or the system accent
-        /// darkened (light) / lightened (dark) until it reaches 4.5:1.
-        public static var accentInk: AccentInk { AccentInk() }
-
         /// Warning amber as text or a status glyph; the raw amber is 2.2:1 on white.
         public static var warningInk: ReadableInk { ReadableInk(base: warning) }
 
-        /// The quiet fill that pairs with `accentInk`.
-        public static var accentTint: AccentTint { AccentTint() }
-
-        // MARK: Accent — follows the OS Theme color, brand green by default
+        // MARK: Accent — follows the OS Theme color, lure lime by default
 
         // Keep the accent source nested under Palette because callers treat it
         // as part of the design-token namespace.
@@ -80,7 +79,7 @@ extension GanchoTokens {
         /// Where the accent comes from. Pure and testable: macOS writes
         /// `AppleAccentColor` to the global domain only when the user picks a
         /// specific accent in System Settings; under "Multicolor" (the default)
-        /// the key is absent — and gancho uses its brand green rather than the
+        /// the key is absent — and gancho uses its lime rather than the
         /// system's default blue.
         public enum AccentSource: Sendable, Equatable { case system, brand }
         // swiftlint:enable nesting
@@ -91,23 +90,21 @@ extension GanchoTokens {
             present ? .system : .brand
         }
 
-        /// The resolved app accent. Active tab pills, "on" toggles and primary
-        /// CTAs inherit it via `.ganchoTinted()` at each SwiftUI root. Success
-        /// stays green via `success` — never this. Resolved at view-build time
-        /// (the design sets the accent "at launch"); a system-accent change is
-        /// picked up on the next launch.
-        public static var accent: Color {
+        /// The accent as a fill. Resolved at view-build time; a system-accent
+        /// change is picked up on the next launch.
+        static var accent: Color {
             #if canImport(AppKit)
-                let present = UserDefaults.standard.object(forKey: "AppleAccentColor") != nil
-                switch accentSource(appleAccentColorKeyPresent: present) {
-                case .system: return Color(nsColor: .controlAccentColor)
-                case .brand: return brandGreen
-                }
+                return accentIsBrand ? lime : Color(nsColor: .controlAccentColor)
             #else
-                // iOS / iPadOS expose no per-app system accent — green is the default.
-                return brandGreen
+                // iOS / iPadOS expose no per-app system accent.
+                return lime
             #endif
         }
+
+        private static let lime = dynamic(.accent)
+
+        /// The accent as text or a stroke: the caret and the live dot.
+        static var accentText: AccentText { AccentText() }
 
         // MARK: Surfaces
 
@@ -130,11 +127,6 @@ extension GanchoTokens {
                 case .control: return Color(uiColor: .tertiarySystemBackground)
                 }
             #endif
-        }
-
-        /// The selected row's accent wash: 14 % light, 16 % dark.
-        public static func selectionWashOpacity(_ scheme: ColorScheme) -> Double {
-            scheme == .dark ? 0.16 : 0.14
         }
 
         static var accentIsBrand: Bool {
@@ -169,28 +161,32 @@ extension GanchoTokens {
         private static func dynamic(
             light: (Int, Int, Int), dark: (Int, Int, Int)
         ) -> Color {
+            dynamic(ColorPair(light: light, dark: dark))
+        }
+
+        private static func dynamic(_ pair: ColorPair) -> Color {
             #if canImport(AppKit)
                 return Color(
                     nsColor: NSColor(name: nil) { appearance in
-                        let c =
-                            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-                            ? dark : light
+                        let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                        let c = dark ? pair.dark : pair.light
                         return NSColor(
                             srgbRed: CGFloat(c.0) / 255, green: CGFloat(c.1) / 255,
-                            blue: CGFloat(c.2) / 255, alpha: 1)
+                            blue: CGFloat(c.2) / 255,
+                            alpha: dark ? pair.darkAlpha : pair.lightAlpha)
                     })
             #elseif canImport(UIKit)
                 return Color(
                     uiColor: UIColor { traits in
-                        let c = traits.userInterfaceStyle == .dark ? dark : light
+                        let dark = traits.userInterfaceStyle == .dark
+                        let c = dark ? pair.dark : pair.light
                         return UIColor(
                             red: CGFloat(c.0) / 255, green: CGFloat(c.1) / 255,
-                            blue: CGFloat(c.2) / 255, alpha: 1)
+                            blue: CGFloat(c.2) / 255,
+                            alpha: dark ? pair.darkAlpha : pair.lightAlpha)
                     })
             #else
-                return Color(
-                    red: Double(light.0) / 255, green: Double(light.1) / 255,
-                    blue: Double(light.2) / 255)
+                return Color(pair.resolved(.light))
             #endif
         }
     }
@@ -264,11 +260,10 @@ extension GanchoTokens {
 }
 
 extension View {
-    /// Apply gancho's resolved accent (`GanchoTokens.Palette.accent`) so active
-    /// controls follow the OS Theme color — or the brand green under macOS
-    /// "Multicolor". Applied at every SwiftUI root (windows, panel, settings).
+    /// Tints system controls with the neutral control tint and applies the app
+    /// locale. Applied at every SwiftUI root (windows, panel, settings).
     public func ganchoTinted() -> some View {
-        tint(GanchoTokens.Palette.accent)
+        tint(GanchoTokens.Palette.controlTint)
             .modifier(AppLocaleModifier())
     }
 }
@@ -308,12 +303,11 @@ func syntaxDynamicColor(light: (Int, Int, Int), dark: (Int, Int, Int)) -> Color 
     }
 #endif
 
-/// The accent used as text or a small glyph, legible in the appearance it
-/// renders in. See `GanchoTokens.Palette.accentInk`.
-public struct AccentInk: ShapeStyle {
-    public func resolve(in environment: EnvironmentValues) -> Color.Resolved {
+/// The accent as text or a stroke, legible in the appearance it renders in.
+struct AccentText: ShapeStyle {
+    func resolve(in environment: EnvironmentValues) -> Color.Resolved {
         if GanchoTokens.Palette.accentIsBrand {
-            return GanchoTokens.ColorPair.text.resolved(environment.colorScheme)
+            return GanchoTokens.ColorPair.accentText.resolved(environment.colorScheme)
         }
         return ReadableInk(base: GanchoTokens.Palette.accent).resolve(in: environment)
     }
@@ -354,35 +348,44 @@ extension View {
     }
 }
 
-/// The quiet fill behind `AccentInk` text.
-public struct AccentTint: ShapeStyle {
-    public func resolve(in environment: EnvironmentValues) -> Color.Resolved {
-        if GanchoTokens.Palette.accentIsBrand {
-            return GanchoTokens.ColorPair.tint.resolved(environment.colorScheme)
-        }
-        var tint = GanchoTokens.Palette.accent.resolve(in: environment)
-        tint.opacity = environment.colorScheme == .dark ? 0.22 : 0.14
-        return tint
-    }
-}
-
 extension GanchoTokens {
-    /// Light/dark byte triples. `ShapeStyle`s resolve from these by colour
-    /// scheme: an AppKit dynamic colour may only resolve on the main thread.
+    /// Light/dark byte triples with an opacity. `ShapeStyle`s resolve from
+    /// these by colour scheme: an AppKit dynamic colour may only resolve on
+    /// the main thread.
     struct ColorPair {
         let light: (Int, Int, Int)
         let dark: (Int, Int, Int)
+        var lightAlpha: Double = 1
+        var darkAlpha: Double = 1
+
+        private static let graphite = (0x12, 0x14, 0x13)
+        private static let white = (0xFF, 0xFF, 0xFF)
 
         static let brand = ColorPair(light: (0x34, 0xC7, 0x59), dark: (0x30, 0xD1, 0x58))
-        static let ink = ColorPair(light: (0x0B, 0x2A, 0x14), dark: (0x04, 0x21, 0x0D))
-        static let text = ColorPair(light: (0x1F, 0x7A, 0x3A), dark: (0x30, 0xD1, 0x58))
-        static let tint = ColorPair(light: (0xE3, 0xF5, 0xE8), dark: (0x20, 0x3D, 0x28))
+
+        static let accent = ColorPair(light: (0xC3, 0xF2, 0x2E), dark: (0xC8, 0xF5, 0x3C))
+        static let onAccent = ColorPair(light: (0x16, 0x1C, 0x00), dark: (0x16, 0x1C, 0x00))
+        static let accentText = ColorPair(light: (0x47, 0x75, 0x0A), dark: (0xC8, 0xF5, 0x3C))
+
+        static let panel = ColorPair(light: (0xF6, 0xF7, 0xF6), dark: (0x17, 0x17, 0x16))
+        static let card = ColorPair(light: white, dark: white, darkAlpha: 0.045)
+        static let control = ColorPair(
+            light: graphite, dark: white, lightAlpha: 0.055, darkAlpha: 0.075)
+        static let selection = ColorPair(
+            light: graphite, dark: white, lightAlpha: 0.07, darkAlpha: 0.09)
+        static let hairline = ColorPair(
+            light: graphite, dark: white, lightAlpha: 0.10, darkAlpha: 0.085)
+        static let ink = ColorPair(light: graphite, dark: (0xF5, 0xF4, 0xEF))
+        static let ink2 = ColorPair(light: (0x4F, 0x53, 0x51), dark: (0xB6, 0xB5, 0xAD))
+        static let ink3 = ColorPair(light: (0x62, 0x66, 0x64), dark: (0x9A, 0x99, 0x92))
+        static let danger = ColorPair(light: (0xC5, 0x30, 0x1C), dark: (0xFF, 0x70, 0x62))
+        static let controlTint = ColorPair(light: graphite, dark: (0x94, 0x93, 0x8C))
 
         func resolved(_ scheme: ColorScheme) -> Color.Resolved {
             let c = scheme == .dark ? dark : light
             return Color.Resolved(
                 colorSpace: .sRGB, red: Float(c.0) / 255, green: Float(c.1) / 255,
-                blue: Float(c.2) / 255)
+                blue: Float(c.2) / 255, opacity: Float(scheme == .dark ? darkAlpha : lightAlpha))
         }
     }
 }

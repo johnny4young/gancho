@@ -19,13 +19,13 @@ struct PanelGalleryCard: View {
         LibraryClipCard(clip: item, thumbnails: thumbnails, previewsHidden: previewsHidden)
             .overlay {
                 if isSelected {
-                    shape.fill(GanchoTokens.Palette.accent.opacity(0.08))
+                    shape.fill(GanchoTokens.Palette.selectionWash)
                         .allowsHitTesting(false)
                 }
             }
             .overlay(
                 shape.strokeBorder(
-                    isSelected ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.clear),
+                    isSelected ? AnyShapeStyle(GanchoTokens.Palette.ink) : AnyShapeStyle(.clear),
                     lineWidth: 2)
             )
             // Bottom corner: the card's header ends with its pin glyph.

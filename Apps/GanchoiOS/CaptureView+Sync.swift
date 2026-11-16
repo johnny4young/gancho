@@ -5,7 +5,7 @@ import SwiftUI
 extension CaptureView {
     /// iCloud sync indicator. The steady states (off, synced) show nothing —
     /// the "ready to paste" Live Activity carries sync status now, so the
-    /// history doesn't spend a card on a green "Synced" that's almost always
+    /// history doesn't spend a card on a "Synced" that's almost always
     /// true. Only the transient and the actionable states surface here.
     @ViewBuilder
     var syncStatusSection: some View {
@@ -36,7 +36,7 @@ extension CaptureView {
                 Label {
                     text
                 } icon: {
-                    // "Synced" reads green (a state); paused/failed warn — like macOS.
+                    // "Synced" stays neutral; paused/failed warn — like macOS.
                     Image(systemName: symbol).foregroundStyle(ReadableInk(base: tint))
                 }
                 .font(.footnote)

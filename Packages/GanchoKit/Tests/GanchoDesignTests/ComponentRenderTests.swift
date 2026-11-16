@@ -74,5 +74,23 @@
                 SearchField("Search", text: .constant("query")), dark: dark)
             #expect((field?.width ?? 0) > 0)
         }
+
+        @Test("Key caps and the live dot render", arguments: [false, true])
+        func keyCaps(dark: Bool) {
+            let caps = HStack {
+                KeyCap("⌘K")
+                KeyCap("↩", role: .onAccent)
+                ReturnKeyCap()
+                LiveDot()
+            }
+            #expect((render(caps, dark: dark)?.width ?? 0) > 0)
+        }
+
+        @Test("A key cap is 19 pt high at the standard text size")
+        func keyCapHeight() throws {
+            let renderer = ImageRenderer(content: KeyCap("⌘1"))
+            renderer.scale = 1
+            #expect(try #require(renderer.cgImage).height == 19)
+        }
     }
 #endif

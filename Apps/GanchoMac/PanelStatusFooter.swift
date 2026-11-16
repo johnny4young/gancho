@@ -79,8 +79,9 @@ struct PanelStatusFooter: View {
     }
 }
 
-/// The footer's capture state: a colour, its cause and, while a Private Mode
-/// countdown runs, the minutes left.
+/// The footer's capture state: the live dot while capturing, otherwise a
+/// colour and its cause and, while a Private Mode countdown runs, the minutes
+/// left.
 struct PanelCaptureChipView: View {
     let chip: PanelCaptureChip
     @Environment(\.panelTypeScale) private var typeScale
@@ -97,13 +98,24 @@ struct PanelCaptureChipView: View {
     }
 
     private func pill(now: Date) -> some View {
-        HStack(spacing: 5) {
-            Circle().fill(tint).frame(width: 7 * typeScale, height: 7 * typeScale)
-            Text(title(now: now)).panelFont(.caption2, .bold).lineLimit(1)
+        Group {
+            if case .capturing = chip {
+                HStack(spacing: 7) {
+                    LiveDot(size: 7 * typeScale)
+                    Text(title(now: now)).panelFont(.caption2, .medium).lineLimit(1)
+                }
+                .frame(height: 20 * typeScale)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
+            } else {
+                HStack(spacing: 5) {
+                    Circle().fill(tint).frame(width: 7 * typeScale, height: 7 * typeScale)
+                    Text(title(now: now)).panelFont(.caption2, .bold).lineLimit(1)
+                }
+                .padding(.horizontal, GanchoTokens.Spacing.xs)
+                .frame(height: 20 * typeScale)
+                .ganchoTintedPill(tint, wash: wash)
+            }
         }
-        .padding(.horizontal, GanchoTokens.Spacing.xs)
-        .frame(height: 20 * typeScale)
-        .ganchoTintedPill(tint, wash: wash)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(spokenTitle(now: now)))
         .accessibilityIdentifier("capture-indicator")

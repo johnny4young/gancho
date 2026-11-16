@@ -2,7 +2,7 @@ import SwiftUI
 
 /// A readable foreground on an opaque fill, resolved in the same appearance
 /// as the background. Fixed white text is illegible on bright accent colors;
-/// a brand-green fill takes the brand's dark ink instead of plain black.
+/// a lime fill takes the accent's own dark ink instead of plain black.
 public struct ContrastingForeground: ShapeStyle {
     let background: Color
 
@@ -13,8 +13,8 @@ public struct ContrastingForeground: ShapeStyle {
         return Color(Self.ink(on: background.resolve(in: environment), scheme: scheme))
     }
 
-    /// The ink for an opaque fill: black or white by contrast, or the brand's
-    /// dark ink on the brand green (also when stepped for hover or pressed).
+    /// The ink for an opaque fill: black or white by contrast, or the accent's
+    /// dark ink on the lime (also when stepped for hover or pressed).
     public static func ink(on fill: Color.Resolved, scheme: ColorScheme) -> Color.Resolved {
         let luminance = Contrast.luminance(fill)
         let blackContrast = (luminance + 0.05) / 0.05
@@ -22,17 +22,17 @@ public struct ContrastingForeground: ShapeStyle {
         guard blackContrast >= whiteContrast else {
             return Color.Resolved(colorSpace: .sRGB, red: 1, green: 1, blue: 1)
         }
-        let brandInk = GanchoTokens.ColorPair.ink.resolved(scheme)
-        guard isBrandGreen(fill, scheme), Contrast.ratio(brandInk, fill) >= Contrast.text else {
+        let onAccent = GanchoTokens.ColorPair.onAccent.resolved(scheme)
+        guard isLime(fill, scheme), Contrast.ratio(onAccent, fill) >= Contrast.text else {
             return Color.Resolved(colorSpace: .sRGB, red: 0, green: 0, blue: 0)
         }
-        return brandInk
+        return onAccent
     }
 
-    private static func isBrandGreen(_ color: Color.Resolved, _ scheme: ColorScheme) -> Bool {
-        let brand = GanchoTokens.ColorPair.brand.resolved(scheme)
-        return abs(hueOf(color) - hueOf(brand)) < 0.02 && color.green > color.red
-            && color.green > color.blue
+    private static func isLime(_ color: Color.Resolved, _ scheme: ColorScheme) -> Bool {
+        let lime = GanchoTokens.ColorPair.accent.resolved(scheme)
+        return abs(hueOf(color) - hueOf(lime)) < 0.02 && color.green > color.red
+            && color.red > color.blue
     }
 
     private static func hueOf(_ color: Color.Resolved) -> Double {

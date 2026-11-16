@@ -132,7 +132,7 @@ extension LibraryView {
             } header: {
                 Text("Suggested · \(snippetSuggestions.total - hidden)")
                     .textCase(.uppercase)
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
                     .accessibilityIdentifier("snippet-suggestions-header")
             }
         }
@@ -266,7 +266,7 @@ extension LibraryView {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: GanchoTokens.Spacing.xs) {
                         Image(systemName: "star.fill")
-                            .foregroundStyle(GanchoTokens.Palette.accentInk)
+                            .foregroundStyle(GanchoTokens.Palette.ink2)
                         Text(verbatim: "gancho Pro").font(.caption.weight(.bold))
                     }
                     GeometryReader { proxy in
@@ -286,7 +286,7 @@ extension LibraryView {
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    GanchoTokens.Palette.accent.opacity(0.12),
+                    GanchoTokens.Palette.control,
                     in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
             }
             .buttonStyle(.plain)
@@ -299,7 +299,7 @@ extension LibraryView {
 
     private func meterColor(_ pressure: FreeTierLimits.Pressure) -> Color {
         switch pressure {
-        case .comfortable: GanchoTokens.Palette.accent
+        case .comfortable: GanchoTokens.Palette.ink2
         case .almostFull: GanchoTokens.Palette.warning
         case .reached: GanchoTokens.Palette.danger
         }

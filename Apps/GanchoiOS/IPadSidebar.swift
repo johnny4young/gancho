@@ -4,7 +4,7 @@ import GanchoKit
 import SwiftUI
 
 /// The iPad sidebar: boards, type groups and source apps, each with its live
-/// count and its active row washed in the accent, over the pasteboard card.
+/// count and its active row on the selection wash, over the pasteboard card.
 struct IPadSidebar: View {
     @Environment(IOSAppModel.self) private var model
     /// Whether this column is on screen, so the history toolbar carries Paste
@@ -71,7 +71,7 @@ struct IPadSidebar: View {
             HStack(spacing: 10) {
                 Image(systemName: "plus")
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
                     .frame(width: 18)
                 Text("New board…").font(.subheadline)
                 Spacer(minLength: 4)
@@ -136,7 +136,7 @@ struct IPadSidebar: View {
         }
     }
 
-    /// One sidebar row. The active one takes the accent wash and a heavier
+    /// One sidebar row. The active one takes the selection wash and a heavier
     /// name, and says so to VoiceOver: never a bar, never colour alone.
     private func row<Icon: View>(
         _ title: Text, id: String, isActive: Bool, count: Int?,
@@ -162,7 +162,7 @@ struct IPadSidebar: View {
         .listRowBackground(
             isActive
                 ? RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                    .fill(GanchoTokens.Palette.accent.opacity(0.16))
+                    .fill(GanchoTokens.Palette.selectionWash)
                     .padding(.horizontal, 10)
                 : nil
         )

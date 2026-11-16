@@ -30,9 +30,9 @@ struct GanchoToast {
         var tint: Color {
             switch self {
             case .success: GanchoTokens.Palette.success
-            case .suggestion: GanchoTokens.Palette.accent
+            case .suggestion: GanchoTokens.Palette.ink2
             case .warning: GanchoTokens.Palette.warning
-            case .pending: GanchoTokens.Palette.accent
+            case .pending: GanchoTokens.Palette.ink2
             }
         }
     }

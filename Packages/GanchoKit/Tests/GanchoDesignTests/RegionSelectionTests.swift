@@ -118,14 +118,14 @@
         }
 
         @Test(arguments: [false, true])
-        func cursorColorDoesNotChangeTheBrandOrSuccessColors(dark: Bool) throws {
+        func cursorColorDoesNotChangeTheBrandColor(dark: Bool) throws {
             let appearance = try #require(NSAppearance(named: dark ? .darkAqua : .aqua))
             var colors: [NSColor] = []
             appearance.performAsCurrentDrawingAppearance {
-                colors = [GanchoTokens.Palette.brandGreen, GanchoTokens.Palette.success]
+                colors = [GanchoTokens.Palette.brandGreen]
                     .compactMap { NSColor($0).usingColorSpace(.sRGB) }
             }
-            #expect(colors.count == 2)
+            #expect(colors.count == 1)
             let expected = dark ? (0x30, 0xD1, 0x58) : (0x34, 0xC7, 0x59)
             for color in colors {
                 #expect(abs(color.redComponent - CGFloat(expected.0) / 255) < 2 / 255)

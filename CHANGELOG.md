@@ -9,6 +9,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Gancho has a new look in progress: a calmer, neutral interface where one
+  lime accent marks only what Return does, and its own typefaces (Instrument
+  Serif, Geist and Geist Mono) in the Mac history panel and in clip rows on
+  iPhone and iPad.
 - On the Mac, each copy costs Gancho far less work. Titles, search and board
   suggestions share one loaded language model instead of loading it for every
   clip, and the hidden history panel no longer redraws itself on every copy.

@@ -18,7 +18,7 @@ struct PanelUpNextSlot: View {
                     Text("Up next · on-device")
                         .textCase(.uppercase)
                         .panelFont(.caption2, .bold)
-                        .foregroundStyle(GanchoTokens.Palette.brandText)
+                        .foregroundStyle(GanchoTokens.Palette.ink2)
                     preview
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -36,7 +36,10 @@ struct PanelUpNextSlot: View {
             .padding(.horizontal, GanchoTokens.Spacing.sm)
             .padding(.vertical, GanchoTokens.Spacing.xs)
             .background(.background, in: shape)
-            .overlay(shape.strokeBorder(GanchoTokens.Palette.brandGreen, lineWidth: 2))
+            .overlay(
+                shape.strokeBorder(
+                    GanchoTokens.Palette.ink2, lineWidth: GanchoTokens.Stroke.hairline)
+            )
             .contentShape(shape)
         }
         .buttonStyle(.plain)

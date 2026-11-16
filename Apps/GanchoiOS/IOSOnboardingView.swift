@@ -41,7 +41,7 @@ struct IOSOnboardingView: View {
                         })
                 }
         }
-        // Toolbar text in the readable green ink, not the 2.2:1 brand fill.
+        // Toolbar text in full ink, not the muted control tint.
         .ganchoInkTint()
     }
 
@@ -61,7 +61,7 @@ struct IOSOnboardingView: View {
                 VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
                     Image(systemName: "doc.on.clipboard.fill")
                         .font(.system(size: 44))
-                        .foregroundStyle(GanchoTokens.Palette.accentInk)
+                        .foregroundStyle(GanchoTokens.Palette.ink2)
                     Text("Everything you copy, saved and searchable")
                         .font(.title2.bold())
                     Text(
@@ -103,7 +103,7 @@ struct IOSOnboardingView: View {
         HStack(alignment: .top, spacing: GanchoTokens.Spacing.sm) {
             Image(systemName: symbol)
                 .font(.title3)
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.subheadline.weight(.semibold))

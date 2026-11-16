@@ -93,13 +93,13 @@ struct PeekPartsControls: View {
             Text(option.title)
                 .panelFont(.subheadline, isOn ? .semibold : .regular)
                 .foregroundStyle(
-                    isOn ? AnyShapeStyle(GanchoTokens.Palette.brandText) : AnyShapeStyle(.primary)
+                    isOn ? AnyShapeStyle(GanchoTokens.Palette.inverseText) : AnyShapeStyle(.primary)
                 )
                 .padding(.horizontal, GanchoTokens.Spacing.xs)
                 .frame(minHeight: 22)
                 .background(
                     isOn
-                        ? AnyShapeStyle(GanchoTokens.Palette.brandTint)
+                        ? AnyShapeStyle(GanchoTokens.Palette.inverseFill)
                         : AnyShapeStyle(Color.primary.opacity(0.07)),
                     in: Capsule()
                 )

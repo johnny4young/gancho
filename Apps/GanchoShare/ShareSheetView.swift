@@ -34,7 +34,7 @@ struct ShareSheetView: View {
                         Label {
                             Text("Pin it")
                         } icon: {
-                            Image(systemName: "pin").foregroundStyle(GanchoTokens.Palette.accentInk)
+                            Image(systemName: "pin").foregroundStyle(GanchoTokens.Palette.ink2)
                         }
                     }
                     .accessibilityIdentifier("share-pin-toggle")
@@ -45,7 +45,6 @@ struct ShareSheetView: View {
                         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                 }
             }
-            .tint(GanchoTokens.Palette.accent)
             .navigationTitle("Save to Gancho")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -137,7 +136,7 @@ struct ShareSheetView: View {
                 naming = true
             } label: {
                 Label("New board", systemImage: "plus")
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
                     .chipStyle(selected: false)
             }
             .buttonStyle(.plain)
@@ -150,11 +149,8 @@ struct ShareSheetView: View {
             Label("Save to Gancho", systemImage: "arrow.down")
                 .font(.headline)
                 .frame(maxWidth: .infinity, minHeight: 50)
-                .background(
-                    GanchoTokens.Palette.accent,
-                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
-                )
-                .foregroundStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                .ganchoPrimaryVerb(
+                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(model.isSaving)
@@ -173,18 +169,19 @@ struct ShareSheetView: View {
 }
 
 extension View {
-    /// The board chip: green with dark ink when chosen, a quiet fill otherwise.
+    /// The board chip: an inverse fill when chosen, a quiet fill otherwise.
     fileprivate func chipStyle(selected: Bool) -> some View {
         font(.subheadline.weight(selected ? .semibold : .medium))
             .padding(.horizontal, GanchoTokens.Spacing.sm)
             .frame(minHeight: 30)
             .background(
-                selected ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
+                selected
+                    ? AnyShapeStyle(GanchoTokens.Palette.inverseFill) : AnyShapeStyle(.quaternary),
                 in: Capsule()
             )
             .foregroundStyle(
                 selected
-                    ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                    ? AnyShapeStyle(GanchoTokens.Palette.inverseText)
                     : AnyShapeStyle(.primary))
     }
 }

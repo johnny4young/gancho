@@ -30,14 +30,14 @@ extension IOSPrivacyCenterView {
                     if let verification { verificationResult(verification) }
                 } icon: {
                     Image(systemName: model.storageIsEphemeral ? "externaldrive" : "lock")
-                        .foregroundStyle(GanchoTokens.Palette.accentInk)
+                        .foregroundStyle(GanchoTokens.Palette.ink2)
                 }
             }
             Label {
                 Text("iCloud sync")
                 syncDetail
             } icon: {
-                Image(systemName: "icloud").foregroundStyle(GanchoTokens.Palette.accentInk)
+                Image(systemName: "icloud").foregroundStyle(GanchoTokens.Palette.ink2)
             }
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("ios-privacy-sync")
@@ -47,7 +47,7 @@ extension IOSPrivacyCenterView {
                 Label {
                     Text("Secrets masked now")
                 } icon: {
-                    Image(systemName: "eye.slash").foregroundStyle(GanchoTokens.Palette.accentInk)
+                    Image(systemName: "eye.slash").foregroundStyle(GanchoTokens.Palette.ink2)
                 }
             }
             .accessibilityIdentifier("ios-privacy-masked")
@@ -78,7 +78,7 @@ extension IOSPrivacyCenterView {
         Group {
             if report.isVerified, let version = report.cipherVersion {
                 Text("Verified · SQLCipher \(version) · unreadable without its key")
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
             } else if !report.fileFound {
                 Text("There’s no database file on this iPhone to check.")
                     .foregroundStyle(GanchoTokens.Palette.danger)

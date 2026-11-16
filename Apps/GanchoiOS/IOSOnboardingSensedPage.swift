@@ -17,7 +17,7 @@ struct IOSOnboardingSensedPage: View {
                 VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
                     Image(systemName: "shield.lefthalf.filled")
                         .font(.system(size: 44))
-                        .foregroundStyle(GanchoTokens.Palette.accentInk)
+                        .foregroundStyle(GanchoTokens.Palette.ink2)
                         .accessibilityHidden(true)
                     Text("Sensed, not read")
                         .font(.title2.bold())
@@ -73,12 +73,12 @@ struct IOSOnboardingSensedPage: View {
             Spacer(minLength: 0)
             Image(systemName: "arrow.down")
                 .font(.body.weight(.semibold))
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
         }
         .padding(.vertical, 10)
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .background(
-            GanchoTokens.Palette.accentTint,
+            GanchoTokens.Palette.selectionWash,
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg)
         )
         .overlay(
@@ -127,7 +127,7 @@ struct IOSOnboardingSensedPage: View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
             Image(systemName: symbol)
                 .font(.title3)
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
                 .frame(width: 28)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
@@ -189,7 +189,7 @@ struct IOSOnboardingGuideSheet: View {
                     } icon: {
                         Text(verbatim: "\(index + 1)")
                             .font(.subheadline.weight(.bold))
-                            .foregroundStyle(GanchoTokens.Palette.accentInk)
+                            .foregroundStyle(GanchoTokens.Palette.ink2)
                     }
                 }
             }

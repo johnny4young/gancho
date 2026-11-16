@@ -79,13 +79,13 @@ struct RecentClipsLargeView: View {
             .frame(height: 18)
             .background(
                 selected
-                    ? AnyShapeStyle(GanchoTokens.Palette.accent)
+                    ? AnyShapeStyle(GanchoTokens.Palette.inverseFill)
                     : AnyShapeStyle(.primary.opacity(0.07)),
                 in: Capsule()
             )
             .foregroundStyle(
                 selected
-                    ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                    ? AnyShapeStyle(GanchoTokens.Palette.inverseText)
                     : AnyShapeStyle(.primary))
         }
         .buttonStyle(.plain)
@@ -152,10 +152,7 @@ struct RecentClipsLargeView: View {
                 Label("Save clipboard", systemImage: "arrow.down")
                     .font(.caption.weight(.bold))
                     .frame(maxWidth: .infinity, minHeight: 30)
-                    .background(
-                        GanchoTokens.Palette.accent, in: RoundedRectangle(cornerRadius: 10)
-                    )
-                    .foregroundStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                    .ganchoPrimaryVerb(in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
             Link(destination: URL(string: "gancho://")!) {

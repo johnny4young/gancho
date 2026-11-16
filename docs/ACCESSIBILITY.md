@@ -24,7 +24,7 @@ that complements the automated checks.
 - Compact icon actions share a labeled hit target, scaled with panel text on
   macOS and sized for touch on iOS. Opaque custom accent fills resolve a black
   or white foreground from their luminance instead of always forcing white;
-  the brand green takes its dark ink.
+  the lime accent takes its own dark ink.
 - **Contrast**: accent and status text reach WCAG AA (4.5:1) on every surface
   it sits on in light and dark mode, whatever accent colour the system uses;
   `ContrastTokenTests` proves each pair, including hover and pressed fills.

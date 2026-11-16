@@ -62,7 +62,7 @@ struct PrivacyStatusTiles: View {
         } else {
             tile(
                 id: "privacy-status-encrypted", symbol: "lock",
-                ink: GanchoTokens.Palette.accentInk, value: Text("Encrypted at rest"),
+                ink: GanchoTokens.Palette.ink2, value: Text("Encrypted at rest"),
                 detail: Text("SQLCipher · key in your Keychain"))
         }
     }
@@ -97,7 +97,7 @@ struct PrivacyStatusTiles: View {
         switch model.syncStatus {
         case .idle: AnyShapeStyle(.secondary)
         case .syncing, .pending: AnyShapeStyle(.primary)
-        case .upToDate: AnyShapeStyle(GanchoTokens.Palette.accentInk)
+        case .upToDate: AnyShapeStyle(GanchoTokens.Palette.ink2)
         case .paused: AnyShapeStyle(GanchoTokens.Palette.warningInk)
         case .failed: AnyShapeStyle(GanchoTokens.Palette.danger)
         }

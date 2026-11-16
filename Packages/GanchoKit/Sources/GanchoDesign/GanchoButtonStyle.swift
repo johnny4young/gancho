@@ -9,9 +9,10 @@ public enum ButtonStates {
     public static let disabledOpacity = 0.4
 }
 
-/// One saturated control per surface: `primary` is the only filled role.
-/// Secondary is surface + hairline, tertiary is accent text with a tint on
-/// hover, destructive is red text (a red fill belongs only in a confirmation).
+/// One saturated control per surface: `primary` is the verb Return runs, and
+/// the only accent fill. Secondary is surface + hairline, tertiary is quiet
+/// ink with a wash on hover, destructive is red text (a red fill belongs only
+/// in a confirmation).
 public enum GanchoButtonRole: Sendable {
     case primary, secondary, tertiary, neutral, destructive
 }
@@ -45,24 +46,49 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// A borderless text or icon button in the accent, readable as text
-    /// (a borderless button otherwise inherits the 2.2:1 brand-green tint).
+    /// A borderless text or icon button in full ink (a borderless button
+    /// otherwise inherits the muted control tint).
     public func ganchoTextButton() -> some View {
-        buttonStyle(.borderless).foregroundStyle(GanchoTokens.Palette.accentInk)
+        buttonStyle(.borderless).foregroundStyle(GanchoTokens.Palette.ink)
     }
 
-    /// Tints a control that paints its own label in the accent (a borderless
-    /// menu, a button-style toggle) with the readable ink instead.
-    public func ganchoInkTint() -> some View { modifier(InkTint()) }
+    /// Tints a control that paints its own label in the tint (a borderless
+    /// menu, a button-style toggle) with full ink instead.
+    public func ganchoInkTint() -> some View { tint(GanchoTokens.Palette.ink) }
+
+    /// The primary verb drawn on a custom label (a full-width sheet button, a
+    /// widget, a dock): the accent fill and its ink. `step` is the hover or
+    /// pressed fraction from `ButtonStates`.
+    public func ganchoPrimaryVerb(in shape: some Shape, step: Double = 0) -> some View {
+        modifier(PrimaryVerbFill(shape: AnyShape(shape), step: step))
+    }
 }
 
-private struct InkTint: ViewModifier {
+private struct PrimaryVerbFill: ViewModifier {
+    let shape: AnyShape
+    let step: Double
     @Environment(\.self) private var environment
 
     func body(content: Content) -> some View {
-        content.tint(Color(GanchoTokens.Palette.accentInk.resolve(in: environment)))
+        let fill = Color(
+            Contrast.stepped(
+                GanchoTokens.Palette.accent.resolve(in: environment), by: step,
+                lighter: environment.colorScheme == .dark))
+        content
+            .foregroundStyle(ContrastingForeground(on: fill))
+            .background(fill, in: shape)
     }
 }
+
+#if canImport(UIKit)
+    extension GanchoTokens {
+        /// The primary verb's colours for a UIKit control the system draws.
+        public enum PrimaryVerb {
+            public static var uiFill: UIColor { UIColor(Palette.accent) }
+            public static var uiInk: UIColor { UIColor(Color(ColorPair.onAccent.resolved(.light))) }
+        }
+    }
+#endif
 
 private struct GanchoButtonBody: View {
     let role: GanchoButtonRole
@@ -139,10 +165,7 @@ private struct GanchoButtonBody: View {
             return stepped(GanchoTokens.Palette.accent)
         case .secondary:
             return stepped(GanchoTokens.Palette.surface(.control))
-        case .tertiary:
-            guard step > 0 else { return nil }
-            return stepped(Color(GanchoTokens.Palette.accentTint.resolve(in: environment)))
-        case .neutral:
+        case .tertiary, .neutral:
             guard step > 0 else { return nil }
             return Color.primary.opacity(configuration.isPressed ? 0.09 : 0.05)
         case .destructive:
@@ -155,27 +178,15 @@ private struct GanchoButtonBody: View {
         switch role {
         case .primary: AnyShapeStyle(ContrastingForeground(on: fill ?? .clear))
         case .secondary, .neutral: AnyShapeStyle(.primary)
-        case .tertiary: tertiaryInk(on: fill)
+        case .tertiary: AnyShapeStyle(GanchoTokens.Palette.ink2)
         case .destructive: AnyShapeStyle(GanchoTokens.Palette.danger)
         }
-    }
-
-    /// Accent text, re-darkened (or lightened) against the hover tint as it
-    /// lands on the card surface, where a system accent's ink can drop below
-    /// 4.5:1.
-    private func tertiaryInk(on fill: Color?) -> AnyShapeStyle {
-        guard let fill else { return AnyShapeStyle(GanchoTokens.Palette.accentInk) }
-        let backdrop = Contrast.composited(
-            fill.resolve(in: environment),
-            over: GanchoTokens.Palette.surface(.card).resolve(in: environment))
-        let ink = GanchoTokens.Palette.accentInk.resolve(in: environment)
-        return AnyShapeStyle(Color(Contrast.adjusted(ink, against: backdrop)))
     }
 
     private var ringColor: AnyShapeStyle {
         role == .destructive
             ? AnyShapeStyle(GanchoTokens.Palette.danger)
-            : AnyShapeStyle(GanchoTokens.Palette.accentInk)
+            : AnyShapeStyle(GanchoTokens.Palette.ink)
     }
 
     /// Only the primary fill casts a coloured shadow, and never in dark or

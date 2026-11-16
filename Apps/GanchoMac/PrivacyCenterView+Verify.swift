@@ -7,7 +7,7 @@ extension PrivacyCenterView {
     /// the last content read, agent access and the network boundary.
     var verifySection: some View {
         Section("Verify, don’t trust") {
-            verifyRow(symbol: "lock", tint: GanchoTokens.Palette.accentInk) {
+            verifyRow(symbol: "lock", tint: GanchoTokens.Palette.ink2) {
                 Text("History is encrypted on this Mac")
                 Text(
                     "SQLCipher database, sealed image and file blobs. The key lives in your login Keychain."
@@ -24,7 +24,7 @@ extension PrivacyCenterView {
                 .disabled(verifying || model.storageIsEphemeral || model.fullStore == nil)
                 .accessibilityIdentifier("privacy-verify-encryption")
             }
-            verifyRow(symbol: "checkmark.icloud", tint: GanchoTokens.Palette.accentInk) {
+            verifyRow(symbol: "checkmark.icloud", tint: GanchoTokens.Palette.ink2) {
                 Text("iCloud sync")
                 if case .idle = model.syncStatus {
                     Text("Off · your private iCloud database, with Pro")
@@ -87,7 +87,7 @@ extension PrivacyCenterView {
         Group {
             if report.isVerified, let version = report.cipherVersion {
                 Text("Verified · SQLCipher \(version) · unreadable without its key")
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
             } else if !report.fileFound {
                 Text("There’s no database file on this Mac to check.")
                     .foregroundStyle(GanchoTokens.Palette.danger)

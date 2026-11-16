@@ -83,7 +83,7 @@ private struct ConcealedRuleCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: GanchoTokens.Spacing.xs) {
             Image(systemName: "checkmark.shield")
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Built-in rule · concealed and transient copies").font(.body.weight(.bold))
@@ -109,12 +109,13 @@ private struct ConcealedRuleCard: View {
         .padding(GanchoTokens.Spacing.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            GanchoTokens.Palette.accent.opacity(0.06),
+            GanchoTokens.Palette.control,
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         )
         .overlay(
             RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                .strokeBorder(GanchoTokens.Palette.accent.opacity(0.35), lineWidth: 1)
+                .strokeBorder(
+                    GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
         )
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("capture-concealed-rule-card")

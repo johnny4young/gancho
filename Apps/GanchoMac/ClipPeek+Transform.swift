@@ -21,7 +21,7 @@ extension ClipPeek {
                     .panelFont(.caption2)
             }
             .panelFont(.body, .medium)
-            .foregroundStyle(GanchoTokens.Palette.accentInk)
+            .foregroundStyle(GanchoTokens.Palette.ink2)
             .padding(.horizontal, GanchoTokens.Spacing.sm)
             .padding(.vertical, GanchoTokens.Spacing.xxs)
             .contentShape(.rect)

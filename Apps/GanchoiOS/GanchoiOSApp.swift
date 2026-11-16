@@ -24,6 +24,7 @@ struct GanchoiOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        GanchoFonts.registerIfNeeded()
         let model = IOSAppModel()
         _model = State(initialValue: model)
         // Expose the model's content-free diagnostics log to the app delegate,
@@ -133,8 +134,6 @@ struct GanchoiOSApp: App {
             }
             // Widget deep links (`gancho://clip/<id>`) open the right clip.
             .onOpenURL { model.handleDeepLink($0) }
-            // Brand-green accent (iOS has no per-app OS accent picker, so green
-            // is the default); the Synced check and success states use it too.
             .ganchoTinted()
             .sheet(
                 isPresented: Binding(

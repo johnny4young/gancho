@@ -38,9 +38,7 @@ extension LibraryView {
             } label: {
                 Label("New board", systemImage: "plus").panelFont(.callout, .bold)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(GanchoTokens.Palette.accent)
-            .foregroundStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+            .ganchoButtonStyle(.secondary)
             .accessibilityIdentifier("library-new-board")
         }
         .padding(.horizontal, GanchoTokens.Spacing.md)
@@ -137,8 +135,7 @@ extension LibraryView {
                         Image(systemName: active ? "checkmark" : filter.symbolName)
                             .foregroundStyle(
                                 active
-                                    ? AnyShapeStyle(
-                                        ContrastingForeground(on: GanchoTokens.Palette.accent))
+                                    ? AnyShapeStyle(GanchoTokens.Palette.inverseText)
                                     : AnyShapeStyle(
                                         filter.tintKind.map {
                                             GanchoTokens.Palette.kindTint(for: $0)
@@ -149,7 +146,7 @@ extension LibraryView {
                     .panelFont(.caption, active ? .bold : .semibold)
                     .foregroundStyle(
                         active
-                            ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                            ? AnyShapeStyle(GanchoTokens.Palette.inverseText)
                             : AnyShapeStyle(.secondary)
                     )
                     .padding(.horizontal, active ? 8 : 0)
@@ -157,7 +154,7 @@ extension LibraryView {
                     .fixedSize()
                     .background(
                         active
-                            ? AnyShapeStyle(GanchoTokens.Palette.accent)
+                            ? AnyShapeStyle(GanchoTokens.Palette.inverseFill)
                             : AnyShapeStyle(.quaternary.opacity(0.6)),
                         in: Capsule()
                     )

@@ -452,22 +452,14 @@ public struct ClipCard: View {
             ? nil : GanchoMotion.quick(reduceMotion: reduceMotion)
     }
 
-    /// Accent wash inside a full accent outline, never a leading bar. With a
-    /// namespace it is ONE view shared by every row, so a selection change
-    /// moves it rather than swapping it.
+    /// A neutral wash, never a leading bar or a ring. With a namespace it is
+    /// ONE view shared by every row, so a selection change moves it rather
+    /// than swapping it.
     @ViewBuilder private var selectionBackground: some View {
         if isSelected {
             let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
             shape
-                .fill(
-                    GanchoTokens.Palette.accent.opacity(
-                        GanchoTokens.Palette.selectionWashOpacity(colorScheme))
-                )
-                .overlay(
-                    shape.strokeBorder(
-                        GanchoTokens.Palette.accent.opacity(0.55),
-                        lineWidth: GanchoTokens.Stroke.hairline)
-                )
+                .fill(GanchoTokens.Palette.selectionWash)
                 .modifier(
                     SharedSelectionGeometry(
                         namespace: selectionNamespace, rowID: isSelectionAnchor ? nil : item.id))
@@ -522,16 +514,7 @@ public struct ClipShortcutBadge: View {
 
     public var body: some View {
         if (1...9).contains(number) {
-            Text(verbatim: "⌘\(number)")
-                .panelFont(.caption2, .medium, design: .monospaced)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, GanchoTokens.Spacing.xxs)
-                .padding(.vertical, 1)
-                .background(
-                    .quaternary,
-                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
-                )
-                .accessibilityHidden(true)
+            KeyCap("⌘\(number)").accessibilityHidden(true)
         }
     }
 }
@@ -706,6 +689,8 @@ public struct SearchField<Leading: View, Trailing: View>: View {
             leading
             TextField(promptKey, text: $text)
                 .textFieldStyle(.plain)
+                // The caret is one of the accent's four places.
+                .tint(GanchoTokens.Palette.accentText)
                 .autocorrectionDisabled()
                 #if os(macOS)
                     .textContentType(nil)

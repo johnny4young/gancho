@@ -174,6 +174,33 @@ checksum in that script (the canary's `SPARKLE` pin cross-checks it), then the
 signed direct-download DMG must build with re-signed helpers and pass
 `codesign --verify --deep --strict` before merging.
 
+## Bundled typefaces
+
+Three typefaces ship inside the `GanchoDesign` resource bundle
+(`Packages/GanchoKit/Sources/GanchoDesign/Resources/Fonts/`) and register per
+process at launch (`GanchoFonts`); no target declares them in its Info.plist.
+They are not packages: no lane watches them, so an update is a hand-made PR.
+
+| Typeface | File | Version | Source (`google/fonts`) | Licence |
+| --- | --- | --- | --- | --- |
+| Instrument Serif Regular | `InstrumentSerif-Regular.ttf` (70 KB) | 1.000 | `ofl/instrumentserif` at `0b58fb37` | OFL 1.1 |
+| Geist (variable `wght`) | `Geist-Variable.ttf` (169 KB) | 1.800 | `ofl/geist` at `121c8e30` | OFL 1.1 |
+| Geist Mono (variable `wght`) | `GeistMono-Variable.ttf` (172 KB) | 1.701 | `ofl/geistmono` at `121c8e30` | OFL 1.1 |
+
+SHA-256 of the bundled files:
+
+```text
+498efd461f6ddfcb7a111bf9a565709d2085d48201d501ead960d93e84ffbb88  InstrumentSerif-Regular.ttf
+73894e0448cae90a92b6c2f8732b7bb9acb7b94c418bff559dad4a18e1de9659  Geist-Variable.ttf
+d00e590b8eb3a59acc329b2d044fd143ae935090b7da33199ebee27cc7de8196  GeistMono-Variable.ttf
+```
+
+The licence texts live in `THIRD-PARTY-NOTICES.md`. To update a face, replace
+the file with the upstream one unmodified (the OFL reserves the font names for
+unmodified copies), update this table and the checksum, and run `make test`:
+`GanchoFontsTests` proves each face still registers and that every weight the
+interface uses resolves its own instance.
+
 ## October 2026 maintenance review
 
 ### Sparkle 2.10.0 → 2.10.1
