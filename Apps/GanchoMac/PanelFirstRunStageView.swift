@@ -40,7 +40,10 @@ struct PanelFirstRunStageView: View {
                 KeyCap("↓")
             }
             // The one accent on this screen: what Return does.
-            keyRow(title: "Paste where you were typing", detail: "⌥⏎ pastes plain text") {
+            keyRow(
+                title: "Paste where you were typing", detail: "pastes plain text",
+                detailKey: "⌥↩"
+            ) {
                 ReturnKeyCap()
             }
             Spacer(minLength: 0)
@@ -56,7 +59,7 @@ struct PanelFirstRunStageView: View {
     }
 
     private func keyRow(
-        title: LocalizedStringKey, detail: LocalizedStringKey?,
+        title: LocalizedStringKey, detail: LocalizedStringKey?, detailKey: String? = nil,
         @ViewBuilder keys: () -> some View
     ) -> some View {
         VStack(spacing: 0) {
@@ -68,8 +71,11 @@ struct PanelFirstRunStageView: View {
                     Text(title).panelFont(.callout, .semibold)
                         .foregroundStyle(GanchoTokens.Palette.ink)
                     if let detail {
-                        Text(detail).panelFont(.caption)
-                            .foregroundStyle(GanchoTokens.Palette.ink3)
+                        HStack(spacing: 4) {
+                            if let detailKey { KeyCap(detailKey).accessibilityHidden(true) }
+                            Text(detail).panelFont(.caption)
+                                .foregroundStyle(GanchoTokens.Palette.ink3)
+                        }
                     }
                 }
                 Spacer(minLength: 0)
@@ -95,6 +101,7 @@ struct PanelHairline: View {
 /// The empty history's mark: the menu-bar hook hanging from a dashed line.
 struct PanelEmptyMark: View {
     static let side: CGFloat = 64
+    private static let hook = MenuBarGlyph.mark(side: side)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -110,7 +117,7 @@ struct PanelEmptyMark: View {
             // The hook's eye sits right of centre and below the image's top edge.
             .offset(x: Self.side * 2 / 96)
             .padding(.bottom, -Self.side * 11.5 / 96)
-            Image(nsImage: MenuBarGlyph.mark(side: Self.side))
+            Image(nsImage: Self.hook)
                 .resizable()
                 .renderingMode(.template)
                 .interpolation(.high)
