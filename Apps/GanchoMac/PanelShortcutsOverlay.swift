@@ -58,6 +58,7 @@ struct PanelShortcutsOverlay: View {
             shortcutLine(["⇧", "↑", "↓"], "Extend selection")
             shortcutLine(["⌘"], "Click to select several clips")
             shortcutLine(["→"], "Open actions")
+            shortcutLine(["⌘", "K"], "Actions")
             shortcutLine(["←"], "Back to list")
             shortcutLine(["↩"], "Paste")
             shortcutLine(["⌥", "↩"], "Paste without formatting")

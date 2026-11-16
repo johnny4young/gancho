@@ -105,8 +105,29 @@ public struct TransformPipeline: Equatable, Sendable {
     }
 }
 
-/// The single Transform list: what each row of the ⌘T popover does.
+/// A verb of the clip itself: what the dock's buttons and their keys run.
+public enum ClipVerb: String, CaseIterable, Hashable, Sendable {
+    case paste
+    case pastePlain = "paste-plain"
+    case convert, stack, pin, board, context
+    case imageText = "image-copy-text"
+    case markdownLink = "markdown-link"
+    case delete
+
+    /// The dock action this verb runs; nil for the verbs only the panel lists.
+    public var dockID: String? {
+        switch self {
+        case .markdownLink, .delete: nil
+        case .imageText: rawValue
+        default: "preview-\(rawValue)"
+        }
+    }
+}
+
+/// The single action list: what each row of the ⌘K panel does.
 public enum TransformRow: Hashable, Sendable, Identifiable {
+    /// Runs a verb of the clip, as its dock button does.
+    case verb(ClipVerb)
     /// Opens the text recipes.
     case recipes
     /// Opens the pipeline with this step and its before / after.
@@ -122,6 +143,7 @@ public enum TransformRow: Hashable, Sendable, Identifiable {
 
     public var id: String {
         switch self {
+        case .verb(let verb): "verb-\(verb.rawValue)"
         case .recipes: "recipes"
         case .step(let step): step.id
         case .smartPaste(let action): "smart-\(action.rawValue)"
@@ -130,10 +152,23 @@ public enum TransformRow: Hashable, Sendable, Identifiable {
         case .savedPrompt(let prompt): "prompt-\(prompt)"
         }
     }
+
+    /// The row's accessibility identifier in the panel.
+    public var panelIdentifier: String {
+        if case .verb(let verb) = self { return "action-row-\(verb.rawValue)" }
+        return "transform-row-\(id)"
+    }
+
+    /// Words a filter matches beside the title, in every language.
+    var aliases: String {
+        self == .verb(.markdownLink) ? "md" : ""
+    }
 }
 
 public struct TransformGroup: Equatable, Sendable, Identifiable {
     public enum Kind: Hashable, Sendable {
+        /// The clip's verbs, first in the panel.
+        case clip
         /// The clip's own developer actions, titled by its kind.
         case clipKind(ClipContentKind)
         case text, recipes, smartPaste
@@ -145,6 +180,16 @@ public struct TransformGroup: Equatable, Sendable, Identifiable {
 }
 
 public enum TransformCatalog {
+    /// The clip's verbs in panel order: the dock's actions on offer, a link's
+    /// Markdown copy, then Delete.
+    public static func clipGroup(dockIDs: [String], markdownLink: Bool) -> TransformGroup {
+        let verbs = ClipVerb.allCases.filter { verb in
+            if let dockID = verb.dockID { return dockIDs.contains(dockID) }
+            return verb == .delete || markdownLink
+        }
+        return TransformGroup(kind: .clip, rows: verbs.map(TransformRow.verb))
+    }
+
     /// What the popover offers for a clip, in order: the kind's own actions
     /// first, then text transforms, recipes and on-device Smart paste.
     /// `plainText` stays out: Paste plain already covers it.
@@ -174,8 +219,8 @@ public enum TransformCatalog {
         return groups
     }
 
-    /// Keeps the rows whose title contains every word of the query, ignoring
-    /// case and diacritics; empty groups drop out.
+    /// Keeps the rows whose title or alias contains every word of the query,
+    /// ignoring case and diacritics; empty groups drop out.
     public static func matching(
         _ groups: [TransformGroup], query: String, title: (TransformRow) -> String
     ) -> [TransformGroup] {
@@ -183,7 +228,7 @@ public enum TransformCatalog {
         guard !words.isEmpty else { return groups }
         return groups.compactMap { group in
             let rows = group.rows.filter { row in
-                let haystack = title(row)
+                let haystack = "\(title(row)) \(row.aliases)"
                 return words.allSatisfy {
                     haystack.range(of: $0, options: [.caseInsensitive, .diacriticInsensitive])
                         != nil

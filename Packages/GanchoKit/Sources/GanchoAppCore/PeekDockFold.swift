@@ -36,9 +36,4 @@ public enum PeekDockFold {
                 + (primaryHasShortTitle ? [Tier(visible: row, shortPrimary: true)] : [])
         }
     }
-
-    /// What a tier folded away, in dock order.
-    public static func folded(from ids: [String], showing visible: [String]) -> [String] {
-        ids.filter { !visible.contains($0) }
-    }
 }

@@ -26,7 +26,7 @@ struct ClipPeek: View {
     /// Tells the panel an inline editor owns the keyboard, so a window regaining
     /// key status does not pull focus back to the search field.
     @Binding var isEditingInline: Bool
-    /// Bumped by the panel's ⌘T.
+    /// Bumped by the panel's ⌘K.
     let transformRequest: Int
     /// Shared with the list: the peek owns the keyboard when this equals `.peek`
     /// (entered with → from the list, left with ←).
@@ -61,7 +61,7 @@ struct ClipPeek: View {
     @State private var actionIndex = 0
     /// User-authored titles are edited inline; drafts never mutate the store
     /// until Save succeeds.
-    @State private var presentedTitle: String
+    @State var presentedTitle: String
     @State private var titleDraft: String
     @State private var isEditingTitle = false
     @State private var isSavingTitle = false
@@ -259,7 +259,7 @@ struct ClipPeek: View {
             if newValue == .peek { actionIndex = 0 }
         }
         .onChange(of: transformRequest) { _, _ in
-            if offersTransforms { showsTransformPopover = true }
+            if !isThinking { showsTransformPopover = true }
         }
         // A verb that folds away must not keep the keyboard focus.
         .onChange(of: visibleDockIDs) { _, _ in
@@ -484,11 +484,8 @@ extension ClipPeek {
                 if let parts = linkParts, !isEditingText {
                     let markdown = parts.markdownLink(title: presentedTitle)
                     PeekLinkHero(
-                        parts: parts, anatomy: LinkAnatomy(text: parts.text), markdown: markdown
-                    ) {
-                        SystemPasteboardWriter().write(.text(markdown), asPlainText: true)
-                        model.toasts.show(GanchoToast(message: "Copied"))
-                    }
+                        parts: parts, anatomy: LinkAnatomy(text: parts.text), markdown: markdown,
+                        copyMarkdown: copyMarkdownLink)
                 }
                 if let color = colorValue, !isEditingText {
                     PeekColorHero(color: color) { value, label in
@@ -516,9 +513,16 @@ extension ClipPeek {
     /// Non-nil only when a link clip's text really parses as a URL with a
     /// host; a `url`-kind clip whose text doesn't (synthetic or edited) keeps
     /// the plain body.
-    private var linkParts: ClipLinkParts? {
+    var linkParts: ClipLinkParts? {
         guard item.kind == .url, !ClipSafePresentation.requiresMasking(item) else { return nil }
         return ClipLinkParts(text: presentedText)
+    }
+
+    /// The link peek's Markdown row and the action panel's verb copy the same text.
+    func copyMarkdownLink() {
+        guard let markdown = linkParts?.markdownLink(title: presentedTitle) else { return }
+        SystemPasteboardWriter().write(.text(markdown), asPlainText: true)
+        model.toasts.show(GanchoToast(message: "Copied"))
     }
 
     /// The parts of a merged clip while its text still matches them.
@@ -591,7 +595,7 @@ extension ClipPeek {
 extension ClipPeek {
     /// The action dock, one row: Return's verb is the only filled control, the
     /// others are quiet text with their keys, and Actions closes the row. The
-    /// widest tier that fits wins; what it leaves out moves into Actions.
+    /// widest tier that fits wins; Actions lists every verb either way.
     private var dock: some View {
         let actions = dockActions
         let tiers = PeekDockFold.tiers(
@@ -613,7 +617,6 @@ extension ClipPeek {
 
     private func dockRow(_ actions: [PeekAction], tier: PeekDockFold.Tier) -> some View {
         let visible = tier.visible
-        let folded = PeekDockFold.folded(from: actions.map(\.id), showing: visible)
         let shown = actions.filter { visible.contains($0.id) }
         return HStack(spacing: GanchoTokens.Spacing.xxs) {
             ForEach(Array(shown.enumerated()), id: \.element.id) { index, action in
@@ -622,9 +625,7 @@ extension ClipPeek {
                     style: .dock(isPrimary: index == 0, short: tier.shortPrimary))
             }
             Spacer(minLength: 0)
-            if offersTransforms || !folded.isEmpty {
-                actionsButton(folded: actions.filter { folded.contains($0.id) })
-            }
+            actionsButton
         }
         .preference(key: DockVisibleIDs.self, value: visible)
     }

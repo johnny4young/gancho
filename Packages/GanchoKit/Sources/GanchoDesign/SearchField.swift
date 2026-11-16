@@ -52,8 +52,7 @@ public struct SearchField<Leading: View, Trailing: View>: View {
             leading
             TextField(promptKey, text: $text)
                 .textFieldStyle(.plain)
-                // The caret: one of the accent's four places.
-                .tint(GanchoTokens.Palette.accentText)
+                .ganchoCaret()
                 .autocorrectionDisabled()
                 #if os(macOS)
                     .textContentType(nil)
@@ -75,6 +74,13 @@ public struct SearchField<Leading: View, Trailing: View>: View {
             }
             trailing
         }
+    }
+}
+
+extension View {
+    /// The accent caret of a field that filters what Return runs.
+    public func ganchoCaret() -> some View {
+        tint(GanchoTokens.Palette.accentText)
     }
 }
 

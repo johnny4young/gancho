@@ -64,6 +64,58 @@ struct TransformCatalogTests {
         #expect(TransformCatalog.matching(groups, query: "  ", title: title) == groups)
     }
 
+    @Test("The clip group lists the dock's verbs in panel order, then Markdown and Delete")
+    func clipVerbs() {
+        let link = TransformCatalog.clipGroup(
+            dockIDs: [
+                "preview-paste", "preview-paste-plain", "preview-pin", "preview-board",
+                "preview-stack", "preview-context"
+            ], markdownLink: true)
+        #expect(link.kind == .clip)
+        #expect(
+            link.rows == [
+                .verb(.paste), .verb(.pastePlain), .verb(.stack), .verb(.pin), .verb(.board),
+                .verb(.context), .verb(.markdownLink), .verb(.delete)
+            ])
+
+        let image = TransformCatalog.clipGroup(
+            dockIDs: ["preview-paste", "image-copy-text"], markdownLink: false)
+        #expect(image.rows == [.verb(.paste), .verb(.imageText), .verb(.delete)])
+        #expect(image.rows.map(\.panelIdentifier).first == "action-row-paste")
+        #expect(
+            TransformRow.step(.text(.uppercase)).panelIdentifier == "transform-row-text-uppercase")
+        #expect(ClipVerb.allCases.compactMap(\.dockID).contains("preview-convert"))
+    }
+
+    @Test("The filter covers clip verbs, and md or mark lead with the Markdown link")
+    func filteringClipVerbs() {
+        let groups =
+            [
+                TransformCatalog.clipGroup(
+                    dockIDs: ["preview-paste", "preview-pin"], markdownLink: true)
+            ]
+            + TransformCatalog.groups(
+                kind: .url, includesRecipes: false, smartPaste: false, modelAvailable: false,
+                translationCodes: [])
+        let title: (TransformRow) -> String = { row in
+            switch row {
+            case .verb(.markdownLink): "Copy as Markdown link"
+            case .verb(let verb): verb.rawValue
+            case .step(let step): step.title
+            default: ""
+            }
+        }
+
+        for query in ["md", "mark", "MARKDOWN link"] {
+            let rows = TransformCatalog.matching(groups, query: query, title: title)
+                .flatMap(\.rows)
+            #expect(rows.first == .verb(.markdownLink), "\(query)")
+        }
+        let pin = TransformCatalog.matching(groups, query: "pin", title: title)
+        #expect(pin.map(\.kind) == [.clip])
+        #expect(pin.first?.rows == [.verb(.pin)])
+    }
+
     @Test("A pipeline runs its steps in order and caps at eight")
     func pipelineRuns() {
         var pipeline = TransformPipeline()

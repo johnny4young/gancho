@@ -13,6 +13,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   lime accent marks only what Return does, and its own typefaces (Instrument
   Serif, Geist and Geist Mono) in the Mac history panel and in clip rows on
   iPhone and iPad.
+- ⌘K opens one action panel for the selected clip in the Mac history panel:
+  its verbs with their keys, its transforms, recipes and Smart paste behind
+  one filter (⌘T still opens it).
 - Rows show the clip itself: a link leads with its site, a color is its
   swatch, code keeps its typeface with quiet tints, an image is its thumbnail,
   and a secret shows its mask inside a ring that counts down the time it has
