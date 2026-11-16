@@ -101,4 +101,14 @@ struct TimeRingTests {
             #expect(60.0.truncatingRemainder(dividingBy: span(seconds)) == 0)
         }
     }
+
+    @Test("Only a secret's ring turns red in its last minute; a mode's never does")
+    @MainActor
+    func modeRingNeverWarns() throws {
+        let lastMinute = at(570)
+        #expect(TimeRing(Self.ten).strokeIsUrgent(at: lastMinute))
+        let mode = try #require(ModeRing(Self.ten).ring)
+        #expect(!mode.strokeIsUrgent(at: lastMinute))
+        #expect(ModeRing(nil).ring == nil, "no deadline: a plain ring")
+    }
 }

@@ -14276,6 +14276,26 @@
         }
       }
     },
+    "Private Mode time left": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiempo restante del Modo privado"
+          }
+        }
+      }
+    },
+    "Reveal time left": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiempo restante para mostrar"
+          }
+        }
+      }
+    },
     "Never indexed, never synced, never read by agents.": {
       "localizations": {
         "es": {

@@ -109,7 +109,7 @@ public struct TimeRing<Center: View>: View {
                     .inset(by: lineWidth / 2)
                     .trim(from: 0, to: fraction)
                     .stroke(
-                        warnsWhenUrgent && countdown.isUrgent(at: context.date)
+                        strokeIsUrgent(at: context.date)
                             ? GanchoTokens.Palette.danger : GanchoTokens.Palette.ink,
                         style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                     )
@@ -121,10 +121,14 @@ public struct TimeRing<Center: View>: View {
             .accessibilityValue(Text("\(countdown.clock(at: context.date)) left"))
         }
     }
+
+    func strokeIsUrgent(at now: Date) -> Bool {
+        warnsWhenUrgent && countdown.isUrgent(at: now)
+    }
 }
 
-/// A timed mode's time left on the same ring; a plain ink ring while the mode
-/// has no deadline.
+/// A timed mode's time left on the same ring, never red: a mode running out
+/// is not a danger. A plain ink ring while the mode has no deadline.
 public struct ModeRing: View {
     let countdown: Countdown?
     let lineWidth: CGFloat
@@ -134,9 +138,13 @@ public struct ModeRing: View {
         self.lineWidth = lineWidth
     }
 
+    var ring: TimeRing<EmptyView>? {
+        countdown.map { TimeRing($0, lineWidth: lineWidth, warnsWhenUrgent: false) }
+    }
+
     public var body: some View {
-        if let countdown {
-            TimeRing(countdown, lineWidth: lineWidth)
+        if let ring {
+            ring
         } else {
             Circle().strokeBorder(GanchoTokens.Palette.ink, lineWidth: lineWidth)
                 .accessibilityHidden(true)

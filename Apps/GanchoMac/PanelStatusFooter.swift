@@ -175,6 +175,7 @@ struct PanelCaptureNoticeView: View {
                         until: preferences.privateModeEndsAt), lineWidth: 2
                 )
                 .frame(width: 22, height: 22)
+                .accessibilityLabel(Text("Private Mode time left"))
                 .accessibilityIdentifier("private-mode-ring")
             } else {
                 Image(systemName: symbol).foregroundStyle(ReadableInk(base: tint))

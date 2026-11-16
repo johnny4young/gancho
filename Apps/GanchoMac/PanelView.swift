@@ -624,7 +624,7 @@ struct PanelView: View {
         return VStack(spacing: 0) {
             SearchField(
                 "Search your clipboard", text: $search.query, style: .bare,
-                glyph: model.preferences.isPrivateModePaused ? "eye.slash" : "magnifyingglass"
+                hidesPreviews: model.previewsHidden
             ) {
                 SearchTokenChips(search: search)
             } trailing: {
