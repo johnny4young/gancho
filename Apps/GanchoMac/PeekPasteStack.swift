@@ -142,7 +142,7 @@ struct PeekPasteStack: View {
                 if showsKey, let key = verb.key { KeyCap(key).accessibilityHidden(true) }
             }
             .padding(.horizontal, 7)
-            .frame(height: 34 * typeScale)
+            .frame(height: PeekActionButton.dockHeight * typeScale)
             .foregroundStyle(GanchoTokens.Palette.ink)
             .overlay(
                 shape.strokeBorder(
