@@ -135,7 +135,7 @@ struct LibraryClipCard: View {
         let notation = bodyText.split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
         return
             color
-            .frame(height: specimenHeight ?? 112)
+            .frame(height: specimenHeight ?? ClipCardEstimate.swatchHeight)
             .overlay(alignment: .bottomLeading) {
                 Text(verbatim: notation)
                     .panelFont(size: 17, .medium, design: .monospaced)
@@ -145,19 +145,9 @@ struct LibraryClipCard: View {
             }
     }
 
-    /// The height an image takes at the narrowest column, from its recorded
-    /// proportions. Independent of the card's real width, so a scroller that
-    /// narrows the wall never changes its height.
-    nonisolated static func imageHeight(for info: ClipImageInfo?) -> CGFloat {
-        guard let info, info.width > 0, info.height > 0 else { return 140 }
-        let height =
-            MasonryLayout.defaultMinColumnWidth * CGFloat(info.height) / CGFloat(info.width)
-        return min(max(height, 96), 260)
-    }
-
     private var imageSpecimen: some View {
         Color.clear
-            .frame(height: specimenHeight ?? Self.imageHeight(for: clip.imageInfo))
+            .frame(height: specimenHeight ?? ClipCardEstimate.imageHeight(for: clip.imageInfo))
             .overlay {
                 if let thumbnail = thumbnails.cached(for: clip) {
                     thumbnail.resizable().scaledToFill()

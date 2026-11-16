@@ -1,22 +1,15 @@
 import SwiftUI
 
-/// Cards at their own heights in equal columns: each goes to the shortest
-/// column so far, so reading order follows the source order.
-public struct MasonryLayout: Layout {
+/// The arithmetic of a wall of cards at their own heights in equal columns:
+/// each card goes to the shortest column so far, so reading order follows the
+/// source order.
+public enum MasonryLayout {
     public struct Placement: Equatable, Sendable {
         public let column: Int
         public let y: CGFloat
     }
 
     public static let defaultMinColumnWidth: CGFloat = 210
-
-    let minColumnWidth: CGFloat
-    let spacing: CGFloat
-
-    public init(minColumnWidth: CGFloat = defaultMinColumnWidth, spacing: CGFloat = 16) {
-        self.minColumnWidth = minColumnWidth
-        self.spacing = spacing
-    }
 
     /// As many columns of at least `minColumnWidth` as fit, never fewer than one.
     public static func columnCount(
@@ -43,49 +36,6 @@ public struct MasonryLayout: Layout {
             return placement
         }
         return (placements, max(0, (bottoms.max() ?? 0) - spacing))
-    }
-
-    private struct Arrangement {
-        let columnWidth: CGFloat
-        let heights: [CGFloat]
-        let placements: [Placement]
-        let height: CGFloat
-    }
-
-    private func arrangement(_ subviews: Subviews, width: CGFloat) -> Arrangement {
-        let columns = Self.columnCount(
-            width: width, minColumnWidth: minColumnWidth, spacing: spacing)
-        let columnWidth = Self.columnWidth(width: width, columns: columns, spacing: spacing)
-        let heights = subviews.map {
-            $0.sizeThatFits(ProposedViewSize(width: columnWidth, height: nil)).height
-        }
-        let placed = Self.place(heights: heights, columns: columns, spacing: spacing)
-        return Arrangement(
-            columnWidth: columnWidth, heights: heights, placements: placed.placements,
-            height: placed.height)
-    }
-
-    public func sizeThatFits(
-        proposal: ProposedViewSize, subviews: Subviews, cache: inout Void
-    ) -> CGSize {
-        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? minColumnWidth
-        return CGSize(width: width, height: arrangement(subviews, width: width).height)
-    }
-
-    public func placeSubviews(
-        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void
-    ) {
-        let layout = arrangement(subviews, width: bounds.width)
-        for (index, subview) in subviews.enumerated() {
-            let placement = layout.placements[index]
-            subview.place(
-                at: CGPoint(
-                    x: bounds.minX + CGFloat(placement.column) * (layout.columnWidth + spacing),
-                    y: bounds.minY + placement.y),
-                anchor: .topLeading,
-                proposal: ProposedViewSize(
-                    width: layout.columnWidth, height: layout.heights[index]))
-        }
     }
 }
 

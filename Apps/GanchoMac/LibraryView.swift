@@ -61,6 +61,8 @@ struct LibraryView: View {
     @FocusState var sidebarFocused: Bool
     /// Boards of the clips on screen, read once per page.
     @State var membership: [UUID: Set<UUID>] = [:]
+    /// The clip wall's width, which decides how many columns it has.
+    @State var wallWidth: CGFloat = 0
     @State var filterCounts: [UUID: Int] = [:]
 
     enum EditorField { case title, keyword }
