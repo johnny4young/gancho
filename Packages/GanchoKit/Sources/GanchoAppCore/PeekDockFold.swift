@@ -20,8 +20,11 @@ public enum PeekDockFold {
         ["preview-paste-plain"]
     ]
 
+    static let foldsBeforeShortening = "preview-context"
+
     /// The tiers, widest first. With a short name available the first verb
-    /// gives up its target before the row gives up another verb.
+    /// gives up its target before the row gives up another verb, except
+    /// Context, which folds into Actions first.
     public static func tiers(for ids: [String], primaryHasShortTitle: Bool = false) -> [Tier] {
         guard let primary = ids.first else { return [] }
         var rows = [ids]
@@ -31,9 +34,11 @@ public enum PeekDockFold {
             let visible = ids.filter { $0 == primary || !hidden.contains($0) }
             if visible != rows.last { rows.append(visible) }
         }
-        return rows.flatMap { row in
-            [Tier(visible: row, shortPrimary: false)]
-                + (primaryHasShortTitle ? [Tier(visible: row, shortPrimary: true)] : [])
+        return rows.enumerated().flatMap { index, row in
+            let foldsFirst = index < rows.count - 1 && row.contains(foldsBeforeShortening)
+            return [Tier(visible: row, shortPrimary: false)]
+                + (primaryHasShortTitle && !foldsFirst
+                    ? [Tier(visible: row, shortPrimary: true)] : [])
         }
     }
 }

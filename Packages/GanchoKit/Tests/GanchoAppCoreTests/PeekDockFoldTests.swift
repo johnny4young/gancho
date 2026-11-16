@@ -59,13 +59,22 @@ struct PeekDockFoldTests {
         }
     }
 
-    @Test("A short name for Return's verb is tried before folding the next verb")
+    @Test("Context folds before Return's verb shortens; then the short name comes first")
     func shortPrimary() {
         let tiers = PeekDockFold.tiers(for: text, primaryHasShortTitle: true)
-        #expect(tiers.count == rows(text).count * 2)
+        let withoutContext = Array(text.dropLast())
+        #expect(tiers.count == rows(text).count * 2 - 1)
         #expect(tiers[0] == PeekDockFold.Tier(visible: text, shortPrimary: false))
-        #expect(tiers[1] == PeekDockFold.Tier(visible: text, shortPrimary: true))
-        #expect(tiers[2].visible == Array(text.dropLast()) && !tiers[2].shortPrimary)
+        #expect(tiers[1] == PeekDockFold.Tier(visible: withoutContext, shortPrimary: false))
+        #expect(tiers[2] == PeekDockFold.Tier(visible: withoutContext, shortPrimary: true))
+        #expect(tiers[3].visible == Array(text.dropLast(2)) && !tiers[3].shortPrimary)
         #expect(PeekDockFold.tiers(for: text).allSatisfy { !$0.shortPrimary })
+    }
+
+    @Test("Without Context, the short name is tried before the first fold")
+    func shortPrimaryWithoutContext() {
+        let ids = Array(text.dropLast())
+        let tiers = PeekDockFold.tiers(for: ids, primaryHasShortTitle: true)
+        #expect(tiers[1] == PeekDockFold.Tier(visible: ids, shortPrimary: true))
     }
 }
