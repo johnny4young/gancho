@@ -140,10 +140,6 @@ struct ClipPeek: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-                        if let suggestedBoard {
-                            suggestionChip(suggestedBoard)
-                                .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
-                        }
                         hero
                         if let mergedParts, let parts = item.parts, !isEditingText {
                             PeekPartsControls(
@@ -342,12 +338,14 @@ struct ClipPeek: View {
         }
     }
 
-    /// "Add to Dev?" — the one-tap board suggestion. Accepting files the clip;
-    /// the ✕ dismisses it. Auto-board never files silently.
-    private func suggestionChip(_ board: Pinboard) -> some View {
-        HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.ink2)
-            Text("Add to \(board.name)?").panelFont(.subheadline, .medium).lineLimit(1)
+    /// The board suggestion, the hero card's last row. Accepting files the
+    /// clip; the ✕ dismisses it. Auto-board never files silently.
+    private func suggestionRow(_ board: Pinboard) -> some View {
+        let name = Text(verbatim: board.name).fontWeight(.semibold)
+            .foregroundStyle(GanchoTokens.Palette.ink)
+        return HStack(spacing: GanchoTokens.Spacing.xs) {
+            Image(systemName: "tray")
+            Text("Looks like your \(name) board").lineLimit(1)
             Spacer(minLength: 0)
             Button("Add") {
                 model.assign(item, toBoard: board)
@@ -359,28 +357,57 @@ struct ClipPeek: View {
             } label: {
                 Image(systemName: "xmark")
             }
-            .buttonStyle(.borderless).foregroundStyle(.tertiary)
+            .buttonStyle(.borderless).foregroundStyle(GanchoTokens.Palette.ink3)
             .accessibilityLabel(Text("Dismiss"))
         }
+        .panelFont(.subheadline)
+        .foregroundStyle(GanchoTokens.Palette.ink2)
         .padding(.horizontal, GanchoTokens.Spacing.sm)
-        .padding(.vertical, 6)
+        .frame(minHeight: 36)
         .background(
             GanchoTokens.Palette.controlFill,
-            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+            in: UnevenRoundedRectangle(
+                bottomLeadingRadius: GanchoTokens.Radius.lg,
+                bottomTrailingRadius: GanchoTokens.Radius.lg, style: .continuous)
         )
+        .overlay(alignment: .top) {
+            Rectangle().fill(GanchoTokens.Palette.hairline)
+                .frame(height: GanchoTokens.Stroke.hairline)
+        }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("board-suggestion")
     }
 
     /// Provenance first, then the title on its own row.
     private var header: some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
             PeekProvenanceHeader(
                 item: item,
-                boards: Array(model.boards.filter { boardIDs.contains($0.id) }.prefix(3)),
+                // Favorites is the title row's star, so the caption skips it.
+                boards: Array(
+                    model.boards.filter { boardIDs.contains($0.id) && !$0.isSystem }.prefix(3)),
                 syncState: syncState, masksProvenance: hidesPreview,
                 showsExpiry: !showsSecretHero)
             titleRow
         }
+    }
+
+    private var favoriteButton: some View {
+        let isFavorite = boardIDs.contains(Pinboard.favoritesID)
+        return Button {
+            guard let favorites = model.boards.first(where: { $0.id == Pinboard.favoritesID })
+            else { return }
+            Task {
+                _ = await model.setBoardMembership(item, board: favorites, member: !isFavorite)
+                boardIDs = await model.boardMembership(for: item)
+            }
+        } label: {
+            Image(systemName: isFavorite ? "star.fill" : "star")
+        }
+        .ganchoTextButton()
+        .accessibilityLabel(Text("Favorites"))
+        .accessibilityAddTraits(isFavorite ? .isSelected : [])
+        .accessibilityIdentifier("preview-favorite")
     }
 
     /// The title row doubles as the peek's drag-out handle (the text body
@@ -389,11 +416,11 @@ struct ClipPeek: View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             if showsSecretHero {
                 Text(item.kind.cardName)
-                    .panelFont(.headline)
+                    .panelFont(size: 27, design: .serif)
                     .accessibilityIdentifier("preview-title")
             } else if hidesPreview {
                 Text(verbatim: ClipSafePresentation.masked)
-                    .panelFont(.headline)
+                    .panelFont(size: 27, design: .serif)
                     .accessibilityIdentifier("preview-title")
             } else if isEditingTitle {
                 TextField("Title", text: $titleDraft)
@@ -412,10 +439,14 @@ struct ClipPeek: View {
                     .accessibilityIdentifier("preview-cancel-title")
             } else {
                 Text(presentedTitle.isEmpty ? String(localized: "Untitled") : presentedTitle)
-                    .panelFont(.headline)
-                    .foregroundStyle(presentedTitle.isEmpty ? .secondary : .primary)
+                    .panelFont(size: 27, design: .serif)
+                    .foregroundStyle(
+                        presentedTitle.isEmpty
+                            ? GanchoTokens.Palette.ink3 : GanchoTokens.Palette.ink
+                    )
                     .lineLimit(1)
                     .accessibilityIdentifier("preview-title")
+                Spacer(minLength: GanchoTokens.Spacing.xs)
                 Button {
                     beginTitleEditing()
                 } label: {
@@ -424,9 +455,10 @@ struct ClipPeek: View {
                 .ganchoTextButton()
                 .accessibilityLabel(Text("Edit title"))
                 .accessibilityIdentifier("preview-edit-title")
+                favoriteButton
             }
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .clipDragSource(item)
     }
 }
@@ -436,34 +468,39 @@ struct ClipPeek: View {
 extension ClipPeek {
     /// The kind-aware hero card: the image with its Live-Text regions, a link's
     /// host and original URL (parsed locally, never fetched), the colour hero,
-    /// or the (syntax-tinted) text. The card takes a wash of the kind's tint.
+    /// or the (syntax-tinted) text. The card is neutral: only content brings colour.
     private var hero: some View {
-        let tint = GanchoTokens.Palette.kindTint(for: item.kind)
         let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
-        return VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-            if let parts = linkParts, !isEditingText {
-                PeekLinkHero(parts: parts)
-            }
-            if let color = colorValue, !isEditingText {
-                PeekColorHero(color: color) { value, label in
-                    model.copyColorFormat(value, label: label)
+        let link = isEditingText ? nil : linkParts
+        return VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                if let link {
+                    let markdown = link.markdownLink(title: presentedTitle)
+                    PeekLinkHero(
+                        parts: link, anatomy: LinkAnatomy(text: link.text), markdown: markdown
+                    ) {
+                        model.writeManualText(markdown)
+                        model.toasts.show(GanchoToast(message: "Copied"))
+                    }
                 }
+                if let color = colorValue, !isEditingText {
+                    PeekColorHero(color: color) { value, label in
+                        model.copyColorFormat(value, label: label)
+                    }
+                }
+                heroBody
             }
-            heroBody
+            .padding(link == nil ? GanchoTokens.Spacing.sm : GanchoTokens.Spacing.md)
+            if let suggestedBoard {
+                suggestionRow(suggestedBoard)
+                    .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
+            }
         }
-        .padding(GanchoTokens.Spacing.sm)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background {
-            ZStack {
-                shape.fill(.quaternary.opacity(0.35))
-                shape.fill(
-                    RadialGradient(
-                        colors: [tint.opacity(0.2), .clear], center: .topLeading,
-                        startRadius: 0, endRadius: 360))
-            }
-        }
+        .background(GanchoTokens.Palette.controlFill, in: shape)
         .overlay(
-            shape.strokeBorder(.separator.opacity(0.6), lineWidth: GanchoTokens.Stroke.hairline)
+            shape.strokeBorder(
+                GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("peek-hero")
