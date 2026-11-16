@@ -577,19 +577,26 @@ extension ClipPeek {
         let actions = dockActions
         let tiers = PeekDockFold.tiers(
             for: actions.map(\.id), primaryHasShortTitle: actions.first?.shortTitle != nil)
-        return ViewThatFits(in: .horizontal) {
-            ForEach(tiers, id: \.self) { tier in
-                dockRow(actions, tier: tier)
+        // A slot of the row's own height: in the overlay the tiers are measured
+        // once, at the final width, not for every width the peek's stacks probe.
+        return Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: PeekActionButton.dockHeight * typeScale)
+            .overlay {
+                ViewThatFits(in: .horizontal) {
+                    ForEach(tiers, id: \.self) { tier in
+                        dockRow(actions, tier: tier)
+                    }
+                }
             }
-        }
-        .onPreferenceChange(DockVisibleIDs.self) { [shown = $visibleDockIDs] ids in
-            shown.wrappedValue = ids
-        }
-        .sheet(item: $recipeRequest) { request in
-            TextRecipeReview(clipID: request.clipID).environment(model)
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("peek-dock")
+            .onPreferenceChange(DockVisibleIDs.self) { [shown = $visibleDockIDs] ids in
+                shown.wrappedValue = ids
+            }
+            .sheet(item: $recipeRequest) { request in
+                TextRecipeReview(clipID: request.clipID).environment(model)
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("peek-dock")
     }
 
     private func dockRow(_ actions: [PeekAction], tier: PeekDockFold.Tier) -> some View {

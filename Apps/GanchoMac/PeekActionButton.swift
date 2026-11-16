@@ -26,6 +26,9 @@ struct PeekActionButton: View {
         case chip
     }
 
+    /// A dock control's height before the panel's type scale; the dock row is this tall.
+    static let dockHeight: CGFloat = 34
+
     let action: PeekAction
     let style: Style
     let isFocused: Bool
@@ -83,7 +86,7 @@ struct PeekActionButton: View {
         }
         .padding(.leading, isPrimary ? 13 : 7)
         .padding(.trailing, isPrimary ? 8 : 7)
-        .frame(height: 34 * typeScale)
+        .frame(height: Self.dockHeight * typeScale)
         .contentShape(Rectangle())
     }
 

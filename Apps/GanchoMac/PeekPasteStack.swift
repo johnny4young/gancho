@@ -10,6 +10,8 @@ import SwiftUI
 struct PeekPasteStack: View {
     @Environment(AppModel.self) private var model
     @Environment(\.panelTypeScale) private var typeScale
+    /// Rows of the dock variant on screen; the dock's slot is this tall.
+    @State private var dockRows = 1
     /// Ends an active run, then leaves the stack view.
     let close: () -> Void
 
@@ -90,16 +92,29 @@ struct PeekPasteStack: View {
         let end = verbs.filter { $0.verb == .end }
         let primary = verbs.filter { $0.verb == .pasteNext }
         let quiet = verbs.filter { $0.verb != .end && $0.verb != .pasteNext }
-        return ViewThatFits(in: .horizontal) {
-            dockRow(primary + quiet, end: end, shown: shown, keys: true)
-            dockRow(primary + quiet, end: end, shown: shown, keys: false)
-            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
-                dockRow(quiet, end: [], shown: shown, keys: true)
-                dockRow(primary, end: end, shown: shown, keys: true)
+        let rowHeight = PeekActionButton.dockHeight * typeScale
+        let gaps = CGFloat(dockRows - 1) * GanchoTokens.Spacing.xxs
+        // A slot of the dock's own height: in the overlay the variants are measured
+        // once, at the final width, not for every width the peek's stacks probe.
+        return Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: CGFloat(dockRows) * rowHeight + gaps)
+            .overlay(alignment: .top) {
+                ViewThatFits(in: .horizontal) {
+                    dockRow(primary + quiet, end: end, shown: shown, keys: true)
+                    dockRow(primary + quiet, end: end, shown: shown, keys: false)
+                    VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
+                        dockRow(quiet, end: [], shown: shown, keys: true)
+                        dockRow(primary, end: end, shown: shown, keys: true)
+                    }
+                    .preference(key: DockRowCount.self, value: 2)
+                }
             }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("paste-stack-dock")
+            .onPreferenceChange(DockRowCount.self) { [rows = $dockRows] count in
+                rows.wrappedValue = count
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("paste-stack-dock")
     }
 
     private func dockRow(
@@ -142,7 +157,7 @@ struct PeekPasteStack: View {
                 if showsKey, let key = verb.key { KeyCap(key).accessibilityHidden(true) }
             }
             .padding(.horizontal, 7)
-            .frame(height: 34 * typeScale)
+            .frame(height: PeekActionButton.dockHeight * typeScale)
             .foregroundStyle(GanchoTokens.Palette.ink)
             .overlay(
                 shape.strokeBorder(
@@ -307,5 +322,14 @@ private struct PasteStackRow: View {
     private func move(up: Bool) {
         guard let move = shown.move(row.id, up: up) else { return }
         model.moveInStack(fromOffsets: move.source, toOffset: move.destination)
+    }
+}
+
+/// How many rows the dock variant on screen has; one unless it reports two.
+private struct DockRowCount: PreferenceKey {
+    static let defaultValue = 1
+
+    static func reduce(value: inout Int, nextValue: () -> Int) {
+        value = max(value, nextValue())
     }
 }

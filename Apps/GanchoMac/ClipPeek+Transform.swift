@@ -17,7 +17,7 @@ extension ClipPeek {
                 KeyCap("⌘K").accessibilityHidden(true)
             }
             .padding(.horizontal, 7)
-            .frame(height: 34 * typeScale)
+            .frame(height: PeekActionButton.dockHeight * typeScale)
             .foregroundStyle(GanchoTokens.Palette.ink)
             .overlay(
                 shape.strokeBorder(
