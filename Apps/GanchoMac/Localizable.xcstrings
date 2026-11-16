@@ -459,16 +459,6 @@
         }
       }
     },
-    "Transform": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Transformar"
-          }
-        }
-      }
-    },
     "Title Case": {
       "localizations": {
         "es": {
@@ -755,16 +745,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pila"
-          }
-        }
-      }
-    },
-    "paste": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "pegar"
           }
         }
       }
@@ -8408,16 +8388,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "El texto contiene un secreto: revísalo antes de copiar"
-          }
-        }
-      }
-    },
-    "actions": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "acciones"
           }
         }
       }

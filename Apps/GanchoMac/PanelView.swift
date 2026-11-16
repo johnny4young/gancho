@@ -280,8 +280,10 @@ struct PanelView: View {
         // ONE surface for list and peek. The peek opens BESIDE the list (not a
         // modal) and follows the selected clip, Quick-Look-style, but it is part
         // of the same panel: a hairline separates the panes, never a gap, and
-        // the status footer spans both.
+        // the search row, the rail and the status footer span both.
         VStack(spacing: 0) {
+            // Above the panes: the token completions drop over them.
+            panelHeader.zIndex(1)
             HStack(alignment: .top, spacing: 0) {
                 listColumn
                     .frame(minWidth: 360, idealWidth: 440, maxWidth: .infinity)
@@ -609,10 +611,9 @@ struct PanelView: View {
         }
     }
 
-    /// The history list: search, one toolbar (boards · types · apps · save
-    /// filter), the situational banners, and the rows. The peek lives in a
-    /// sibling column (see `body`).
-    private var listColumn: some View {
+    /// Search, then one rail (boards · types · apps · save filter), across the
+    /// whole panel. The search field owns the panel's keyboard handling.
+    private var panelHeader: some View {
         @Bindable var search = search
         return VStack(spacing: 0) {
             SearchField("Search your clipboard", text: $search.query, style: .bare) {
@@ -785,66 +786,71 @@ struct PanelView: View {
                 panelToolbar
             }
             Divider()
-
-            VStack(spacing: GanchoTokens.Spacing.xs) {
-                selectionContextBar
-
-                if let notice = capturePresentation.notice {
-                    PanelCaptureNoticeView(
-                        notice: notice, preferences: model.preferences,
-                        privateModeShortcut: privateModeShortcut,
-                        sharingApp: model.sharingAppName, previewsHidden: model.previewsHidden,
-                        perform: handleCaptureAction)
-                }
-
-                if let snippetMatch = search.snippetMatch {
-                    snippetBanner(snippetMatch)
-                }
-
-                if model.askAvailable, !search.query.isEmpty, !search.isShowingContext {
-                    askRow
-                }
-
-                if search.searchMode == .meaning, model.intelligence.semanticSearch,
-                    !model.preferences.isPrivateModePaused, !search.isShowingContext
-                {
-                    MeaningSearchControls(search: search)
-                }
-
-                if let upNext = visibleUpNext {
-                    PanelUpNextSlot(
-                        slot: upNext, appName: model.pasteTarget.appName ?? upNext.targetBundleID
-                    ) { model.paste(upNext.item) }
-                }
-
-                PanelResultsView(
-                    query: search.query,
-                    hasActiveFilter: search.hasActiveFilter,
-                    firstRunHint: firstRunCaptureHint,
-                    isGroupedView: search.isGroupedView,
-                    groups: search.groups,
-                    items: search.filtered,
-                    searchFailure: search.searchFailure,
-                    isSearching: search.isSearching,
-                    retrySearch: { Task { await search.refresh() } },
-                    searchMode: search.searchMode,
-                    alternatives: currentAlternatives,
-                    scopeName: selectedBoardName,
-                    applyAlternative: { search.apply($0) },
-                    isPrivateMode: model.preferences.isPrivateModePaused,
-                    isContext: search.isShowingContext,
-                    selectedID: search.selectedItem?.id,
-                    upwardMoveTarget: search.upwardMoveTarget,
-                    layout: layout,
-                    columns: galleryColumns,
-                    onColumnsChange: { galleryColumns = $0 },
-                    clearFilters: { search.clearFilters() },
-                    importHistory: { presentedSheet = .importHistory },
-                    onUserScroll: { search.endNewestFollow() },
-                    row: { item in clipRow(item: item) })
-            }
-            .padding(.top, GanchoTokens.Spacing.xxs)
         }
+    }
+
+    /// The history list under the header: the situational banners and the
+    /// rows. The peek lives in a sibling column (see `panelSurface`).
+    private var listColumn: some View {
+
+        VStack(spacing: GanchoTokens.Spacing.xs) {
+            selectionContextBar
+
+            if let notice = capturePresentation.notice {
+                PanelCaptureNoticeView(
+                    notice: notice, preferences: model.preferences,
+                    privateModeShortcut: privateModeShortcut,
+                    sharingApp: model.sharingAppName, previewsHidden: model.previewsHidden,
+                    perform: handleCaptureAction)
+            }
+
+            if let snippetMatch = search.snippetMatch {
+                snippetBanner(snippetMatch)
+            }
+
+            if model.askAvailable, !search.query.isEmpty, !search.isShowingContext {
+                askRow
+            }
+
+            if search.searchMode == .meaning, model.intelligence.semanticSearch,
+                !model.preferences.isPrivateModePaused, !search.isShowingContext
+            {
+                MeaningSearchControls(search: search)
+            }
+
+            if let upNext = visibleUpNext {
+                PanelUpNextSlot(
+                    slot: upNext, appName: model.pasteTarget.appName ?? upNext.targetBundleID
+                ) { model.paste(upNext.item) }
+            }
+
+            PanelResultsView(
+                query: search.query,
+                hasActiveFilter: search.hasActiveFilter,
+                firstRunHint: firstRunCaptureHint,
+                isGroupedView: search.isGroupedView,
+                groups: search.groups,
+                items: search.filtered,
+                searchFailure: search.searchFailure,
+                isSearching: search.isSearching,
+                retrySearch: { Task { await search.refresh() } },
+                searchMode: search.searchMode,
+                alternatives: currentAlternatives,
+                scopeName: selectedBoardName,
+                applyAlternative: { search.apply($0) },
+                isPrivateMode: model.preferences.isPrivateModePaused,
+                isContext: search.isShowingContext,
+                selectedID: search.selectedItem?.id,
+                upwardMoveTarget: search.upwardMoveTarget,
+                layout: layout,
+                columns: galleryColumns,
+                onColumnsChange: { galleryColumns = $0 },
+                clearFilters: { search.clearFilters() },
+                importHistory: { presentedSheet = .importHistory },
+                onUserScroll: { search.endNewestFollow() },
+                row: { item in clipRow(item: item) })
+        }
+        .padding(.top, GanchoTokens.Spacing.xxs)
     }
 
     /// One row that never wraps: boards as text tabs in their own scroll,
@@ -1043,7 +1049,7 @@ struct PanelView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         content()
-            .panelFont(.subheadline, .medium)
+            .panelFont(.subheadline, isActive ? .semibold : .regular)
             .lineLimit(1)
             .padding(.horizontal, padded ? 9 : 0)
             .frame(minWidth: 26 * railScale)

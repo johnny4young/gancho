@@ -142,7 +142,7 @@ struct PeekTransformPopover: View {
                     .lineLimit(1)
                 Spacer(minLength: 0)
                 if isHighlighted {
-                    Text(verbatim: "⏎")
+                    Text(verbatim: "↩")
                         .panelFont(.caption2, design: .monospaced)
                         .foregroundStyle(.secondary)
                 }
