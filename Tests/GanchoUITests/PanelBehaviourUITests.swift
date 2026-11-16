@@ -65,7 +65,7 @@ final class PanelBehaviourUITests: XCTestCase {
     }
 
     @MainActor
-    func testPrivateModeIsIndigoTimedAndTurnsOff() throws {
+    func testPrivateModeIsTimedAndTurnsOff() throws {
         let nonce = UUID().uuidString
         let app = launch(capturing: true, extra: ["-command-nonce", nonce])
         defer { app.terminate() }
@@ -76,9 +76,9 @@ final class PanelBehaviourUITests: XCTestCase {
         XCTAssertTrue(waitFor(chip, label: "Private mode · 60 min left"), chip.label)
         let notice = app.descendants(matching: .any)["capture-notice"].firstMatch
         XCTAssertTrue(notice.appears(within: 5))
-        XCTAssertTrue(text(beginningWith: "Private Mode is on · since ", in: notice).exists)
-        XCTAssertTrue(
-            text(beginningWith: "0 copies skipped, none read · turns off at ", in: notice).exists)
+        XCTAssertTrue(notice.staticTexts["Private Mode is on"].firstMatch.exists)
+        XCTAssertTrue(notice.staticTexts["0 copies skipped, none read."].firstMatch.exists)
+        XCTAssertTrue(text(beginningWith: "On since ", in: notice).exists)
         XCTAssertTrue(text(beginningWith: "Before private mode", in: app).exists)
 
         let turnOff = app.buttons["private-mode-turn-off"].firstMatch

@@ -1,32 +1,6 @@
 import Foundation
 import GanchoKit
 
-/// A secret's time left, for the peek's countdown and lifetime bar. The
-/// deadline is the earlier of the stored expiry and the current lifetime
-/// setting, because retention purges by capture time when it was shortened.
-public struct SecretLifetime: Equatable, Sendable {
-    public let start: Date
-    public let deadline: Date
-
-    /// Nil for a clip without a lifetime (not sensitive, or no expiry).
-    public init?(item: ClipItem, lifetime: TimeInterval) {
-        guard item.isSensitive, let expiresAt = item.expiresAt else { return nil }
-        start = item.createdAt
-        deadline = min(expiresAt, item.createdAt.addingTimeInterval(lifetime))
-    }
-
-    public func remaining(at now: Date) -> TimeInterval {
-        max(0, deadline.timeIntervalSince(now))
-    }
-
-    /// Remaining share of the whole lifetime, 0...1.
-    public func fraction(at now: Date) -> Double {
-        let total = deadline.timeIntervalSince(start)
-        guard total > 0 else { return 0 }
-        return min(1, remaining(at: now) / total)
-    }
-}
-
 /// The peek's timed reveal: plaintext shows for a fixed window, then masks again.
 public struct SecretReveal: Equatable, Sendable {
     public static let window: TimeInterval = 10

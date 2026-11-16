@@ -22,7 +22,7 @@ final class PeekSecretUITests: XCTestCase {
         XCTAssertEqual(text(of: app.staticTexts["preview-title"].firstMatch), "Secret")
         let countdown = app.descendants(matching: .any)["peek-secret-countdown"].firstMatch
         XCTAssertTrue(text(of: countdown).hasPrefix("Self-destructs in 9:"), text(of: countdown))
-        XCTAssertTrue(app.descendants(matching: .any)["peek-secret-lifetime"].firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any)["peek-secret-note"].firstMatch.exists)
         XCTAssertFalse(
             app.descendants(matching: .any)["peek-expiry"].firstMatch.exists,
             "the hero's countdown replaces the header's expiry chip")
@@ -32,6 +32,7 @@ final class PeekSecretUITests: XCTestCase {
         let revealed = app.staticTexts["peek-revealed"].firstMatch
         XCTAssertTrue(revealed.appears(within: 5))
         XCTAssertEqual(text(of: revealed), "synthetic-peek-secret-4Q2v")
+        XCTAssertTrue(app.descendants(matching: .any)["peek-reveal-ring"].firstMatch.exists)
         XCTAssertTrue(
             app.staticTexts["peek-masked"].firstMatch.appears(within: 13),
             "the reveal masks itself again after 10 s")

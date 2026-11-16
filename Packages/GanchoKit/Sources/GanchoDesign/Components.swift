@@ -261,10 +261,14 @@ public struct ClipCard: View {
             leadingTile
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
-                headline
-                    .lineLimit(1)
-                    .foregroundStyle(GanchoTokens.Palette.ink)
-                description
+                if masking == .hidden {
+                    redaction
+                } else {
+                    headline
+                        .lineLimit(1)
+                        .foregroundStyle(GanchoTokens.Palette.ink)
+                    description
+                }
             }
             Spacer(minLength: GanchoTokens.Spacing.xs)
             trailingMeta
@@ -301,6 +305,15 @@ public struct ClipCard: View {
         .accessibilityValue(shortcutNumber.map { Text(verbatim: "⌘\($0)") } ?? Text(verbatim: ""))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("clip-row")
+    }
+
+    /// Hidden previews: two bars where the two lines of text would be.
+    @ViewBuilder private var redaction: some View {
+        let widths = Redaction.widths(seed: Redaction.seed(for: item.id))
+        RedactionBar(width: widths.headline)
+            .frame(height: 17 * typeScale)
+        RedactionBar(width: widths.detail, weight: .detail)
+            .frame(height: 14 * typeScale)
     }
 
     /// Line 1: the clip as itself.

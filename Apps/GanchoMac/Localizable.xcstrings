@@ -10356,76 +10356,6 @@
         }
       }
     },
-    "Private Mode is on · since %@": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El Modo privado está activo · desde las %@"
-          }
-        }
-      }
-    },
-    "%lld copies skipped, none read": {
-      "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld copy skipped, none read"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld copies skipped, none read"
-                }
-              }
-            }
-          }
-        },
-        "es": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld copia omitida, ninguna leída"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld copias omitidas, ninguna leída"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "turns off at %@ or when you say so": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "se apaga a las %@ o cuando tú digas"
-          }
-        }
-      }
-    },
-    "stays on until you turn it off": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "sigue activo hasta que lo apagues"
-          }
-        }
-      }
-    },
     "Turn off": {
       "localizations": {
         "es": {
@@ -12702,16 +12632,6 @@
         }
       }
     },
-    "Lifetime left": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vida restante"
-          }
-        }
-      }
-    },
     "Skip in stack shortcut:": {
       "localizations": {
         "es": {
@@ -14314,6 +14234,172 @@
           "stringUnit": {
             "state": "translated",
             "value": "Texto · %lld transformaciones"
+          }
+        }
+      }
+    },
+    "%lld copies skipped, none read.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld copy skipped, none read."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld copies skipped, none read."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld copia omitida, ninguna leída."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld copias omitidas, ninguna leída."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "· %lld min left": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "· %lld min left"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "· %lld min left"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "· queda %lld min"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "· quedan %lld min"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "On since %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activo desde las %@"
+          }
+        }
+      }
+    },
+    "On since %@ · off at %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On since %1$@ · off at %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activo desde las %@ · se apaga a las %@"
+          }
+        }
+      }
+    },
+    "Private": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privado"
+          }
+        }
+      }
+    },
+    "Self-destructs": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se autodestruye"
+          }
+        }
+      }
+    },
+    "Private Mode time left": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiempo restante del Modo privado"
+          }
+        }
+      }
+    },
+    "Reveal time left": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiempo restante para mostrar"
+          }
+        }
+      }
+    },
+    "Never indexed, never synced, never read by agents.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nunca se indexa, nunca se sincroniza, nunca lo leen los agentes."
+          }
+        }
+      }
+    },
+    "Reveal a secret for 10 s": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar un secreto por 10 s"
           }
         }
       }
