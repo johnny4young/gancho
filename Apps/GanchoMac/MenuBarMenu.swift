@@ -11,12 +11,24 @@ import SwiftUI
 /// no clip ever leaves this process.
 @MainActor
 final class MenuBarMenu: NSObject, NSMenuDelegate {
-    private static let tileSide: CGFloat = 22
+    private static let tileSide: CGFloat = 18
     private static let titleLimit = 46
+    private static let tileCacheLimit = 32
+
+    private struct TileKey: Hashable {
+        let id: UUID
+        let contentHash: String
+        let kind: ClipContentKind
+        let masked: Bool
+        let dark: Bool
+        let scale: CGFloat
+        let hasThumbnail: Bool
+    }
 
     let menu = NSMenu()
     private weak var model: AppModel?
     private var pausedPanelShortcut = false
+    private var tiles: [TileKey: NSImage] = [:]
     /// Called as the menu opens and closes; the helper path forwards them.
     var onOpen: () -> Void = {}
     var onClose: () -> Void = {}
@@ -70,8 +82,9 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
             case .header: menu.addItem(header(model))
             case .recentsLabel: menu.addItem(recentsLabel())
             case .recent(let recent):
-                menu.addItem(recentItem(recent, model: model, plain: false))
-                menu.addItem(recentItem(recent, model: model, plain: true))
+                let image = tile(for: recent, model: model)
+                menu.addItem(recentItem(recent, image: image, plain: false))
+                menu.addItem(recentItem(recent, image: image, plain: true))
             case .noRecents:
                 let item = NSMenuItem(
                     title: String(localized: "Copy something — it will appear here."),
@@ -110,7 +123,8 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
             string: String(localized: "Recent · click pastes · ⌥ pastes plain")
                 .uppercased(with: .current),
             attributes: [
-                .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize - 1, weight: .bold),
+                .font: GanchoType.nsFont(.data, size: 9.5, weight: .medium)
+                    ?? .monospacedSystemFont(ofSize: 9.5, weight: .medium),
                 .foregroundColor: NSColor.secondaryLabelColor, .kern: 0.6
             ])
         item.isEnabled = false
@@ -119,7 +133,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
 
     /// The plain twin is an alternate: it replaces its row while ⌥ is held.
     private func recentItem(
-        _ recent: MenuBarMenuPlan.Recent, model: AppModel, plain: Bool
+        _ recent: MenuBarMenuPlan.Recent, image: NSImage?, plain: Bool
     ) -> NSMenuItem {
         let item = NSMenuItem(
             title: Self.title(for: recent.clip, masked: recent.masked),
@@ -128,7 +142,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         item.isAlternate = plain
         item.target = self
         item.representedObject = RecentPaste(clip: recent.clip, plain: plain)
-        item.image = tile(for: recent.clip, masked: recent.masked, model: model)
+        item.image = image
         item.setAccessibilityIdentifier(
             plain ? "menu-bar-recent-plain-\(recent.number)" : "menu-bar-recent-\(recent.number)")
         return item
@@ -213,27 +227,41 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
 
     // MARK: Presentation
 
-    /// One line, cut short; a masked clip shows only its kind.
+    /// The clip's headline, cut short; a masked clip shows only its kind.
     private static func title(for clip: ClipItem, masked: Bool) -> String {
         guard !masked else {
             let kind = clip.kind.localizedName
             return String(localized: "\(kind) · masked")
         }
-        let line = ClipSafePresentation.displayText(for: clip)
-            .components(separatedBy: .newlines).joined(separator: " ")
+        let headline = ClipRowContent(item: clip).headline.withoutLinkQuery.line
+        let line = headline.isEmpty ? clip.kind.localizedName : headline
         return line.count > titleLimit ? String(line.prefix(titleLimit - 1)) + "…" : line
     }
 
-    private func tile(for clip: ClipItem, masked: Bool, model: AppModel) -> NSImage? {
+    /// The row's tile as an image. A protected clip's ring is drawn as it
+    /// stands, so only tiles without a lifetime are cached.
+    private func tile(for recent: MenuBarMenuPlan.Recent, model: AppModel) -> NSImage? {
+        let clip = recent.clip
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let hidden = model.previewsHidden
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let thumbnail = recent.masked ? nil : model.thumbnails.cached(for: clip)
+        let key = TileKey(
+            id: clip.id, contentHash: clip.contentHash, kind: clip.kind, masked: recent.masked,
+            dark: isDark, scale: scale, hasThumbnail: thumbnail != nil)
+        if clip.expiresAt == nil, let cached = tiles[key] { return cached }
         let renderer = ImageRenderer(
             content: ClipTile(
-                item: clip, size: Self.tileSide, previewsHidden: masked,
-                thumbnail: masked ? nil : model.thumbnails.cached(for: clip)
+                item: clip, size: Self.tileSide, previewsHidden: hidden, thumbnail: thumbnail
             )
             .environment(\.colorScheme, isDark ? .dark : .light))
-        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
-        return renderer.nsImage
+        renderer.scale = scale
+        let image = renderer.nsImage
+        if clip.expiresAt == nil, let image {
+            if tiles.count >= Self.tileCacheLimit { tiles.removeAll() }
+            tiles[key] = image
+        }
+        return image
     }
 
     static func stateTitle(_ chip: PanelCaptureChip) -> String {
@@ -286,6 +314,17 @@ extension GanchoMenuBarCommand {
 extension NSFont {
     fileprivate var bold: NSFont {
         NSFontManager.shared.convert(self, toHaveTrait: .boldFontMask)
+    }
+}
+
+extension ClipRowContent.Headline {
+    /// The headline as one plain line: a link reads host first, without its scheme.
+    var line: String {
+        switch self {
+        case .text(let text), .value(let text), .code(let text): text
+        case .link(let host, let path): host + (path ?? "")
+        case .kindName(let kind): kind.localizedName
+        }
     }
 }
 

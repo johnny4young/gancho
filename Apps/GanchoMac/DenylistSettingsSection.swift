@@ -20,7 +20,7 @@ struct DenylistSettingsSection: View {
     @FocusState private var identifierFieldFocused: Bool
 
     var body: some View {
-        Section("Never capture from these apps") {
+        SettingsSection("Never capture from these apps") {
             ForEach(model.userDenylistEntries, id: \.self) { bundleID in
                 userRow(bundleID)
             }

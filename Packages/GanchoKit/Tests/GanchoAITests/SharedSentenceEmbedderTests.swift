@@ -4,7 +4,7 @@ import Testing
 
 @testable import GanchoAI
 
-@Suite("Shared sentence embedder")
+@Suite("Shared sentence embedder", .timeLimit(.minutes(1)))
 struct SharedSentenceEmbedderTests {
     @Test("Every call reuses one model")
     func reusesOneModel() throws {
@@ -73,13 +73,10 @@ struct SharedSentenceEmbedderTests {
         #expect(probe.vectors.withLock { $0 } == 16)
     }
 
+    /// No wall-clock deadline: the unload runs at background priority, which a
+    /// loaded runner can starve for seconds. The suite's time limit fails a lost unload.
     private func waitUntil(_ condition: () -> Bool) async throws {
-        let deadline = ContinuousClock.now + .seconds(5)
         while !condition() {
-            guard ContinuousClock.now < deadline else {
-                Issue.record("Condition not met within 5 s")
-                return
-            }
             try await Task.sleep(for: .milliseconds(10))
         }
     }

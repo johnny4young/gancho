@@ -27,7 +27,7 @@ extension ClipPeek {
         }
         .buttonStyle(.plain)
         .fixedSize()
-        .disabled(isThinking)
+        // Verbs stay reachable while a transform runs; only new transforms wait.
         .accessibilityValue(Text(verbatim: "⌘K"))
         .accessibilityIdentifier("transform-button")
         .popover(isPresented: $showsTransformPopover, arrowEdge: .top) {
@@ -255,6 +255,7 @@ extension ClipPeek {
 
     /// A verb runs what its dock button or key runs.
     private func runTransformRow(_ row: TransformRow, dock: [PeekAction]) {
+        if isThinking, !row.isVerb { return }
         showsTransformPopover = false
         switch row {
         case .verb(.markdownLink): copyMarkdownLink()
@@ -284,5 +285,13 @@ extension ClipPeek {
             describeMode = true
             runDescribe(prompt)
         }
+    }
+}
+
+extension TransformRow {
+    /// Clip verbs stay runnable while a transform is in flight.
+    fileprivate var isVerb: Bool {
+        if case .verb = self { return true }
+        return false
     }
 }

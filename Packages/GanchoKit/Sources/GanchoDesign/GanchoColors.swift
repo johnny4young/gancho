@@ -43,6 +43,9 @@ extension GanchoTokens {
         /// Tint for system controls (switches, progress, links). Mid graphite
         /// in dark: full ink would hide a switch's white knob.
         public static let controlTint = ColorPair.controlTint.color
+        /// Marks drawn over a screenshot follow the image, not the app's appearance:
+        /// a mid grey stays visible on dark and light images alike.
+        public static let imageOverlay = ColorPair.imageOverlay.color
 
         // MARK: Semantic status roles
 
@@ -77,8 +80,8 @@ extension GanchoTokens {
         /// Read once: a system-accent change is picked up on the next launch.
         static let accentIsBrand: Bool = {
             #if DEBUG
-                // Design snapshots pin the brand accent whatever this Mac's Theme colour is.
-                if CommandLine.arguments.contains("-ui-test-brand-accent") { return true }
+                // Design snapshots render the brand accent whatever this Mac's Theme colour is.
+                if CommandLine.arguments.contains("-ui-test-snapshot-dir") { return true }
             #endif
             #if canImport(AppKit)
                 return usesBrandAccent(
@@ -174,14 +177,24 @@ extension GanchoTokens {
         /// `source` with every `GanchoSyntax` token tinted. Callers own any size cap.
         public static func highlighted(_ source: String) -> AttributedString {
             var attributed = AttributedString(source)
+            styleTokens(of: source, in: &attributed) { run, kind in
+                run.foregroundColor = color(for: kind)
+            }
+            return attributed
+        }
+
+        /// Applies `style` to each `GanchoSyntax` token's run of `attributed`.
+        private static func styleTokens(
+            of source: String, in attributed: inout AttributedString,
+            _ style: (inout AttributedSubstring, GanchoSyntax.TokenKind) -> Void
+        ) {
             for token in GanchoSyntax.tokens(in: source) {
                 let lower = source.distance(from: source.startIndex, to: token.range.lowerBound)
                 let upper = source.distance(from: source.startIndex, to: token.range.upperBound)
                 let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
                 let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
-                attributed[lo..<hi].foregroundColor = color(for: token.kind)
+                style(&attributed[lo..<hi], token.kind)
             }
-            return attributed
         }
 
         /// (light, dark) tonal tints for one-line previews in rows and cards:
@@ -203,16 +216,11 @@ extension GanchoTokens {
         public static func tonal(_ source: String) -> AttributedString {
             var attributed = AttributedString(source)
             attributed.foregroundColor = Palette.ink
-            for token in GanchoSyntax.tokens(in: source) {
-                let lower = source.distance(from: source.startIndex, to: token.range.lowerBound)
-                let upper = source.distance(from: source.startIndex, to: token.range.upperBound)
-                let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
-                let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
-                if let tint = tonalTriples(for: token.kind) {
-                    attributed[lo..<hi].foregroundColor =
-                        ColorPair(light: tint.light, dark: tint.dark).color
+            styleTokens(of: source, in: &attributed) { run, kind in
+                if let tint = tonalTriples(for: kind) {
+                    run.foregroundColor = ColorPair(light: tint.light, dark: tint.dark).color
                 } else {
-                    attributed[lo..<hi].inlinePresentationIntent = .stronglyEmphasized
+                    run.inlinePresentationIntent = .stronglyEmphasized
                 }
             }
             return attributed
@@ -339,7 +347,7 @@ extension GanchoTokens {
         var lightAlpha: Double = 1
         var darkAlpha: Double = 1
 
-        private static let graphite = (0x12, 0x14, 0x13)
+        private static let graphite = StatusBytes.ink
         private static let white = (0xFF, 0xFF, 0xFF)
 
         static let brand = ColorPair(light: (0x34, 0xC7, 0x59), dark: (0x30, 0xD1, 0x58))
@@ -357,8 +365,9 @@ extension GanchoTokens {
             light: graphite, dark: white, lightAlpha: 0.10, darkAlpha: 0.085)
         static let ink = ColorPair(light: graphite, dark: (0xF5, 0xF4, 0xEF))
         static let ink2 = ColorPair(light: (0x4F, 0x53, 0x51), dark: (0xB6, 0xB5, 0xAD))
-        static let ink3 = ColorPair(light: (0x62, 0x66, 0x64), dark: (0x9A, 0x99, 0x92))
+        static let ink3 = ColorPair(light: StatusBytes.ink3, dark: (0x9A, 0x99, 0x92))
         static let controlTint = ColorPair(light: graphite, dark: (0x94, 0x93, 0x8C))
+        static let imageOverlay = ColorPair(light: (0x80, 0x80, 0x7C), dark: (0x80, 0x80, 0x7C))
 
         static let danger = ColorPair(
             light: StatusBytes.dangerLight, dark: StatusBytes.dangerDark)
