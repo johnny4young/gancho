@@ -20,12 +20,13 @@ struct PanelFirstRunStageView: View {
                 .padding(.bottom, GanchoTokens.Spacing.md)
             PanelHairline()
             if let shortcut {
+                let caps = PanelFirstRunStage.keycaps(for: shortcut.description)
                 keyRow(
                     title: "Open the panel from anywhere",
-                    detail: "or click the hook in the menu bar"
+                    detail: "or click the hook in the menu bar", spokenKeys: Self.spoken(caps)
                 ) {
                     ForEach(
-                        Array(PanelFirstRunStage.keycaps(for: shortcut.description).enumerated()),
+                        Array(caps.enumerated()),
                         id: \.offset
                     ) { _, key in KeyCap(key) }
                 }
@@ -34,7 +35,8 @@ struct PanelFirstRunStageView: View {
             }
             keyRow(
                 title: "Pick a clip, or just type to search",
-                detail: "⌘1–9 jumps straight to a row"
+                detail: "⌘1–9 jumps straight to a row",
+                spokenKeys: String(localized: "Up and Down Arrows")
             ) {
                 KeyCap("↑")
                 KeyCap("↓")
@@ -42,7 +44,8 @@ struct PanelFirstRunStageView: View {
             // The one accent on this screen: what Return does.
             keyRow(
                 title: "Paste where you were typing", detail: "pastes plain text",
-                detailKey: "⌥↩"
+                detailKey: "⌥↩", spokenDetail: "Option-Return pastes plain text",
+                spokenKeys: String(localized: "Return")
             ) {
                 ReturnKeyCap()
             }
@@ -60,13 +63,16 @@ struct PanelFirstRunStageView: View {
 
     private func keyRow(
         title: LocalizedStringKey, detail: LocalizedStringKey?, detailKey: String? = nil,
+        spokenDetail: LocalizedStringKey? = nil, spokenKeys: String? = nil,
         @ViewBuilder keys: () -> some View
     ) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: GanchoTokens.Spacing.sm) {
                 HStack(spacing: 4) { keys() }
                     .frame(minWidth: 88, alignment: .leading)
-                    .accessibilityHidden(true)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(verbatim: spokenKeys ?? ""))
+                    .accessibilityHidden(spokenKeys == nil)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).panelFont(.callout, .semibold)
                         .foregroundStyle(GanchoTokens.Palette.ink)
@@ -76,6 +82,8 @@ struct PanelFirstRunStageView: View {
                             Text(detail).panelFont(.caption)
                                 .foregroundStyle(GanchoTokens.Palette.ink3)
                         }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Text(spokenDetail ?? detail))
                     }
                 }
                 Spacer(minLength: 0)
@@ -85,6 +93,19 @@ struct PanelFirstRunStageView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("panel-first-run-key")
+    }
+
+    /// "⇧⌘V" read aloud as "Shift-Command-V".
+    private static func spoken(_ caps: [String]) -> String {
+        caps.map { cap in
+            switch cap {
+            case "⌃": String(localized: "Control")
+            case "⌥": String(localized: "Option")
+            case "⇧": String(localized: "Shift")
+            case "⌘": String(localized: "Command")
+            default: cap
+            }
+        }.joined(separator: "-")
     }
 }
 

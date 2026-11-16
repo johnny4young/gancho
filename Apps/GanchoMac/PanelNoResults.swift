@@ -134,12 +134,10 @@ struct PanelAlternativeStage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-            Text(
-                verbatim: String(localized: result.alternative.title) + " · "
-                    + String(localized: "\(result.total) results")
-            )
-            .peekCaps()
-            .accessibilityIdentifier("no-results-stage-label")
+            // The count lives in the title below, not here too.
+            Text(result.alternative.title)
+                .peekCaps()
+                .accessibilityIdentifier("no-results-stage-label")
             HStack(alignment: .firstTextBaseline, spacing: GanchoTokens.Spacing.xs) {
                 Text(result.alternative.headline(total: result.total))
                     .panelFont(size: 27, design: .serif)

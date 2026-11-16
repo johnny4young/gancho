@@ -14180,12 +14180,12 @@
         }
       }
     },
-    "Import from another app": {
+    "Import from another app…": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Importar desde otra app"
+            "value": "Importar desde otra app…"
           }
         }
       }
@@ -14260,42 +14260,72 @@
         }
       }
     },
-    "%lld results": {
+    "Option-Return pastes plain text": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld result"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld results"
-                }
-              }
-            }
-          }
-        },
         "es": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld resultado"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld resultados"
-                }
-              }
-            }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opción-Retorno pega texto sin formato"
+          }
+        }
+      }
+    },
+    "Up and Down Arrows": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flechas arriba y abajo"
+          }
+        }
+      }
+    },
+    "Return": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retorno"
+          }
+        }
+      }
+    },
+    "Control": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control"
+          }
+        }
+      }
+    },
+    "Option": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opción"
+          }
+        }
+      }
+    },
+    "Shift": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mayúsculas"
+          }
+        }
+      }
+    },
+    "Command": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comando"
           }
         }
       }

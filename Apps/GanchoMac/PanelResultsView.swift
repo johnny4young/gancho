@@ -288,7 +288,7 @@ private struct PanelResultsEmptyState: View {
                     .multilineTextAlignment(.center)
                     .accessibilityIdentifier("panel-empty-capture-hint")
             }
-            Button("Import from another app", action: importHistory)
+            Button("Import from another app…", action: importHistory)
                 .ganchoButtonStyle(.secondary)
                 .padding(.top, GanchoTokens.Spacing.xs)
                 .accessibilityIdentifier("panel-empty-import-button")
