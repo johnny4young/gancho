@@ -117,6 +117,24 @@ struct ScopeCountsTests {
         #expect(all.kindsByBoard[design.id]?[.url] == 1, "only the excluded clip leaves")
     }
 
+    @Test("A kind this build does not know counts as text on its board")
+    func unknownKindPerBoardCountsAsText() async throws {
+        let store = try makeStore()
+        let work = try await store.createPinboard(name: "Work")
+        let future = ClipItem(kind: .url, preview: "https://future.example", contentHash: "f")
+        try await store.insert(future, content: .text(future.preview))
+        try await store.assign(clipID: future.id, toBoard: work.id)
+        try await store.writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET kind = 'future' WHERE id = ?",
+                arguments: [future.id.uuidString])
+        }
+
+        let counts = try await store.scopeCounts(excluding: [])
+        #expect(counts.kindsByBoard[work.id] == [.text: 1])
+        #expect(counts.boards[work.id] == 1)
+    }
+
     @Test("The per-board kind query walks the board index, not the whole clip table")
     func boardKindQueryUsesTheBoardIndex() async throws {
         let store = try makeStore()

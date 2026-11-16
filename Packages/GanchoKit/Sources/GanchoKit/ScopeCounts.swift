@@ -43,12 +43,10 @@ extension GRDBClipboardStore: ScopeCountProviding {
             var kindsByBoard: [UUID: [ClipContentKind: Int]] = [:]
             for row in rows {
                 guard let id = UUID(uuidString: row["boardID"]) else { continue }
-                let raw: String = row["kind"] ?? ""
+                let kind = ClipContentKind(rawValue: row["kind"] ?? "") ?? .text
                 let total: Int = row["total"]
                 boards[id, default: 0] += total
-                kindsByBoard[id, default: [:]][
-                    ClipContentKind(rawValue: raw) ?? .text, default: 0] +=
-                    total
+                kindsByBoard[id, default: [:]][kind, default: 0] += total
             }
             var kinds: [ClipContentKind: Int] = [:]
             let kindRows = try Row.fetchAll(
