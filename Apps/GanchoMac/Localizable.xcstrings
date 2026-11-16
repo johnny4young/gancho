@@ -14108,6 +14108,16 @@
         }
       }
     },
+    "Copied · from %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiado · desde %@"
+          }
+        }
+      }
+    },
     "SCHEME": {
       "localizations": {
         "es": {
