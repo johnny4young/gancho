@@ -7,8 +7,8 @@ import UIKit
 /// The pasteboard status on the capture screen. gancho senses the clipboard's
 /// TYPE via `detectPatterns` — no read, no "pasted from" banner — and says so.
 /// With something on the clipboard it is a card that names the sensed kind and
-/// points at the system Paste control in the bottom bar, the one-tap "yes,
-/// save this"; after a save it offers to open the clip for a few seconds. An
+/// carries a quiet system Paste control, the one-tap "yes, save this"; after
+/// a save it offers to open the clip for a few seconds. An
 /// empty clipboard keeps the one-line row.
 struct PasteboardStatusRow: View {
     /// The iPad sidebar's card, which carries its own Paste control.
@@ -93,7 +93,7 @@ struct PasteboardStatusRow: View {
 
     private var card: some View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
-            tile
+            hookRing
             VStack(alignment: .leading, spacing: 3) {
                 title.fixedSize(horizontal: false, vertical: true)
                 statusLine
@@ -116,6 +116,20 @@ struct PasteboardStatusRow: View {
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("pasteboard-status-card")
+    }
+
+    /// The mark in a dashed ring: sensed, not yet held.
+    private var hookRing: some View {
+        HookMark()
+            .fill(GanchoTokens.Palette.ink2)
+            .frame(width: 18, height: 18)
+            .frame(width: 36, height: 36)
+            .overlay(
+                Circle().strokeBorder(
+                    GanchoTokens.Palette.ink3,
+                    style: StrokeStyle(lineWidth: GanchoTokens.Stroke.hairline, dash: [3, 3]))
+            )
+            .accessibilityHidden(true)
     }
 
     private var tile: some View {
@@ -158,19 +172,13 @@ struct PasteboardStatusRow: View {
         }
     }
 
-    /// Open while the fresh save can still be opened; before a save, a pointer
-    /// at the Paste control. The pointer is not a button: only the system
-    /// control saves without the paste banner.
+    /// Open while the fresh save can still be opened; before a save, a quiet
+    /// Paste. It is the system control too: only that saves without the banner.
     @ViewBuilder private var trailing: some View {
         if offersOpen {
             openButton
         } else if !alreadyCaptured {
-            VStack(spacing: 2) {
-                Image(systemName: "arrow.down").font(.callout.weight(.semibold))
-                Text("Paste").font(.caption2.weight(.bold))
-            }
-            .foregroundStyle(GanchoTokens.Palette.ink2)
-            .accessibilityHidden(true)
+            PasteIntoGanchoButton(quiet: true).frame(width: 72, height: 34)
         }
     }
 
@@ -330,16 +338,18 @@ struct PasteboardStatusRow: View {
 /// The system Paste control as one labelled button, wherever it sits.
 struct PasteIntoGanchoButton: View {
     var cornerStyle: UIButton.Configuration.CornerStyle = .capsule
+    var quiet = false
     @Environment(IOSAppModel.self) private var model
 
     var body: some View {
         // One accessibility element: a wrapper otherwise takes the control's
         // visible text, and this label never reaches it.
-        PasteControlView(cornerStyle: cornerStyle) { providers in model.ingest(providers: providers)
+        PasteControlView(cornerStyle: cornerStyle, quiet: quiet) { providers in
+            model.ingest(providers: providers)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isButton)
-        .accessibilityIdentifier("paste-control")
+        .accessibilityIdentifier(quiet ? "pasteboard-card-paste" : "paste-control")
         .accessibilityLabel(Text("Paste into Gancho"))
     }
 }

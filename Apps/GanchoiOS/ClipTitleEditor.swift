@@ -46,7 +46,7 @@ struct ClipTitleEditor: View {
                     .accessibilityIdentifier("detail-cancel-title")
                 Spacer()
                 Button("Save") { save() }
-                    .ganchoButtonStyle(.primary)
+                    .ganchoButtonStyle(.secondary)
                     .disabled(isSaving)
                     .accessibilityIdentifier("detail-save-title")
             }
@@ -57,9 +57,12 @@ struct ClipTitleEditor: View {
                         presentedTitle.isEmpty
                             ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary)
                     )
-                    .font(prominent ? .title3.weight(.heavy) : .body)
+                    .font(
+                        prominent
+                            ? GanchoType.font(.title, size: 30, relativeTo: .title) : .body
+                    )
                     .accessibilityIdentifier("detail-title")
-                Spacer()
+                if !prominent { Spacer() }
                 Button {
                     titleDraft = presentedTitle
                     saveFailed = false
@@ -73,6 +76,7 @@ struct ClipTitleEditor: View {
                 }
                 .accessibilityLabel(Text("Edit title"))
                 .accessibilityIdentifier("detail-edit-title")
+                if prominent { Spacer(minLength: 0) }
             }
         }
         if saveFailed {
