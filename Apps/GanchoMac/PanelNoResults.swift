@@ -128,7 +128,9 @@ struct PanelAlternativeStage: View {
             ForEach(Array(result.preview.enumerated()), id: \.element.id) { index, item in
                 ClipCard(
                     item: item, isSelected: index == 0, previewsHidden: previewsHidden,
-                    shortcutNumber: index + 1
+                    shortcutNumber: index + 1,
+                    // Return does nothing here until ↓ moves into these results.
+                    isSelectionAnchor: false
                 )
                 // A preview of the alternative, not a row of the list.
                 .accessibilityIdentifier("no-results-stage-row")

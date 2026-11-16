@@ -113,11 +113,10 @@ public struct ClipRowContent: Equatable, Sendable {
         // Capture stores the byte size as the image's preview: "Image (1.8 MB)".
         let preview = ByteSize.humanizedPreview(item.preview)
         if preview.hasPrefix("Image ("), preview.hasSuffix(")") {
-            let inner = preview.dropFirst("Image (".count).dropLast()
-            let size = inner.split(separator: ",").last.map {
-                $0.trimmingCharacters(in: .whitespaces)
-            }
-            if let size, !size.isEmpty { facts.append(size) }
+            // Never split on ",": it is the decimal separator in many locales.
+            let size = preview.dropFirst("Image (".count).dropLast()
+                .trimmingCharacters(in: .whitespaces)
+            if !size.isEmpty { facts.append(size) }
         }
         return facts
     }
