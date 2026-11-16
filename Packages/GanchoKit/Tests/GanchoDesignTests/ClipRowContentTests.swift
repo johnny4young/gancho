@@ -110,6 +110,16 @@ struct ClipRowContentTests {
         #expect(hidden.details.isEmpty)
     }
 
+    @Test("Hidden previews mask every clip; otherwise only protected clips are masked")
+    func maskingFor() {
+        let plain = ClipItem(kind: .text, title: "", preview: "hello", contentHash: "a")
+        let secret = ClipItem(kind: .secret, title: "", preview: "●●●● 4Q2v", contentHash: "b")
+        #expect(ClipRowContent.Masking.for(plain, previewsHidden: true) == .hidden)
+        #expect(ClipRowContent.Masking.for(secret, previewsHidden: true) == .hidden)
+        #expect(ClipRowContent.Masking.for(secret, previewsHidden: false) == .storedMask)
+        #expect(ClipRowContent.Masking.for(plain, previewsHidden: false) == .none)
+    }
+
     @Test("The selected row's key is Return; other rows keep ⌘1–⌘9")
     func shortcutKey() {
         #expect(ClipShortcutBadge.key(number: 3, isSelected: false) == .number(3))

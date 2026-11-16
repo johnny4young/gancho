@@ -17,20 +17,26 @@ extension AppModel {
                 switches: preferences.copyActions,
                 privateMode: preferences.isPrivateModePaused, sharingScreen: sharingAppName != nil)
         else { return }
-        copyHUD.show(hud(for: action, item: outcome.item), below: toasts.visibleFrame)
+        copyHUD.show(
+            hud(for: action, item: outcome.item, sourceAppBundleID: capture.sourceAppBundleID),
+            below: toasts.visibleFrame)
     }
 
-    private func hud(for action: CopyAction, item: ClipItem) -> CopyHUD {
-        let caption = Self.copiedCaption(for: item)
-        // The clip's own first line; a protected clip keeps its stored mask.
+    /// `sourceAppBundleID` is this copy's: a recopy keeps the row's first source.
+    private func hud(
+        for action: CopyAction, item: ClipItem, sourceAppBundleID: String?
+    ) -> CopyHUD {
+        let caption = Self.copiedCaption(sourceAppBundleID: sourceAppBundleID)
+        let hidden = previewsHidden
         let line = ClipRowContent(
-            item: item, masking: ClipSafePresentation.requiresMasking(item) ? .storedMask : .none
+            item: item, masking: .for(item, previewsHidden: hidden)
         ).headline.line
         let content = line.isEmpty ? nil : line
         switch action {
         case .color(let color):
             return CopyHUD(
-                tile: .clip(item), title: "Color · \(color.hex)", caption: caption,
+                tile: .clip(item, previewsHidden: hidden), title: "Color · \(color.hex)",
+                caption: caption,
                 content: content,
                 actions: [
                     CopyHUDAction(id: "rgb", title: "Copy as rgb()", isPrimary: true) {
@@ -42,7 +48,7 @@ extension AppModel {
                 ])
         case .link(let url):
             return CopyHUD(
-                tile: .clip(item),
+                tile: .clip(item, previewsHidden: hidden),
                 title:
                     "Link · \(ClipLinkParts(text: url.absoluteString)?.host ?? url.host() ?? "")",
                 caption: caption, content: content,
@@ -64,8 +70,8 @@ extension AppModel {
     }
 
     /// "Copied · from Figma", or "Copied" when the source app is unknown.
-    private static func copiedCaption(for item: ClipItem) -> String {
-        guard let bundleID = item.sourceAppBundleID, !bundleID.isEmpty else {
+    private static func copiedCaption(sourceAppBundleID bundleID: String?) -> String {
+        guard let bundleID, !bundleID.isEmpty else {
             return String(localized: "Copied")
         }
         return String(localized: "Copied · from \(SourceApp.displayName(forBundleID: bundleID))")

@@ -12,6 +12,12 @@ public struct ClipRowContent: Equatable, Sendable {
         case storedMask
         /// Private Mode: the kind's glyph and nothing else.
         case hidden
+
+        /// Hidden previews win over a clip's own protection.
+        public static func `for`(_ item: ClipItem, previewsHidden: Bool) -> Masking {
+            if previewsHidden { return .hidden }
+            return ClipSafePresentation.requiresMasking(item) ? .storedMask : .none
+        }
     }
 
     public enum Headline: Equatable, Sendable {

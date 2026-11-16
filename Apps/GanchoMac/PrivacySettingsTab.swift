@@ -131,8 +131,10 @@ private struct PrivateModeRowStatus: View {
                 let end = preferences.privateModeEndsAt
             {
                 HStack(spacing: 6) {
+                    // The minutes beside it already say the time left.
                     TimeRing(Countdown(start: start, deadline: end), lineWidth: 1.5)
                         .frame(width: 14, height: 14)
+                        .accessibilityHidden(true)
                     TimelineView(.periodic(from: end, by: 60)) { context in
                         Text("\(PanelCaptureChip.minutesLeft(until: end, now: context.date)) min")
                             .font(GanchoType.font(.data, size: 11, weight: .medium))

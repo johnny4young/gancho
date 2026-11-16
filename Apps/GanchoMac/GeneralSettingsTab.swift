@@ -33,7 +33,7 @@ struct GeneralSettingsTab: View {
                     Text("This shortcut is used by the system (\(shortcutWarning)).")
                 } icon: {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(GanchoTokens.Palette.ink2)
                 }
                 .font(.callout)
             }

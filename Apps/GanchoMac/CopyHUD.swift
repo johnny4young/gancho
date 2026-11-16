@@ -9,7 +9,7 @@ struct CopyHUD {
     enum Tile {
         case symbol(String, danger: Bool = false)
         /// The clip's own tile: its swatch, thumbnail or kind glyph.
-        case clip(ClipItem)
+        case clip(ClipItem, previewsHidden: Bool)
     }
 
     let tile: Tile
@@ -17,7 +17,7 @@ struct CopyHUD {
     let title: LocalizedStringResource
     /// A mono caps line over the title: where the clip came from.
     var caption: String?
-    /// The clip's own first line, shown in mono in place of the title.
+    /// The clip's headline, shown in mono in place of the title.
     var content: String?
     var detail: String?
     /// The title's accessibility identifier.
@@ -120,8 +120,8 @@ private struct CopyHUDView: View {
                     in: shape
                 )
                 .accessibilityHidden(true)
-        case .clip(let item):
-            ClipTile(item: item, size: Self.tileSide, previewsHidden: false)
+        case .clip(let item, let previewsHidden):
+            ClipTile(item: item, size: Self.tileSide, previewsHidden: previewsHidden)
                 .accessibilityHidden(true)
         }
     }

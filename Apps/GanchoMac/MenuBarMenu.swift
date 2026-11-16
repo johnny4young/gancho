@@ -20,7 +20,9 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         let contentHash: String
         let kind: ClipContentKind
         let hidden: Bool
+        let masked: Bool
         let dark: Bool
+        let scale: CGFloat
         let hasThumbnail: Bool
     }
 
@@ -81,8 +83,9 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
             case .header: menu.addItem(header(model))
             case .recentsLabel: menu.addItem(recentsLabel())
             case .recent(let recent):
-                menu.addItem(recentItem(recent, model: model, plain: false))
-                menu.addItem(recentItem(recent, model: model, plain: true))
+                let image = tile(for: recent, model: model)
+                menu.addItem(recentItem(recent, image: image, plain: false))
+                menu.addItem(recentItem(recent, image: image, plain: true))
             case .noRecents:
                 let item = NSMenuItem(
                     title: String(localized: "Copy something — it will appear here."),
@@ -131,7 +134,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
 
     /// The plain twin is an alternate: it replaces its row while ⌥ is held.
     private func recentItem(
-        _ recent: MenuBarMenuPlan.Recent, model: AppModel, plain: Bool
+        _ recent: MenuBarMenuPlan.Recent, image: NSImage?, plain: Bool
     ) -> NSMenuItem {
         let item = NSMenuItem(
             title: Self.title(for: recent.clip, masked: recent.masked),
@@ -140,7 +143,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         item.isAlternate = plain
         item.target = self
         item.representedObject = RecentPaste(clip: recent.clip, plain: plain)
-        item.image = tile(for: recent.clip, model: model)
+        item.image = image
         item.setAccessibilityIdentifier(
             plain ? "menu-bar-recent-plain-\(recent.number)" : "menu-bar-recent-\(recent.number)")
         return item
@@ -225,7 +228,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
 
     // MARK: Presentation
 
-    /// The clip's first line, cut short; a masked clip shows only its kind.
+    /// The clip's headline, cut short; a masked clip shows only its kind.
     private static func title(for clip: ClipItem, masked: Bool) -> String {
         guard !masked else {
             let kind = clip.kind.localizedName
@@ -238,22 +241,22 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
 
     /// The row's tile as an image. A protected clip's ring is drawn as it
     /// stands, so only tiles without a lifetime are cached.
-    private func tile(for clip: ClipItem, model: AppModel) -> NSImage? {
+    private func tile(for recent: MenuBarMenuPlan.Recent, model: AppModel) -> NSImage? {
+        let clip = recent.clip
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let hidden = model.previewsHidden
-        let masked = hidden || ClipSafePresentation.requiresMasking(clip)
-        let thumbnail = masked ? nil : model.thumbnails.cached(for: clip)
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let thumbnail = recent.masked ? nil : model.thumbnails.cached(for: clip)
         let key = TileKey(
             id: clip.id, contentHash: clip.contentHash, kind: clip.kind, hidden: hidden,
-            dark: isDark,
-            hasThumbnail: thumbnail != nil)
+            masked: recent.masked, dark: isDark, scale: scale, hasThumbnail: thumbnail != nil)
         if clip.expiresAt == nil, let cached = tiles[key] { return cached }
         let renderer = ImageRenderer(
             content: ClipTile(
                 item: clip, size: Self.tileSide, previewsHidden: hidden, thumbnail: thumbnail
             )
             .environment(\.colorScheme, isDark ? .dark : .light))
-        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
+        renderer.scale = scale
         let image = renderer.nsImage
         if clip.expiresAt == nil, let image {
             if tiles.count >= Self.tileCacheLimit { tiles.removeAll() }
