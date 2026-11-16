@@ -91,7 +91,7 @@ final class PeekDockUITests: XCTestCase {
         let chip = app.descendants(matching: .any).matching(
             NSPredicate(
                 format:
-                    "identifier BEGINSWITH 'peek-board-' AND (label CONTAINS %@ OR value CONTAINS %@)",
+                    "identifier BEGINSWITH 'peek-board-' AND (label CONTAINS[c] %@ OR value CONTAINS[c] %@)",
                 "Seed board 1", "Seed board 1"
             )
         ).firstMatch

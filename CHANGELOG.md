@@ -19,6 +19,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   left. The selected row is a neutral wash, and its key becomes Return.
 - The Library shows each board as a wall of its clips at their own shapes,
   under the board's name, its count and a bar of the kinds it holds.
+- On the Mac, a link's preview leads with its site, names the parts of the URL
+  (scheme, host, path, query, fragment), decodes each parameter, and shows what
+  Return and ⌥Return paste and the Markdown link you can copy. The preview's
+  header is one caption line over a larger title, with a star for Favorites.
 - On the Mac, each copy costs Gancho far less work. Titles, search and board
   suggestions share one loaded language model instead of loading it for every
   clip, and the hidden history panel no longer redraws itself on every copy.
