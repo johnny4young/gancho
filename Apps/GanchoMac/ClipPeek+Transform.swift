@@ -6,38 +6,40 @@ import GanchoKit
 import SwiftUI
 
 extension ClipPeek {
-    /// The one Transform entry: ⌘T or a click opens the filterable list.
-    var transformButton: some View {
-        Button {
+    /// The dock's Actions entry: a click (or ⌘T, when the clip has transforms)
+    /// opens the list, with the verbs the dock had no room for on top.
+    func actionsButton(folded: [PeekAction]) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
+        return Button {
             showsTransformPopover.toggle()
         } label: {
-            HStack(spacing: GanchoTokens.Spacing.xxs) {
-                Image(systemName: "wand.and.sparkles")
-                Text("Transform")
-                Text(verbatim: "⌘T")
-                    .panelFont(.caption2, design: .monospaced)
-                    .foregroundStyle(.secondary)
-                Image(systemName: "chevron.down")
-                    .panelFont(.caption2)
+            HStack(spacing: 6) {
+                Text("Actions").panelFont(size: 12.5, .medium).lineLimit(1)
+                if offersTransforms { KeyCap("⌘T").accessibilityHidden(true) }
             }
-            .panelFont(.body, .medium)
-            .foregroundStyle(GanchoTokens.Palette.ink2)
-            .padding(.horizontal, GanchoTokens.Spacing.sm)
-            .padding(.vertical, GanchoTokens.Spacing.xxs)
-            .contentShape(.rect)
+            .padding(.horizontal, 7)
+            .frame(height: 34 * typeScale)
+            .foregroundStyle(GanchoTokens.Palette.ink)
+            .overlay(
+                shape.strokeBorder(
+                    GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
+            )
+            .contentShape(shape)
         }
         .buttonStyle(.plain)
         .fixedSize()
-        .ganchoSurface(radius: GanchoTokens.Radius.md)
         .disabled(isThinking)
+        .accessibilityValue(Text(verbatim: offersTransforms ? "⌘T" : ""))
         .accessibilityIdentifier("transform-button")
-        .popover(isPresented: $showsTransformPopover, arrowEdge: .bottom) {
+        .popover(isPresented: $showsTransformPopover, arrowEdge: .top) {
             PeekTransformPopover(
-                groups: transformGroups, title: transformTitle, groupTitle: groupTitle,
-                symbol: transformSymbol, onSelect: runTransformRow)
-        }
-        .sheet(item: $recipeRequest) { request in
-            TextRecipeReview(clipID: request.clipID).environment(model)
+                verbs: folded, groups: offersTransforms ? transformGroups : [],
+                title: transformTitle, groupTitle: groupTitle, symbol: transformSymbol,
+                onSelect: runTransformRow,
+                runVerb: { verb in
+                    showsTransformPopover = false
+                    verb.run()
+                })
         }
     }
 

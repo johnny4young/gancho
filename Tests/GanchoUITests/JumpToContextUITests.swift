@@ -56,8 +56,7 @@ final class JumpToContextUITests: XCTestCase {
         app.typeKey(.downArrow, modifierFlags: [])
 
         let peekAction = app.descendants(matching: .any)["preview-context"].firstMatch
-        XCTAssertTrue(peekAction.appears(within: 5), "the peek offers Show context")
-        try keepRender(of: "history-panel", in: app, named: "Show context in the peek")
+        XCTAssertTrue(app.buttons["preview-paste"].firstMatch.appears(within: 5))
 
         app.typeKey("j", modifierFlags: .command)
         XCTAssertTrue(header(app).appears(within: 5))
@@ -82,6 +81,11 @@ final class JumpToContextUITests: XCTestCase {
         XCTAssertEqual(
             XCTWaiter.wait(for: [selected], timeout: 5), .completed,
             "back on the row ⌘J was pressed on")
+
+        // A dock too narrow for the verb folds it into Actions, so this opens it last.
+        if !peekAction.exists { app.buttons["transform-button"].firstMatch.click() }
+        XCTAssertTrue(peekAction.appears(within: 5), "the peek offers Show context")
+        try keepRender(of: "history-panel", in: app, named: "Show context in the peek")
     }
 
     @MainActor

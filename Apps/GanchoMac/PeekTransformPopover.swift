@@ -2,14 +2,18 @@ import GanchoAppCore
 import GanchoDesign
 import SwiftUI
 
-/// The single Transform list behind ⌘T: a filter over the clip's actions, text
-/// transforms, recipes and on-device Smart paste. ↑↓ pick, ⏎ runs, esc closes.
+/// The Actions list behind the dock's last button and ⌘T: the dock verbs that
+/// did not fit, then a filter over the clip's actions, text transforms, recipes
+/// and on-device Smart paste. ↑↓ pick, ⏎ runs, esc closes.
 struct PeekTransformPopover: View {
+    /// Dock verbs folded out of a narrow dock; each keeps its own shortcut.
+    var verbs: [PeekAction] = []
     let groups: [TransformGroup]
     let title: (TransformRow) -> String
     let groupTitle: (TransformGroup.Kind) -> Text
     let symbol: (TransformRow) -> String
     let onSelect: (TransformRow) -> Void
+    var runVerb: (PeekAction) -> Void = { _ in }
 
     @State private var query = ""
     @State private var highlighted = 0
@@ -22,6 +26,44 @@ struct PeekTransformPopover: View {
     private var rows: [TransformRow] { filtered.flatMap(\.rows) }
 
     var body: some View {
+        VStack(spacing: 0) {
+            if !verbs.isEmpty {
+                VStack(spacing: 0) { ForEach(verbs) { verbButton($0) } }
+                    .padding(GanchoTokens.Spacing.xxs)
+                if !groups.isEmpty { Divider() }
+            }
+            if !groups.isEmpty { transforms.frame(height: 318) }
+        }
+        .frame(width: 330)
+        .onChange(of: query) { _, _ in highlighted = 0 }
+        .onAppear { filterFocused = true }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("transform-popover")
+    }
+
+    private func verbButton(_ verb: PeekAction) -> some View {
+        Button {
+            runVerb(verb)
+        } label: {
+            HStack(spacing: GanchoTokens.Spacing.xs) {
+                Image(systemName: verb.symbol)
+                    .frame(width: 16)
+                    .foregroundStyle(.secondary)
+                Text(verb.title).fontWeight(.medium).lineLimit(1)
+                Spacer(minLength: 0)
+                if let shortcut = verb.shortcut { KeyCap(shortcut).accessibilityHidden(true) }
+            }
+            .panelFont(.callout)
+            .padding(.horizontal, GanchoTokens.Spacing.xs)
+            .padding(.vertical, 5)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(Text(verbatim: verb.shortcut ?? ""))
+        .accessibilityIdentifier(verb.id)
+    }
+
+    private var transforms: some View {
         VStack(spacing: 0) {
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -51,11 +93,6 @@ struct PeekTransformPopover: View {
                     .padding(.vertical, GanchoTokens.Spacing.xs)
             }
         }
-        .frame(width: 330, height: 318)
-        .onChange(of: query) { _, _ in highlighted = 0 }
-        .onAppear { filterFocused = true }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("transform-popover")
     }
 
     private var list: some View {

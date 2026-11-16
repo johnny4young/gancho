@@ -729,6 +729,36 @@
         }
       }
     },
+    "paste nth": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pegar el n.º"
+          }
+        }
+      }
+    },
+    "keys": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "teclas"
+          }
+        }
+      }
+    },
+    "Stack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pila"
+          }
+        }
+      }
+    },
     "paste": {
       "localizations": {
         "es": {

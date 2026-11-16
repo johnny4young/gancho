@@ -1,10 +1,13 @@
 import Foundation
+import GanchoKit
 
-/// Clip totals behind the panel's scope chips: every visible clip, and each
-/// board's visible members, counted like the panel's own list.
+/// Clip totals behind the panel's rail: every visible clip, each board's
+/// visible members and each kind's clips, counted like the panel's own list.
 struct PanelScopeCounts: Equatable {
     var total: Int?
     var boards: [UUID: Int] = [:]
+    /// Nil until the store answers.
+    var kinds: [ClipContentKind: Int]?
 }
 
 /// Recounts when the boards change, a clip arrives or goes, the store reports

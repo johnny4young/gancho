@@ -142,12 +142,12 @@ final class PanelAppearanceUITests: XCTestCase {
     private func verifyDock(in app: XCUIApplication) {
         let dock = app.descendants(matching: .any)["peek-dock"].firstMatch
         XCTAssertTrue(dock.appears(within: 5), "the peek must show its action dock")
-        for identifier in ["preview-paste", "preview-paste-plain", "preview-pin", "preview-board"] {
+        // A compact dock keeps Return's verb and folds the rest into Actions.
+        for identifier in ["preview-paste", "transform-button"] {
             XCTAssertTrue(
                 dock.descendants(matching: .any)[identifier].firstMatch.exists,
-                "\(identifier) must be a dock action")
+                "\(identifier) must be in the dock")
         }
-
     }
 
     @MainActor

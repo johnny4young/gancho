@@ -2191,7 +2191,7 @@ final class AppModel {
         guard let counter,
             let snapshot = try? await counter.scopeCounts(excluding: pendingDeletionIDs)
         else { return PanelScopeCounts() }
-        var counts = PanelScopeCounts(total: snapshot.total)
+        var counts = PanelScopeCounts(total: snapshot.total, kinds: snapshot.kinds)
         for board in boards { counts.boards[board.id] = snapshot.boards[board.id] ?? 0 }
         return counts
     }

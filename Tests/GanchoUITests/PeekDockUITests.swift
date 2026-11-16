@@ -17,9 +17,8 @@ final class PeekDockUITests: XCTestCase {
         let panel = app.dialogs["history-panel"].firstMatch
         let dock = app.descendants(matching: .any)["peek-dock"].firstMatch
         XCTAssertTrue(panel.frame.contains(dock.frame))
-        for id in ["preview-paste", "preview-paste-plain", "preview-pin", "preview-board"] {
-            XCTAssertTrue(dock.buttons[id].firstMatch.isHittable, "\(id) must be a native button")
-        }
+        XCTAssertTrue(
+            dock.buttons["preview-paste"].firstMatch.isHittable, "Paste must be a native button")
         let edit = app.buttons["preview-edit-content"].firstMatch
         XCTAssertTrue(edit.appears(within: 5))
         edit.click()
@@ -30,6 +29,31 @@ final class PeekDockUITests: XCTestCase {
         XCTAssertTrue(panel.frame.contains(dock.frame), "Editing must not push the dock offscreen")
         app.buttons["preview-cancel-content"].firstMatch.click()
         try keepRender(of: "history-panel", in: app, named: "Compact peek — complete URL and dock")
+        verifyDockVerbs(["preview-paste-plain", "preview-pin", "preview-board"], in: app)
+    }
+
+    /// Every verb is in the dock's row or, once a narrow dock folds it, in the
+    /// Actions list. Opens Actions, so it runs last.
+    @MainActor
+    private func verifyDockVerbs(_ ids: [String], in app: XCUIApplication) {
+        let dock = app.descendants(matching: .any)["peek-dock"].firstMatch
+        XCTAssertTrue(dock.buttons["preview-paste"].firstMatch.isHittable)
+        let folded = ids.filter { !dock.buttons[$0].firstMatch.exists }
+        guard !folded.isEmpty else { return }
+        let actions = dock.buttons["transform-button"].firstMatch
+        XCTAssertTrue(actions.isHittable, "a dock that folds verbs must offer Actions")
+        actions.click()
+        for id in folded {
+            XCTAssertTrue(app.buttons[id].firstMatch.appears(within: 5), "\(id) must be in Actions")
+        }
+    }
+
+    /// The Pin verb, from the row or from Actions. Opens Actions, so it runs last.
+    @MainActor
+    private func pinVerb(in app: XCUIApplication) -> XCUIElement {
+        let pin = app.buttons["preview-pin"].firstMatch
+        if !pin.exists { app.buttons["transform-button"].firstMatch.click() }
+        return pin
     }
 
     @MainActor
@@ -72,8 +96,6 @@ final class PeekDockUITests: XCTestCase {
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.rightArrow, modifierFlags: [])
         app.typeKey("p", modifierFlags: .command)
-        let unpin = app.buttons["preview-pin"].firstMatch
-        XCTAssertTrue(unpin.wait(for: \.label, toEqual: "Unpin", timeout: 5))
         app.typeKey("b", modifierFlags: .command)
         let picker = app.textFields["board-picker-filter"].firstMatch
         XCTAssertTrue(picker.appears(within: 5))
@@ -98,6 +120,9 @@ final class PeekDockUITests: XCTestCase {
         XCTAssertTrue(
             chip.appears(within: 5), "The selected clip must refresh its boards")
         try keepRender(of: "history-panel", in: app, named: "Peek — live board membership")
+        let unpin = pinVerb(in: app)
+        XCTAssertTrue(unpin.appears(within: 5))
+        XCTAssertTrue(unpin.wait(for: \.label, toEqual: "Unpin", timeout: 5))
     }
 
     @MainActor
@@ -112,7 +137,8 @@ final class PeekDockUITests: XCTestCase {
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.rightArrow, modifierFlags: [])
         app.typeKey("p", modifierFlags: [.command, .capsLock])
-        let unpin = app.buttons["preview-pin"].firstMatch
+        let unpin = pinVerb(in: app)
+        XCTAssertTrue(unpin.appears(within: 5))
         XCTAssertTrue(unpin.wait(for: \.label, toEqual: "Unpin", timeout: 5))
     }
 
@@ -199,14 +225,10 @@ final class PeekDockUITests: XCTestCase {
         let panel = app.dialogs["history-panel"].firstMatch
         XCTAssertTrue(dock.appears(within: 5))
         XCTAssertTrue(panel.frame.contains(dock.frame))
-        for id in [
-            "preview-paste", "preview-paste-plain", "image-copy-text", "preview-pin",
-            "preview-board"
-        ] {
-            XCTAssertTrue(dock.buttons[id].firstMatch.isHittable)
-        }
         try keepRender(
-            of: "history-panel", in: app, named: "Compact dark peek — image and five-action dock")
+            of: "history-panel", in: app, named: "Compact dark peek — image and its dock")
+        verifyDockVerbs(
+            ["preview-paste-plain", "image-copy-text", "preview-pin", "preview-board"], in: app)
     }
 
     @MainActor

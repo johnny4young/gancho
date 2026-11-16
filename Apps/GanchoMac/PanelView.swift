@@ -119,9 +119,6 @@ struct PanelView: View {
     @AppStorage private var panelTextSizeRaw: String
     /// One selection highlight shared by every row (see `ClipCard`).
     @Namespace private var selectionNamespace
-    /// One selection capsule per rail that glides to the chip you activate.
-    @Namespace private var boardRailNamespace
-    @Namespace private var filterRailNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage private var ambientTintEnabled: Bool
     @AppStorage private var translucentBackground: Bool
@@ -850,29 +847,14 @@ struct PanelView: View {
         }
     }
 
-    /// Boards on the left (their own scroll rail), type filters and the source
-    /// app on the right, Save filter at the edge. Compact widths wrap the
-    /// controls below the boards rather than clipping them. Keyboard order
-    /// stays the same in either layout.
+    /// One row that never wraps: boards as text tabs in their own scroll,
+    /// then the type filters, the source app and Save filter as glyphs.
     private var panelToolbar: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: GanchoTokens.Spacing.xs) {
-                boardRail.frame(minWidth: 100)
-                Rectangle().fill(.separator).frame(width: 1, height: 14)
-                toolbarFilters
-            }
-            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-                boardRail
-                toolbarFilters
-            }
-        }
-        .padding(.horizontal, GanchoTokens.Spacing.sm)
-        .padding(.vertical, 6)
-        .background { WindowDragArea() }
-    }
-
-    private var toolbarFilters: some View {
-        HStack(spacing: GanchoTokens.Spacing.xs) {
+        HStack(spacing: 2) {
+            boardRail.frame(minWidth: 80)
+            Rectangle().fill(GanchoTokens.Palette.hairline)
+                .frame(width: 1, height: 14)
+                .padding(.horizontal, 6)
             filterRail
             if !search.sourceApps.isEmpty {
                 sourceAppMenu
@@ -880,20 +862,22 @@ struct PanelView: View {
             Button {
                 presentedSheet = .savedFilter(search.savedRule(named: ""))
             } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle")
-                    .panelFont(size: 13, .medium)
-                    .frame(width: 24, height: 22)
-                    .contentShape(Rectangle())
+                railTab(isActive: false, isFocused: false) {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                }
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
             .help("Save filter")
             .disabled(model.fullStore == nil)
             .accessibilityLabel(Text("Save filter"))
             .accessibilityIdentifier("filter-save")
         }
-        .fixedSize(horizontal: true, vertical: false)
+        .padding(.horizontal, GanchoTokens.Spacing.sm)
+        .frame(height: 38 * railScale)
+        .background { WindowDragArea() }
     }
+
+    private var railScale: CGFloat { PanelTextSize.resolved(panelTextSizeRaw).scale }
 
     /// I only reaches the peek once it owns the keyboard.
     private var offersEyedropper: Bool {
@@ -922,16 +906,14 @@ struct PanelView: View {
         }
     }
 
-    /// The type filters: All / Links / Code / Colors / Images / Secrets as
-    /// glyph chips; the active one expands to its name.
+    /// The type filters: All / Links / Code / Colors / Images / Secrets, as glyphs.
     private var filterRail: some View {
-        HStack(spacing: GanchoTokens.Spacing.xxs) {
+        HStack(spacing: 2) {
             ForEach(ClipKindFilter.allCases) { filter in
                 filterChip(filter)
             }
         }
-        // The board rail beside it is a greedy ScrollView; without a fixed
-        // size the HStack squeezes the active chip's name down to nothing.
+        // The board rail beside it is a greedy ScrollView.
         .fixedSize()
         // A plain stack is not an accessibility container: without this the
         // rail's id would replace every chip's own `filter-*` id.
@@ -995,15 +977,10 @@ struct PanelView: View {
                 .accessibilityIdentifier("source-app-\(app.bundleID)")
             }
         } label: {
-            railChipLabel(
-                selectedBundleID.map { Text(verbatim: SourceApp.displayName(forBundleID: $0)) }
-                    ?? Text("All apps"),
-                isActive: selectedBundleID != nil, isFocused: false,
-                showsTitle: selectedBundleID != nil
-            ) {
+            railTab(isActive: selectedBundleID != nil, isFocused: false) {
                 if let bundleID = selectedBundleID, let icon = SourceApp.icon(forBundleID: bundleID)
                 {
-                    Image(nsImage: icon).resizable().frame(width: 13, height: 13)
+                    Image(nsImage: icon).resizable().frame(width: 14, height: 14)
                 } else {
                     Image(systemName: "app.dashed")
                 }
@@ -1027,84 +1004,59 @@ struct PanelView: View {
     private func filterChip(_ filter: ClipKindFilter) -> some View {
         let isActive = filter == search.kindFilter
         let index = ClipKindFilter.allCases.firstIndex(of: filter) ?? -1
-        let tint = filter.tintKind.map(GanchoTokens.Palette.kindTint(for:))
-        return railChip(
-            Text(filter.title), isActive: isActive, isFocused: railFocus == .filters(index),
-            identifier: "filter-\(filter.rawValue)", namespace: filterRailNamespace
-        ) {
-            Image(systemName: filter.symbolName)
-                .foregroundStyle(tint.map(AnyShapeStyle.init) ?? AnyShapeStyle(.secondary))
-        } action: {
+        // The glyph carries no name, so the label says the kind and its count.
+        let title = scopeTitle(
+            Text(filter.title), count: scopeCounts.kinds.map(filter.count(in:)))
+        return railButton(title, isActive: isActive, identifier: "filter-\(filter.rawValue)") {
             search.kindFilter = filter
             search.selectedIndex = 0
+        } label: {
+            railTab(isActive: isActive, isFocused: railFocus == .filters(index)) {
+                Image(systemName: filter.symbolName)
+            }
         }
     }
 
-    /// A toolbar chip: glyph only at rest, checkmark + name when active, so the
-    /// active one reads without relying on the wash alone (WCAG 1.4.1).
-    private func railChip<Icon: View>(
-        _ title: Text, isActive: Bool, isFocused: Bool, identifier: String,
-        namespace: Namespace.ID? = nil,
-        @ViewBuilder icon: () -> Icon, action: @escaping () -> Void
+    /// A rail control: its name for the tooltip and VoiceOver, and whether it
+    /// is the active one.
+    private func railButton<Label: View>(
+        _ title: Text, isActive: Bool, identifier: String, action: @escaping () -> Void,
+        @ViewBuilder label: () -> Label
     ) -> some View {
-        Button(action: action) {
-            railChipLabel(
-                title, isActive: isActive, isFocused: isFocused, showsTitle: isActive,
-                namespace: namespace
-            ) {
-                if isActive {
-                    Image(systemName: "checkmark")
-                } else {
-                    icon()
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .help(title)
-        .accessibilityLabel(title)
-        .accessibilityIdentifier(identifier)
-        .accessibilityValue(isActive ? Text("Selected") : Text("Not selected"))
-        .accessibilityAddTraits(isActive ? .isSelected : [])
+        Button(action: action, label: label)
+            .buttonStyle(.plain)
+            .help(title)
+            .accessibilityLabel(title)
+            .accessibilityIdentifier(identifier)
+            .accessibilityValue(isActive ? Text("Selected") : Text("Not selected"))
+            .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
-    /// With a namespace the selection wash is ONE capsule per rail that glides
-    /// to the active chip; without one (New board, the app menu) it is static.
-    private func railChipLabel<Icon: View>(
-        _ title: Text, isActive: Bool, isFocused: Bool, showsTitle: Bool,
-        namespace: Namespace.ID? = nil,
-        @ViewBuilder icon: () -> Icon
+    private var railShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: 7, style: .continuous)
+    }
+
+    /// A rail tab: ink on the selection wash when active, quiet ink on nothing
+    /// at rest. A lone glyph gets a square-ish tab; `padded` is for text.
+    private func railTab<Content: View>(
+        isActive: Bool, isFocused: Bool, padded: Bool = false,
+        @ViewBuilder content: () -> Content
     ) -> some View {
-        HStack(spacing: 5) {
-            icon()
-                .panelFont(.subheadline, .semibold)
-                .frame(width: 13, height: 13)
-            if showsTitle {
-                // Truncate rather than widen the fixed-size toolbar; `.help` has the full name.
-                title.panelFont(.subheadline, isActive ? .semibold : .medium).lineLimit(1)
-                    .frame(maxWidth: 120)
-            }
-        }
-        .padding(.horizontal, showsTitle ? GanchoTokens.Spacing.xs : 6)
-        .padding(.vertical, 4)
-        .background {
-            if isActive {
-                Capsule().fill(GanchoTokens.Palette.selectionWash)
-                    .modifier(RailGlide(namespace: namespace))
-            }
-        }
-        .foregroundStyle(
-            isActive
-                ? AnyShapeStyle(GanchoTokens.Palette.ink)
-                : AnyShapeStyle(.secondary)
-        )
-        .overlay(railRing(isFocused))
-        .contentShape(Capsule())
+        content()
+            .panelFont(.subheadline, .medium)
+            .lineLimit(1)
+            .padding(.horizontal, padded ? 9 : 0)
+            .frame(minWidth: 26 * railScale)
+            .frame(height: 24 * railScale)
+            .ganchoTab(selected: isActive, idle: GanchoTokens.Palette.ink2, in: railShape)
+            .overlay(railRing(isFocused))
+            .contentShape(railShape)
     }
 
-    /// The keyboard-focus ring for a rail chip (filters + boards): 2 pt in the
-    /// ink, 2 pt outside the chip, so it never reads as the active fill.
+    /// The keyboard-focus ring for a rail tab (filters + boards): 2 pt in the
+    /// ink, 2 pt outside the tab, so it never reads as the active fill.
     private func railRing(_ focused: Bool) -> some View {
-        Capsule()
+        railShape
             .stroke(
                 focused ? AnyShapeStyle(GanchoTokens.Palette.ink2) : AnyShapeStyle(.clear),
                 lineWidth: GanchoTokens.Stroke.focus
@@ -1112,22 +1064,23 @@ struct PanelView: View {
             .padding(-GanchoTokens.Stroke.focus * 1.5)
     }
 
-    /// The boards: All clips · Favorites · user boards · New board. System
-    /// boards are glyph-only until active; user boards always show their name
-    /// (a bare colour dot would not identify them).
+    /// The boards: All · Favorites · user boards · New board, each a name and
+    /// its clip count. They scroll sideways and never wrap.
     private var boardRail: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: GanchoTokens.Spacing.xxs) {
-                    railChip(
+                HStack(spacing: 2) {
+                    railButton(
                         scopeTitle(Text("All clips"), count: scopeCounts.total),
-                        isActive: search.selectedBoardID == nil,
-                        isFocused: railFocus == .boards(0), identifier: "board-all",
-                        namespace: boardRailNamespace
+                        isActive: search.selectedBoardID == nil, identifier: "board-all"
                     ) {
-                        Image(systemName: "tray.full")
-                    } action: {
                         search.selectedBoardID = nil
+                    } label: {
+                        boardTab(
+                            Text("All"), count: scopeCounts.total,
+                            isActive: search.selectedBoardID == nil,
+                            isFocused: railFocus == .boards(0)
+                        ) { EmptyView() }
                     }
                     .id(Self.allClipsRailID)
                     ForEach(Array(model.boards.enumerated()), id: \.element.id) { index, board in
@@ -1137,18 +1090,14 @@ struct PanelView: View {
                         boardNameField = ""
                         boardSheet = .new
                     } label: {
-                        railChipLabel(
-                            Text("New board…"), isActive: false, isFocused: false, showsTitle: false
-                        ) {
-                            Image(systemName: "plus")
-                        }
+                        railTab(isActive: false, isFocused: false) { Image(systemName: "plus") }
                     }
                     .buttonStyle(.plain)
                     .help("New board…")
                     .accessibilityLabel(Text("New board…"))
                     .accessibilityIdentifier("board-new")
                 }
-                // Room for the focus ring outside the chips.
+                // Room for the focus ring outside the tabs.
                 .padding(GanchoTokens.Stroke.focus * 2)
                 .contentShape(Rectangle())
             }
@@ -1187,31 +1136,47 @@ struct PanelView: View {
         return Text("\(title) · \(count)")
     }
 
+    /// A board's tab: its mark, its name and its count in the data face.
+    private func boardTab<Mark: View>(
+        _ name: Text, count: Int?, isActive: Bool, isFocused: Bool,
+        @ViewBuilder mark: () -> Mark
+    ) -> some View {
+        railTab(isActive: isActive, isFocused: isFocused, padded: true) {
+            HStack(spacing: 6) {
+                mark()
+                // Truncate rather than widen the rail; `.help` has the full name.
+                name.frame(maxWidth: 120)
+                if let count {
+                    Text(verbatim: "\(count)")
+                        .panelFont(size: 10.5, design: .monospaced)
+                        .foregroundStyle(
+                            isActive ? GanchoTokens.Palette.ink2 : GanchoTokens.Palette.ink3)
+                }
+            }
+        }
+    }
+
     private func boardChip(_ board: Pinboard, index: Int) -> some View {
         let isActive = search.selectedBoardID == board.id
-        let title = scopeTitle(board.displayTitle, count: scopeCounts.boards[board.id])
-        return Button {
+        let count = scopeCounts.boards[board.id]
+        return railButton(
+            scopeTitle(board.displayTitle, count: count), isActive: isActive,
+            identifier: "board-\(board.id.uuidString)"
+        ) {
             search.selectedBoardID = board.id
         } label: {
-            railChipLabel(
-                isActive ? title : board.displayTitle, isActive: isActive,
-                isFocused: railFocus == .boards(index + 1),
-                showsTitle: isActive || !board.isSystem, namespace: boardRailNamespace
+            boardTab(
+                board.displayTitle, count: count, isActive: isActive,
+                isFocused: railFocus == .boards(index + 1)
             ) {
-                if isActive {
-                    Image(systemName: "checkmark")
+                if board.isSystem {
+                    Image(systemName: board.sfSymbol).panelFont(size: 11, .medium)
                 } else {
                     BoardIdentityMark(board: board, size: 11)
                 }
             }
-            .boardDropTarget(board, ring: Capsule(style: .circular))
+            .boardDropTarget(board, ring: railShape)
         }
-        .buttonStyle(.plain)
-        .help(title)
-        .accessibilityLabel(title)
-        .accessibilityIdentifier("board-\(board.id.uuidString)")
-        .accessibilityValue(isActive ? Text("Selected") : Text("Not selected"))
-        .accessibilityAddTraits(isActive ? .isSelected : [])
         .contextMenu {
             if !board.isSystem {
                 Button("Customize board…") {
@@ -1591,7 +1556,10 @@ struct PanelView: View {
             // matched id (a ⇧ range) would log and draw nothing.
             selectionNamespace: selectionNamespace,
             isSelectionAnchor: search.selectedItem?.id == item.id,
-            sensitiveLifetime: model.retentionPolicy.sensitiveLifetime)
+            sensitiveLifetime: model.retentionPolicy.sensitiveLifetime,
+            // A pattern and a meaning are not words to find in the row.
+            matchQuery: search.searchMode == .exact || search.searchMode == .fuzzy
+                ? search.query : nil)
     }
 
     /// Pin/board assignment — the context-menu path; drag & drop arrives
@@ -1905,20 +1873,6 @@ struct PanelView: View {
             presentedSheet = .snippet(SnippetFillRequest(snippet: snippet, body: body))
         } else {
             model.pasteSnippet(snippet, values: [:])
-        }
-    }
-}
-
-/// `matchedGeometryEffect` needs a namespace at compile time; a rail chip
-/// without one keeps a static fill.
-private struct RailGlide: ViewModifier {
-    let namespace: Namespace.ID?
-
-    func body(content: Content) -> some View {
-        if let namespace {
-            content.matchedGeometryEffect(id: "active-chip", in: namespace)
-        } else {
-            content
         }
     }
 }

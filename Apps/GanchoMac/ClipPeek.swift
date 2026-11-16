@@ -36,6 +36,9 @@ struct ClipPeek: View {
     @State var recipeRequest: TextRecipeReviewRequest?
     @State var actionResult: String?
     @State var showsTransformPopover = false
+    /// The dock verbs the row has room for; empty until the dock reports.
+    @State var visibleDockIDs: [String] = []
+    @Environment(\.panelTypeScale) var typeScale
     @State var transformPipeline = TransformPipeline()
     @State var describeMode = false
     @State var describedChange: DescribedChange?
@@ -153,7 +156,6 @@ struct ClipPeek: View {
                                 copiedLine: $ocrCopiedLine,
                                 revealSecret: $ocrRevealSecret, isEditing: $isEditingOCR)
                         }
-                        if canTransform || canSmartPaste { transformButton }
                         if !transformPipeline.isEmpty { pipelineSection }
                         if describeMode { describeSection }
                         if translationFailed { translationUnavailableMessage }
@@ -205,7 +207,9 @@ struct ClipPeek: View {
         }
         .onKeyPress(.return, phases: .down) { press in
             guard !isInlineEditing else { return .ignored }
-            if press.modifiers.contains(.option), !press.modifiers.contains(.command) {
+            if press.modifiers.contains(.option), press.modifiers.contains(.command) {
+                model.pushToStack(item)
+            } else if press.modifiers.contains(.option) {
                 model.paste(item, asPlainText: true)
             } else if press.modifiers.contains(.shift), let result = pendingResult {
                 if !transformPipeline.isEmpty { rememberPipeline() }
@@ -255,7 +259,11 @@ struct ClipPeek: View {
             if newValue == .peek { actionIndex = 0 }
         }
         .onChange(of: transformRequest) { _, _ in
-            if canTransform || canSmartPaste { showsTransformPopover = true }
+            if offersTransforms { showsTransformPopover = true }
+        }
+        // A verb that folds away must not keep the keyboard focus.
+        .onChange(of: visibleDockIDs) { _, _ in
+            actionIndex = min(actionIndex, max(0, navActions.count - 1))
         }
         // A new request (same clip, run again) starts from a clean section.
         .onChange(of: model.manualOCR.requestID) { _, _ in
@@ -537,7 +545,7 @@ extension ClipPeek {
         }
     }
 
-    private var colorValue: ColorValue? {
+    var colorValue: ColorValue? {
         guard item.kind == .color, !ClipSafePresentation.requiresMasking(item) else { return nil }
         return ColorValue.parse(presentedText)
     }
@@ -581,24 +589,51 @@ extension ClipPeek {
 // MARK: - Action dock and chips
 
 extension ClipPeek {
-    /// The action dock: Paste is always the prominent button (Return runs it);
-    /// the keyboard-focused one — only while the peek owns the keyboard —
-    /// takes a ring, so the list and the peek never look "both selected".
+    /// The action dock, one row: Return's verb is the only filled control, the
+    /// others are quiet text with their keys, and Actions closes the row. The
+    /// widest tier that fits wins; what it leaves out moves into Actions.
     private var dock: some View {
-        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
-        return HStack(spacing: GanchoTokens.Spacing.xxs) {
-            ForEach(Array(dockActions.enumerated()), id: \.element.id) {
-                index, action in
-                actionButton(action, index: index, style: .dock(isPrimary: index == 0))
+        let actions = dockActions
+        let tiers = PeekDockFold.tiers(
+            for: actions.map(\.id), primaryHasShortTitle: actions.first?.shortTitle != nil)
+        return ViewThatFits(in: .horizontal) {
+            ForEach(tiers, id: \.self) { tier in
+                dockRow(actions, tier: tier)
             }
         }
-        .padding(GanchoTokens.Spacing.xxs)
-        .background(.quaternary.opacity(0.5), in: shape)
-        .overlay(
-            shape.strokeBorder(.separator.opacity(0.6), lineWidth: GanchoTokens.Stroke.hairline)
-        )
+        .onPreferenceChange(DockVisibleIDs.self) { [shown = $visibleDockIDs] ids in
+            shown.wrappedValue = ids
+        }
+        .sheet(item: $recipeRequest) { request in
+            TextRecipeReview(clipID: request.clipID).environment(model)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("peek-dock")
+    }
+
+    private func dockRow(_ actions: [PeekAction], tier: PeekDockFold.Tier) -> some View {
+        let visible = tier.visible
+        let folded = PeekDockFold.folded(from: actions.map(\.id), showing: visible)
+        let shown = actions.filter { visible.contains($0.id) }
+        return HStack(spacing: GanchoTokens.Spacing.xxs) {
+            ForEach(Array(shown.enumerated()), id: \.element.id) { index, action in
+                actionButton(
+                    action, index: index,
+                    style: .dock(isPrimary: index == 0, short: tier.shortPrimary))
+            }
+            Spacer(minLength: 0)
+            if offersTransforms || !folded.isEmpty {
+                actionsButton(folded: actions.filter { folded.contains($0.id) })
+            }
+        }
+        .preference(key: DockVisibleIDs.self, value: visible)
+    }
+
+    /// The dock verbs in the row right now: the keyboard moves among these.
+    var shownDockActions: [PeekAction] {
+        let actions = dockActions
+        let shown = actions.filter { visibleDockIDs.contains($0.id) }
+        return shown.isEmpty ? actions : shown
     }
 
     /// Arrowing through rows must not compute an embedding per row.
@@ -746,82 +781,11 @@ extension ClipPeek {
     }
 }
 
-// MARK: - Keyboard actions
+/// The ids of the dock tier on screen, reported by the row that fits.
+private struct DockVisibleIDs: PreferenceKey {
+    static let defaultValue: [String] = []
 
-extension ClipPeek {
-    /// The keyboard order: the dock, then a secret's actions. Transforms live
-    /// behind ⌘T.
-    private var navActions: [PeekAction] { dockActions + secretActions }
-
-    /// Paste variants first (the common case), then OCR, Pin and Board.
-    var dockActions: [PeekAction] {
-        var actions: [PeekAction] = [
-            PeekAction(
-                id: "preview-paste", title: pasteTitle,
-                symbol: model.pasteTarget.label == .copy ? "doc.on.doc" : "doc.on.clipboard",
-                shortcut: "⏎"
-            ) {
-                model.paste(item)
-            },
-            PeekAction(
-                id: "preview-paste-plain", title: "Paste plain", symbol: "doc.plaintext",
-                shortTitle: "Plain", shortcut: "⌥⏎"
-            ) {
-                model.paste(item, asPlainText: true)
-            }
-        ]
-        if let convertAction { actions.append(convertAction) }
-        // APPENDED, never inserted at 0: `actionIndex` resets to 0 whenever peek
-        // takes focus and Return runs `navActions[actionIndex]`, so position 0 IS
-        // the default keyboard action. Putting OCR there would silently turn
-        // Return on an image clip from Paste into Copy text from image.
-        if model.canCopyImageText(item) {
-            actions.append(
-                PeekAction(
-                    id: "image-copy-text", title: "Copy text from image", symbol: "text.viewfinder",
-                    shortTitle: "Copy text", shortcut: "⇧⌘C"
-                ) { model.copyImageText(item, surface: .peek) })
-        }
-        actions.append(
-            PeekAction(
-                id: "preview-pin", title: item.isPinned ? "Unpin" : "Pin",
-                symbol: item.isPinned ? "pin.slash" : "pin", shortcut: "⌘P"
-            ) { model.togglePin(item) })
-        actions.append(
-            PeekAction(
-                id: "preview-board", title: "Add to board", symbol: "tray", shortTitle: "Board",
-                shortcut: "⌘B"
-            ) { addToBoard() })
-        if let showContext {
-            actions.append(
-                PeekAction(
-                    id: "preview-context", title: "Show context", symbol: "clock",
-                    shortTitle: "Context", shortcut: "⌘J"
-                ) { showContext() })
-        }
-        return actions
-    }
-
-    private var pasteTitle: LocalizedStringKey {
-        switch model.pasteTarget.label {
-        case .pasteInto(let app): "Paste into \(app)"
-        case .paste: "Paste"
-        case .copy: "Copy"
-        }
-    }
-
-    /// A colour clip's Convert, a dock action with ⇧⏎; its formats open in the result box.
-    private var convertAction: PeekAction? {
-        guard colorValue != nil, !hidesPreview else { return nil }
-        return PeekAction(
-            id: "preview-convert", title: "Convert", symbol: "arrow.triangle.2.circlepath",
-            shortcut: "⇧⏎"
-        ) {
-            actionResult = try? DevActions.run(.convertColor, on: presentedText)
-        }
-    }
-
-    private var canPickColor: Bool {
-        item.kind == .image && !hidesPreview && model.thumbnails.cached(for: item) != nil
+    static func reduce(value: inout [String], nextValue: () -> [String]) {
+        value += nextValue()
     }
 }

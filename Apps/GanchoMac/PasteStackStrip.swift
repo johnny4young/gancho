@@ -5,8 +5,8 @@ import KeyboardShortcuts
 import SwiftUI
 
 /// The paste queue made visible. `AppModel`'s paste stack already worked, but it
-/// only lived behind a context menu — a hidden power feature. This footer strip
-/// surfaces it: a compact row when the queue is non-empty, a popover to
+/// only lived behind a context menu — a hidden power feature. This footer entry
+/// surfaces it: "Stack 2" when the queue is non-empty, a popover to
 /// reorder / remove / paste. The queue is session-local and never syncs.
 ///
 /// Iterates over queue *entries* (each with a stable id independent of the
@@ -23,28 +23,17 @@ struct PasteStackStrip: View {
                 showQueue.toggle()
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "square.stack.3d.up.fill")
+                    Image(systemName: "square.stack.3d.up")
+                    Text("Stack")
                     countLabel
-                        .panelFont(.caption2, .semibold)
-                        .monospacedDigit()
+                        .panelFont(.caption2, .medium, design: .monospaced)
                         .contentTransition(.numericText(value: Double(stack.cursor)))
                         .animation(
                             GanchoMotion.quick(reduceMotion: reduceMotion), value: stack.cursor)
-                    ForEach(stack.entries.dropFirst(stack.cursor).prefix(3)) { entry in
-                        Image(systemName: entry.clip.kind.symbolName)
-                            .panelFont(size: 9)
-                            .foregroundStyle(.secondary)
-                    }
-                    if stack.remaining > 3 {
-                        Text("+\(stack.remaining - 3)")
-                            .panelFont(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(.fill.tertiary, in: .capsule)
-                .contentShape(Capsule())
+                .panelFont(.caption2)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Paste stack — click to reorder or paste in order")
