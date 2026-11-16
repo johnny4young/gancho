@@ -77,8 +77,8 @@ extension GanchoTokens {
         /// Read once: a system-accent change is picked up on the next launch.
         static let accentIsBrand: Bool = {
             #if DEBUG
-                // Design snapshots pin the brand accent whatever this Mac's Theme colour is.
-                if CommandLine.arguments.contains("-ui-test-brand-accent") { return true }
+                // Design snapshots render the brand accent whatever this Mac's Theme colour is.
+                if CommandLine.arguments.contains("-ui-test-snapshot-dir") { return true }
             #endif
             #if canImport(AppKit)
                 return usesBrandAccent(
