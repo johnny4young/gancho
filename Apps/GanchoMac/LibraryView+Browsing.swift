@@ -22,9 +22,10 @@ extension LibraryView {
     private var boardDetail: some View {
         let clips = self.clips
         let lastID = clips.last?.id
+        let order = Dictionary(
+            clips.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
         return VStack(spacing: 0) {
             scopeHeader
-            Divider()
             if metadataLoadFailed, !clips.isEmpty {
                 libraryReadFailure { Task { await refreshAll() } }
             }
@@ -48,11 +49,18 @@ extension LibraryView {
                 emptyScope
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
+                    LazyVStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
                         ForEach(ClipSections.grouped(clips, now: .now)) { group in
                             sectionHeader(group.section, count: group.clips.count)
-                            sectionBody(group.clips, lastID: lastID)
+                                .accessibilitySortPriority(
+                                    readingPriority(of: group.clips.first, in: order) + 0.5)
+                            sectionBody(group.clips, lastID: lastID, order: order)
                         }
+                    }
+                    .onGeometryChange(for: CGFloat.self) {
+                        $0.size.width
+                    } action: {
+                        wallWidth = $0
                     }
                     .padding(GanchoTokens.Spacing.md)
                     if clipList.failure == .unavailable {
@@ -75,18 +83,27 @@ extension LibraryView {
         }
     }
 
-    @ViewBuilder private func sectionBody(_ group: [ClipItem], lastID: UUID?) -> some View {
+    @ViewBuilder private func sectionBody(
+        _ group: [ClipItem], lastID: UUID?, order: [UUID: Int]
+    ) -> some View {
         switch layout {
         case .grid:
-            LazyVGrid(
-                columns: [
-                    GridItem(
-                        .adaptive(minimum: 260), spacing: GanchoTokens.Spacing.sm, alignment: .top)
-                ],
-                spacing: GanchoTokens.Spacing.sm
-            ) {
-                ForEach(group) { clip in
-                    clipCard(clip).task { if clip.id == lastID { await clipList.loadMore() } }
+            let columns = wallColumns(group)
+            // The wall ends where its shortest column does, so any column's
+            // last card in the last section asks for the next page.
+            let pagers =
+                group.last?.id == lastID ? Set(columns.compactMap(\.last?.id)) : []
+            HStack(alignment: .top, spacing: GanchoTokens.Spacing.md) {
+                ForEach(columns.indices, id: \.self) { index in
+                    LazyVStack(spacing: GanchoTokens.Spacing.md) {
+                        ForEach(columns[index]) { clip in
+                            clipCard(clip)
+                                // VoiceOver reads in sort order, not down each column.
+                                .accessibilitySortPriority(readingPriority(of: clip, in: order))
+                                .task { if pagers.contains(clip.id) { await clipList.loadMore() } }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .top)
                 }
             }
         case .list:
@@ -98,15 +115,42 @@ extension LibraryView {
         }
     }
 
+    /// A section's clips dealt into columns by estimated height, each column
+    /// in sort order. Empty until the wall knows its width.
+    private func wallColumns(_ group: [ClipItem]) -> [[ClipItem]] {
+        guard wallWidth > 0 else { return [] }
+        let spacing = GanchoTokens.Spacing.md
+        let count = MasonryLayout.columnCount(
+            width: wallWidth, minColumnWidth: MasonryLayout.defaultMinColumnWidth,
+            spacing: spacing)
+        let width = MasonryLayout.columnWidth(width: wallWidth, columns: count, spacing: spacing)
+        let heights = group.map { clip in
+            ClipCardEstimate.height(
+                of: clip, columnWidth: width, previewsHidden: model.previewsHidden,
+                hasBoards: !(membership[clip.id]?.isEmpty ?? true))
+        }
+        let placements = MasonryLayout.place(heights: heights, columns: count, spacing: spacing)
+            .placements
+        var columns = [[ClipItem]](repeating: [], count: count)
+        for (clip, placement) in zip(group, placements) { columns[placement.column].append(clip) }
+        return columns
+    }
+
+    /// Earlier in the sort order reads first.
+    private func readingPriority(of clip: ClipItem?, in order: [UUID: Int]) -> Double {
+        Double(order.count - (clip.flatMap { order[$0.id] } ?? order.count))
+    }
+
     private func sectionHeader(_ section: ClipSection, count: Int) -> some View {
         HStack(spacing: 4) {
             if section == .pinned { Image(systemName: "pin.fill").panelFont(size: 8) }
             Text(sectionTitle(section))
             Text(verbatim: "· \(count)").monospacedDigit()
         }
-        .panelFont(.caption2, .bold)
+        .panelFont(.caption2, design: .monospaced)
         .textCase(.uppercase)
-        .foregroundStyle(.secondary)
+        .tracking(1)
+        .foregroundStyle(GanchoTokens.Palette.ink3)
         .padding(.top, GanchoTokens.Spacing.xs)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("library-section")
@@ -189,7 +233,8 @@ extension LibraryView {
                 } label: {
                     LibraryClipCard(
                         clip: clip, boards: cardBoards(clip), thumbnails: model.libraryThumbnails,
-                        previewsHidden: model.previewsHidden)
+                        previewsHidden: model.previewsHidden,
+                        sensitiveLifetime: model.retentionPolicy.sensitiveLifetime)
                 }
                 .buttonStyle(.plain)
                 .clipDragSource(clip)
@@ -342,6 +387,8 @@ extension LibraryView {
             allCount = nextAllCount
             pinnedCount = nextPinnedCount
             boardCounts = counts
+            kindCounts = scope?.kinds ?? [:]
+            boardKindCounts = scope?.kindsByBoard ?? [:]
             filterCounts = nextFilterCounts
             metadataLoadFailed = false
             await loadScope(preservingWindow: true)
