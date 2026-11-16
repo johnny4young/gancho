@@ -46,7 +46,8 @@ struct DesignTokenGuardTests {
     /// "Return does this", so a new entry is a design decision, not a fix.
     static let accentBudget: [(pattern: String, files: Set<String>)] = [
         (#"\bLiveDot\("#, ["Apps/GanchoMac/PanelStatusFooter.swift"]),
-        (#"\bReturnKeyCap\("#, []),
+        // The link peek's "Pastes as" names the same Return the dock's verb runs.
+        (#"\bReturnKeyCap\("#, ["Apps/GanchoMac/PeekLinkHero.swift"]),
         (
             #"ganchoPrimaryVerb\(|PrimaryVerb\.ui"#,
             [

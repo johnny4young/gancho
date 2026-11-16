@@ -33,6 +33,16 @@ extension ClipDetailView {
         }
     }
 
+    /// Site first: the host in full ink, its decoded path quieter behind it.
+    private func linkHeadline(_ parts: ClipLinkParts) -> AttributedString {
+        var host = AttributedString(parts.host)
+        host.font = .title2.weight(.heavy)
+        var path = AttributedString(LinkAnatomy(text: parts.text)?.path ?? "")
+        path.font = .title2
+        path.foregroundColor = GanchoTokens.Palette.ink3
+        return host + path
+    }
+
     /// A link as itself: its host large, the full URL, and what decoding and
     /// the scheme add. A tint and a full outline mark it, never a side bar.
     func linkHero(_ parts: ClipLinkParts) -> some View {
@@ -41,8 +51,7 @@ extension ClipDetailView {
         return Section {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(verbatim: parts.host)
-                        .font(.title2.weight(.heavy))
+                    Text(linkHeadline(parts))
                         .lineLimit(2)
                     Spacer(minLength: 0)
                     // An editable link keeps its edit, behind the hero.
