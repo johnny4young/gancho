@@ -801,7 +801,6 @@ struct PanelView: View {
     /// The history list under the header: the situational banners and the
     /// rows. The peek lives in a sibling column (see `panelSurface`).
     private var listColumn: some View {
-
         VStack(spacing: GanchoTokens.Spacing.xs) {
             selectionContextBar
 
@@ -1022,7 +1021,8 @@ struct PanelView: View {
         let index = ClipKindFilter.allCases.firstIndex(of: filter) ?? -1
         // The glyph carries no name, so the label says the kind and its count.
         let title = scopeTitle(
-            Text(filter.title), count: scopeCounts.kinds.map(filter.count(in:)))
+            Text(filter.title),
+            count: scopeCounts.kinds(in: search.selectedBoardID).map(filter.count(in:)))
         return railButton(title, isActive: isActive, identifier: "filter-\(filter.rawValue)") {
             search.kindFilter = filter
             search.selectedIndex = 0
@@ -1573,8 +1573,10 @@ struct PanelView: View {
             selectionNamespace: selectionNamespace,
             isSelectionAnchor: search.selectedItem?.id == item.id,
             sensitiveLifetime: model.retentionPolicy.sensitiveLifetime,
-            // A pattern and a meaning are not words to find in the row.
-            matchQuery: search.searchMode == .exact || search.searchMode == .fuzzy
+            // A pattern and a meaning are not words to find in the row, and
+            // context rows are picked by time, not by the query.
+            matchQuery: !search.isShowingContext
+                && (search.searchMode == .exact || search.searchMode == .fuzzy)
                 ? search.query : nil)
     }
 

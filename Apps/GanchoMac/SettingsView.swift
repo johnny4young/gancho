@@ -20,7 +20,8 @@ struct SettingsView: View {
             Divider()
             VStack(alignment: .leading, spacing: 0) {
                 Text(tab.titleKey)
-                    .font(.title2.weight(.bold))
+                    .font(GanchoType.font(.title, size: 34))
+                    .accessibilityAddTraits(.isHeader)
                     .padding(.horizontal, GanchoTokens.Spacing.xl)
                     .padding(.top, GanchoTokens.Spacing.lg)
                 selectedTab
@@ -63,6 +64,25 @@ struct SettingsView: View {
             appliedMigrationUITestLaunch = true
             showMigrationImporter = true
         #endif
+    }
+}
+
+/// A form section under a mono caps header.
+struct SettingsSection<Content: View>: View {
+    private let title: LocalizedStringKey
+    private let content: Content
+
+    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        Section {
+            content
+        } header: {
+            Text(title).ganchoCaps()
+        }
     }
 }
 

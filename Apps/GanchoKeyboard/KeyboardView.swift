@@ -92,10 +92,7 @@ struct KeyboardView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(
-                isActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.tertiary), in: .capsule
-            )
-            .foregroundStyle(isActive ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .ganchoChip(selected: isActive)
             .contentShape(.capsule)
         }
         .buttonStyle(PressableScale())

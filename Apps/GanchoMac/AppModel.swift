@@ -2191,7 +2191,8 @@ final class AppModel {
         guard let counter,
             let snapshot = try? await counter.scopeCounts(excluding: pendingDeletionIDs)
         else { return PanelScopeCounts() }
-        var counts = PanelScopeCounts(total: snapshot.total, kinds: snapshot.kinds)
+        var counts = PanelScopeCounts(
+            total: snapshot.total, kinds: snapshot.kinds, kindsByBoard: snapshot.kindsByBoard)
         for board in boards { counts.boards[board.id] = snapshot.boards[board.id] ?? 0 }
         return counts
     }
@@ -2242,7 +2243,8 @@ final class AppModel {
             await refreshRecents()
             return false
         }
-        if member { lastAssignedBoardID = board.id }
+        // Starring a clip shouldn't retarget ⇧⌘B away from the board in use.
+        if member, !board.isSystem { lastAssignedBoardID = board.id }
         await refreshRecents()
         notifyStoreChanged(for: .boards)
         return true

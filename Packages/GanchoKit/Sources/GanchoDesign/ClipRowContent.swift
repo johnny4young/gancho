@@ -12,6 +12,12 @@ public struct ClipRowContent: Equatable, Sendable {
         case storedMask
         /// Private Mode: the kind's glyph and nothing else.
         case hidden
+
+        /// Hidden previews win over a clip's own protection.
+        public static func `for`(_ item: ClipItem, previewsHidden: Bool) -> Masking {
+            if previewsHidden { return .hidden }
+            return ClipSafePresentation.requiresMasking(item) ? .storedMask : .none
+        }
     }
 
     public enum Headline: Equatable, Sendable {
@@ -113,11 +119,10 @@ public struct ClipRowContent: Equatable, Sendable {
         // Capture stores the byte size as the image's preview: "Image (1.8 MB)".
         let preview = ByteSize.humanizedPreview(item.preview)
         if preview.hasPrefix("Image ("), preview.hasSuffix(")") {
-            let inner = preview.dropFirst("Image (".count).dropLast()
-            let size = inner.split(separator: ",").last.map {
-                $0.trimmingCharacters(in: .whitespaces)
-            }
-            if let size, !size.isEmpty { facts.append(size) }
+            // Never split on ",": it is the decimal separator in many locales.
+            let size = preview.dropFirst("Image (".count).dropLast()
+                .trimmingCharacters(in: .whitespaces)
+            if !size.isEmpty { facts.append(size) }
         }
         return facts
     }
@@ -128,5 +133,14 @@ public struct ClipRowContent: Equatable, Sendable {
         guard !name.contains(", ") else { return nil }
         let ext = (name as NSString).pathExtension
         return ext.isEmpty || ext.count > 8 ? nil : ext.uppercased()
+    }
+}
+
+extension ClipRowContent.Headline {
+    /// For surfaces that float over other apps: a link's query and fragment can carry tokens.
+    public var withoutLinkQuery: Self {
+        guard case .link(let host, let path) = self, let path else { return self }
+        let kept = path.prefix { $0 != "?" && $0 != "#" }
+        return .link(host: host, path: kept.isEmpty || kept == "/" ? nil : String(kept))
     }
 }

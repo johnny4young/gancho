@@ -156,12 +156,12 @@ struct PeekTransformPopover: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: title(row)))
         .accessibilityValue(Text(verbatim: rowKey ?? ""))
+        .accessibilityAddTraits(isHighlighted ? .isSelected : [])
         .accessibilityIdentifier(row.panelIdentifier)
     }
 
     private func move(_ delta: Int) -> KeyPress.Result {
-        guard !rows.isEmpty else { return .handled }
-        highlighted = (highlighted + delta + rows.count) % rows.count
+        highlighted = TransformCatalog.movedHighlight(highlighted, by: delta, count: rows.count)
         return .handled
     }
 }
