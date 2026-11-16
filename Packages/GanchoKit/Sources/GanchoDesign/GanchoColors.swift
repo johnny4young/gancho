@@ -177,14 +177,24 @@ extension GanchoTokens {
         /// `source` with every `GanchoSyntax` token tinted. Callers own any size cap.
         public static func highlighted(_ source: String) -> AttributedString {
             var attributed = AttributedString(source)
+            styleTokens(of: source, in: &attributed) { run, kind in
+                run.foregroundColor = color(for: kind)
+            }
+            return attributed
+        }
+
+        /// Applies `style` to each `GanchoSyntax` token's run of `attributed`.
+        private static func styleTokens(
+            of source: String, in attributed: inout AttributedString,
+            _ style: (inout AttributedSubstring, GanchoSyntax.TokenKind) -> Void
+        ) {
             for token in GanchoSyntax.tokens(in: source) {
                 let lower = source.distance(from: source.startIndex, to: token.range.lowerBound)
                 let upper = source.distance(from: source.startIndex, to: token.range.upperBound)
                 let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
                 let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
-                attributed[lo..<hi].foregroundColor = color(for: token.kind)
+                style(&attributed[lo..<hi], token.kind)
             }
-            return attributed
         }
 
         /// (light, dark) tonal tints for one-line previews in rows and cards:
@@ -206,16 +216,11 @@ extension GanchoTokens {
         public static func tonal(_ source: String) -> AttributedString {
             var attributed = AttributedString(source)
             attributed.foregroundColor = Palette.ink
-            for token in GanchoSyntax.tokens(in: source) {
-                let lower = source.distance(from: source.startIndex, to: token.range.lowerBound)
-                let upper = source.distance(from: source.startIndex, to: token.range.upperBound)
-                let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
-                let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
-                if let tint = tonalTriples(for: token.kind) {
-                    attributed[lo..<hi].foregroundColor =
-                        ColorPair(light: tint.light, dark: tint.dark).color
+            styleTokens(of: source, in: &attributed) { run, kind in
+                if let tint = tonalTriples(for: kind) {
+                    run.foregroundColor = ColorPair(light: tint.light, dark: tint.dark).color
                 } else {
-                    attributed[lo..<hi].inlinePresentationIntent = .stronglyEmphasized
+                    run.inlinePresentationIntent = .stronglyEmphasized
                 }
             }
             return attributed

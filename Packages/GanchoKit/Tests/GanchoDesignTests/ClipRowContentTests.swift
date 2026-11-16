@@ -60,6 +60,9 @@ struct ClipRowContentTests {
         let untitled = row(.image, "Image (public.png, 2048 bytes)")
         #expect(untitled.headline == .kindName(.image))
         #expect(untitled.details == [.verbatim("2 KB")])
+        #expect(
+            row(.image, "Image (1,8 MB)").details == [.verbatim("1,8 MB")],
+            "a decimal comma is not a separator")
     }
 
     @Test("Text leads with its title or first line, then the next line and a count")

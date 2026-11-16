@@ -437,7 +437,9 @@ public struct ClipCard: View {
                         .accessibilityLabel(Text("Pinned"))
                         .transition(.scale.combined(with: .opacity))
                 }
-                ClipShortcutBadge(number: shortcutNumber, isSelected: isSelected)
+                // Return pastes only the anchor of a ⇧ range.
+                ClipShortcutBadge(
+                    number: shortcutNumber, isSelected: isSelected && isSelectionAnchor)
             }
         }
         .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: item.isPinned)

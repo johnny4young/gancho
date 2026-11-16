@@ -208,7 +208,8 @@ extension LibraryView {
         } label: {
             ClipCard(
                 item: clip, previewsHidden: model.previewsHidden,
-                thumbnail: model.libraryThumbnails.cached(for: clip))
+                thumbnail: model.libraryThumbnails.cached(for: clip),
+                sensitiveLifetime: model.retentionPolicy.sensitiveLifetime)
         }
         .buttonStyle(.plain)
         .clipDragSource(clip)
