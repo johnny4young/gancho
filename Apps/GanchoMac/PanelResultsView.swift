@@ -157,10 +157,9 @@ struct PanelResultsView<RowContent: View>: View {
             Spacer()
             clipCount(items.count)
         }
-        .panelFont(.caption2, .semibold)
-        .foregroundStyle(.tertiary)
-        .textCase(.uppercase)
+        .peekCaps()
         .padding(.horizontal, GanchoTokens.Spacing.xs)
+        .accessibilityElement(children: .combine)
     }
 
     private var groupedRows: some View {
@@ -190,14 +189,13 @@ struct PanelResultsView<RowContent: View>: View {
             Spacer()
             clipCount(count)
         }
-        .panelFont(.caption2, .semibold)
-        .foregroundStyle(.tertiary)
-        .textCase(.uppercase)
+        .peekCaps()
         .padding(.horizontal, GanchoTokens.Spacing.xs)
         .padding(.vertical, GanchoTokens.Spacing.xxs)
+        // Pinned over scrolling rows, so it wears the panel's own surface: no band.
         .background {
             if opaqueSurfaces {
-                Rectangle().fill(.background.secondary)
+                Rectangle().fill(GanchoTokens.Palette.surface(.panel))
             } else {
                 Rectangle().fill(.ultraThinMaterial)
             }
@@ -206,11 +204,13 @@ struct PanelResultsView<RowContent: View>: View {
         .accessibilityIdentifier("panel-section-header")
     }
 
-    /// Rolling digits when a section grows or shrinks (a capture, a delete).
+    /// The bare number, spoken as "N clips". Rolling digits when a section
+    /// grows or shrinks (a capture, a delete).
     private func clipCount(_ count: Int) -> some View {
-        Text("\(count) clips")
+        Text(verbatim: "\(count)")
             .contentTransition(.numericText(value: Double(count)))
             .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: count)
+            .accessibilityLabel(Text("\(count) clips"))
     }
 
     private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {

@@ -172,6 +172,8 @@ public struct ClipCard: View {
     let sensitiveLifetime: TimeInterval?
     /// A clip copied on another device names that device; nil leaves rows as they were.
     let foreignDevice: String?
+    /// The search words to mark in the row's text; nil for a masked row.
+    let matchQuery: String?
     // Dynamic Type grows the tile on iOS; the panel's own scale on the Mac.
     @ScaledMetric(relativeTo: .body) private var baseTileSize: CGFloat = 34
     @Environment(\.panelTypeScale) private var typeScale
@@ -184,7 +186,8 @@ public struct ClipCard: View {
         item: ClipItem, isSelected: Bool = false, previewsHidden: Bool = false,
         shortcutNumber: Int? = nil, thumbnail: Image? = nil,
         selectionNamespace: Namespace.ID? = nil, isSelectionAnchor: Bool = true,
-        currentDeviceName: String? = nil, sensitiveLifetime: TimeInterval? = nil
+        currentDeviceName: String? = nil, sensitiveLifetime: TimeInterval? = nil,
+        matchQuery: String? = nil
     ) {
         let protected = ClipSafePresentation.requiresMasking(item)
         let masking = ClipRowContent.Masking.for(item, previewsHidden: previewsHidden)
@@ -204,6 +207,17 @@ public struct ClipCard: View {
         self.foreignDevice =
             previewsHidden
             ? nil : currentDeviceName.flatMap { Self.foreignDeviceName(of: item, current: $0) }
+        self.matchQuery = Self.matchQuery(matchQuery, masking: masking)
+    }
+
+    /// A masked row never marks a match: the mark would say what it hides.
+    nonisolated static func matchQuery(
+        _ query: String?, masking: ClipRowContent.Masking
+    ) -> String? {
+        guard masking == .none, let query,
+            !query.trimmingCharacters(in: .whitespaces).isEmpty
+        else { return nil }
+        return query
     }
 
     /// The device a clip came from, when that is not this one. Nil for a clip
@@ -293,20 +307,38 @@ public struct ClipCard: View {
     @ViewBuilder private var headline: some View {
         switch content.headline {
         case .text(let text):
-            Text(verbatim: text).panelFont(.body, .medium)
+            marked(text).panelFont(.body, .medium)
         case .kindName(let kind):
             Text(kind.cardName).panelFont(.body, .medium)
         case .value(let value):
-            Text(verbatim: value).panelFont(.callout, design: .monospaced)
+            marked(value).panelFont(.callout, design: .monospaced)
         case .code(let line):
-            Text(GanchoTokens.Syntax.tonal(String(line.prefix(Self.syntaxPreviewLimit))))
+            let tonal = GanchoTokens.Syntax.tonal(String(line.prefix(Self.syntaxPreviewLimit)))
+            Text(matchQuery.map { ClipMatchHighlight.marked(tonal, query: $0) } ?? tonal)
                 .panelFont(.callout, design: .monospaced)
         case .link(let host, let path):
-            let rest = Text(verbatim: path ?? "").foregroundStyle(GanchoTokens.Palette.ink3)
-            Text("\(Text(verbatim: host).fontWeight(.semibold))\(rest)")
+            linkHeadline(host: host, path: path ?? "")
                 .panelFont(.body, .medium)
                 .truncationMode(.middle)
         }
+    }
+
+    private func linkHeadline(host: String, path: String) -> Text {
+        guard let matchQuery else {
+            let rest = Text(verbatim: path).foregroundStyle(GanchoTokens.Palette.ink3)
+            return Text("\(Text(verbatim: host).fontWeight(.semibold))\(rest)")
+        }
+        var link = AttributedString(host)
+        link.inlinePresentationIntent = .stronglyEmphasized
+        var rest = AttributedString(path)
+        rest.foregroundColor = GanchoTokens.Palette.ink3
+        return Text(ClipMatchHighlight.marked(link + rest, query: matchQuery))
+    }
+
+    /// `text` with the search words marked, or as it is outside a search.
+    private func marked(_ text: String) -> Text {
+        guard let matchQuery else { return Text(verbatim: text) }
+        return Text(ClipMatchHighlight.marked(AttributedString(text), query: matchQuery))
     }
 
     /// Line 2: what the clip is, and for a protected clip the time it has left.
@@ -325,7 +357,7 @@ public struct ClipCard: View {
 
     private func descriptionLine(timeLeft: String?) -> some View {
         let parts =
-            content.details.map(Self.text(for:)) + (timeLeft.map { [Text("\($0) left")] } ?? [])
+            content.details.map(text(for:)) + (timeLeft.map { [Text("\($0) left")] } ?? [])
         let line = parts.dropFirst().reduce(parts.first ?? Text(verbatim: "")) {
             Text("\($0) · \($1)")
         }
@@ -336,9 +368,9 @@ public struct ClipCard: View {
             .lineLimit(1)
     }
 
-    private static func text(for detail: ClipRowContent.Detail) -> Text {
+    private func text(for detail: ClipRowContent.Detail) -> Text {
         switch detail {
-        case .verbatim(let text): Text(verbatim: text)
+        case .verbatim(let text): marked(text)
         case .lines(let count): Text("\(count) lines")
         case .kindName(let kind): Text(kind.cardName)
         }
