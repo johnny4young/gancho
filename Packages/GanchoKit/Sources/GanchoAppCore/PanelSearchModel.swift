@@ -183,6 +183,8 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
 
     static let prefetchThreshold = 20
+    /// The most rows one typed query loads; a full page may not be every match.
+    public static let queryResultLimit = 100
 
     /// The rows actually shown: `results` narrowed by the active filter pill,
     /// then DE-DUPED by id. Pagination overlap (or a capture landing mid-scroll)
@@ -417,7 +419,8 @@ public struct PanelDateGroup: Identifiable, Sendable {
         } else if kindFilter != .all || pinnedOnly || mode != .fuzzy || hasTokenOnlyFilter {
             let rule = savedRule(named: "")
             if source.isDurable {
-                page = await core.searchPage(rule.query, limit: query.isEmpty ? 500 : 100)
+                page = await core.searchPage(
+                    rule.query, limit: query.isEmpty ? 500 : Self.queryResultLimit)
             } else {
                 // `search` is durable-only (it answers [] on the in-memory
                 // fallback), so a type or pin filter must narrow the scan

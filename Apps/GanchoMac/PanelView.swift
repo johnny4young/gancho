@@ -118,6 +118,8 @@ struct PanelView: View {
     /// Set only by the opt-in debug probe used by the signed drag smoke.
     @State private var uiTestPreparedFileCount = 0
     @State private var uiTestStartedFileCount = 0
+    /// The panel's current width, which sizes the list column.
+    @State private var panelWidth: CGFloat
     @AppStorage private var panelTextSizeRaw: String
     /// One selection highlight shared by every row (see `ClipCard`).
     @Namespace private var selectionNamespace
@@ -139,6 +141,7 @@ struct PanelView: View {
     init(model: AppModel, displayDefaults: UserDefaults = .standard) {
         _search = State(wrappedValue: PanelSearchModel(source: model))
         _preview = State(wrappedValue: PanelPreviewModel())
+        _panelWidth = State(wrappedValue: model.panel.preferredContentSize.width)
         _panelTextSizeRaw = AppStorage(
             wrappedValue: PanelTextSize.standard.rawValue,
             PanelTextSize.storageKey,
@@ -285,6 +288,15 @@ struct PanelView: View {
             }
     }
 
+    private var hasSidePane: Bool {
+        stackIsShown || search.selectedItem != nil || showsFirstRunStage || bestAlternative != nil
+    }
+
+    /// The column's share includes the hairline after it.
+    private var listWidth: CGFloat {
+        PanelLayout.listWidth(forPanelWidth: panelWidth) - GanchoTokens.Stroke.hairline
+    }
+
     @ViewBuilder private var panelSurface: some View {
         // ONE surface for list and peek. The peek opens BESIDE the list (not a
         // modal) and follows the selected clip, Quick-Look-style, but it is part
@@ -294,21 +306,24 @@ struct PanelView: View {
             // Above the panes: the token completions drop over them.
             panelHeader.zIndex(1)
             HStack(alignment: .top, spacing: 0) {
+                // Beside a pane the list keeps its share; alone it takes the row.
                 listColumn
-                    .frame(minWidth: 360, idealWidth: 440, maxWidth: .infinity)
+                    .frame(
+                        minWidth: hasSidePane ? listWidth : 360,
+                        maxWidth: hasSidePane ? listWidth : .infinity)
                 if stackIsShown {
-                    Divider()
+                    Hairline(.vertical)
                     PeekPasteStack(close: closeStack)
                         .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
                 } else if let selected = search.selectedItem {
-                    Divider()
+                    Hairline(.vertical)
                     peekColumn(for: selected)
                 } else if showsFirstRunStage {
-                    Divider()
+                    Hairline(.vertical)
                     PanelFirstRunStageView()
                         .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
                 } else if let best = bestAlternative {
-                    Divider()
+                    Hairline(.vertical)
                     PanelAlternativeStage(
                         result: best, previewsHidden: model.previewsHidden
                     )
@@ -316,6 +331,11 @@ struct PanelView: View {
                 }
             }
             statusFooter
+        }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: { width in
+            panelWidth = width
         }
         // Every modal layer (shortcut card, board picker, consent prompt) is
         // drawn INSIDE the glass and clipped to it. Applied outside, their dim
@@ -642,10 +662,13 @@ struct PanelView: View {
             ) {
                 SearchTokenChips(search: search)
             } trailing: {
-                SearchModeControl(
-                    search: search,
-                    showsMeaning: model.intelligence.semanticSearch
-                        && !model.preferences.isPrivateModePaused)
+                HStack(spacing: 14) {
+                    resultCount
+                    SearchModeControl(
+                        search: search,
+                        showsMeaning: model.intelligence.semanticSearch
+                            && !model.preferences.isPrivateModePaused)
+                }
             }
             .background { WindowDragArea() }
             .focused($focus, equals: .search)
@@ -813,13 +836,30 @@ struct PanelView: View {
             }
             .zIndex(1)
 
-            Divider()
+            Hairline()
             if search.isShowingContext {
                 PanelContextHeader()
             } else {
                 panelToolbar
             }
-            Divider()
+            Hairline()
+        }
+    }
+
+    /// "8 of 128" beside a typed query: the matches out of the scope's clips.
+    @ViewBuilder private var resultCount: some View {
+        let total = search.selectedBoardID.map { scopeCounts.boards[$0] } ?? scopeCounts.total
+        if !search.query.isEmpty, search.hasCurrentResults, let total,
+            search.filtered.count < PanelSearchModel.queryResultLimit,
+            search.filtered.count <= total
+        {
+            Text("\(search.filtered.count) of \(total)")
+                .panelFont(size: 11, design: .monospaced)
+                .tracking(0)
+                .foregroundStyle(GanchoTokens.Palette.ink3)
+                .lineLimit(1)
+                .fixedSize()
+                .accessibilityIdentifier("search-count")
         }
     }
 
@@ -883,7 +923,7 @@ struct PanelView: View {
                 onUserScroll: { search.endNewestFollow() },
                 row: { item in clipRow(item: item) })
         }
-        .padding(.top, GanchoTokens.Spacing.xxs)
+        .padding(.top, 6)
     }
 
     /// One row that never wraps: boards as text tabs in their own scroll,
@@ -891,10 +931,10 @@ struct PanelView: View {
     private var panelToolbar: some View {
         HStack(spacing: 2) {
             boardRail.frame(minWidth: 80)
-            Rectangle().fill(GanchoTokens.Palette.hairline)
+            filterRail
+            Rectangle().fill(GanchoTokens.Palette.hairlineStrong)
                 .frame(width: 1, height: 14)
                 .padding(.horizontal, 6)
-            filterRail
             if !search.sourceApps.isEmpty {
                 sourceAppMenu
             }
@@ -911,8 +951,10 @@ struct PanelView: View {
             .accessibilityLabel(Text("Save filter"))
             .accessibilityIdentifier("filter-save")
         }
-        .padding(.horizontal, GanchoTokens.Spacing.sm)
-        .frame(height: 38 * railScale)
+        // The board rail brings its own 4 pt of focus-ring room.
+        .padding(.leading, 10)
+        .padding(.trailing, 14)
+        .frame(height: 37 * railScale)
         .background { WindowDragArea() }
     }
 
@@ -1087,12 +1129,12 @@ struct PanelView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         content()
-            .panelFont(.subheadline, isActive ? .semibold : .regular)
+            .panelFont(size: padded ? 12 : 12.5, .medium)
             .lineLimit(1)
             .padding(.horizontal, padded ? 9 : 0)
             .frame(minWidth: 26 * railScale)
             .frame(height: 24 * railScale)
-            .ganchoTab(selected: isActive, idle: GanchoTokens.Palette.ink2, in: railShape)
+            .ganchoTab(selected: isActive, idle: GanchoTokens.Palette.ink3, in: railShape)
             .overlay(railRing(isFocused))
             .contentShape(railShape)
     }

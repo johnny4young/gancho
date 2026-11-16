@@ -22,9 +22,10 @@ struct PanelStatusFooter: View {
     /// The stack is showing in the peek.
     @Binding var stackIsOpen: Bool
     let showKeyboardShortcuts: () -> Void
+    @Environment(\.panelTypeScale) private var typeScale
 
     var body: some View {
-        HStack(spacing: GanchoTokens.Spacing.md) {
+        HStack(spacing: 14) {
             PanelCaptureChipView(
                 chip: chip, awaitsFirstCopy: awaitsFirstCopy, privateModeStart: privateModeStart)
             SyncStatusView(status: syncStatus, isQuiet: true)
@@ -50,10 +51,13 @@ struct PanelStatusFooter: View {
             .accessibilityLabel(Text("Keyboard shortcuts"))
             .accessibilityIdentifier("panel-shortcuts-button")
         }
-        .panelFont(.caption2)
+        .panelFont(size: 11.5)
         .foregroundStyle(GanchoTokens.Palette.ink3)
-        .padding(.top, GanchoTokens.Spacing.xxs)
-        .padding(.horizontal, GanchoTokens.Spacing.xxs)
+        .padding(.leading, GanchoTokens.Spacing.md)
+        .padding(.trailing, 14)
+        .frame(height: 35 * typeScale)
+        .padding(.top, GanchoTokens.Stroke.hairline)
+        .overlay(alignment: .top) { Hairline() }
     }
 
     private func keyboardHint(_ label: LocalizedStringKey, keys: [String]) -> some View {
@@ -92,13 +96,13 @@ struct PanelCaptureChipView: View {
             if case .capturing(let app) = chip {
                 HStack(spacing: 7) {
                     LiveDot(size: 7 * typeScale)
-                    Text("Capturing").panelFont(.caption2, .medium).lineLimit(1)
+                    Text("Capturing").panelFont(size: 11.5, .medium).lineLimit(1)
                     if awaitsFirstCopy {
-                        Text("· waiting for your first copy").panelFont(.caption2).lineLimit(1)
+                        Text("· waiting for your first copy").panelFont(size: 11.5).lineLimit(1)
                             .foregroundStyle(GanchoTokens.Palette.ink3)
                     } else if let app {
                         // The label still says the app is in front.
-                        Text(verbatim: "· \(app)").panelFont(.caption2).lineLimit(1)
+                        Text(verbatim: "· \(app)").panelFont(size: 11.5).lineLimit(1)
                             .foregroundStyle(GanchoTokens.Palette.ink3)
                     }
                 }
@@ -108,10 +112,10 @@ struct PanelCaptureChipView: View {
                 HStack(spacing: 6) {
                     ModeRing(Countdown(from: privateModeStart, until: end))
                         .frame(width: 11 * typeScale, height: 11 * typeScale)
-                    Text("Private").panelFont(.caption2, .medium).lineLimit(1)
+                    Text("Private").panelFont(size: 11.5, .medium).lineLimit(1)
                     if let end {
                         Text("· \(PanelCaptureChip.minutesLeft(until: end, now: now)) min left")
-                            .panelFont(.caption2).lineLimit(1)
+                            .panelFont(size: 11.5).lineLimit(1)
                             .foregroundStyle(GanchoTokens.Palette.ink3)
                     }
                 }
@@ -122,14 +126,14 @@ struct PanelCaptureChipView: View {
                 HStack(spacing: 6) {
                     Circle().strokeBorder(GanchoTokens.Palette.ink3, lineWidth: 1.4)
                         .frame(width: 9 * typeScale, height: 9 * typeScale)
-                    Text(title(now: now)).panelFont(.caption2, .medium).lineLimit(1)
+                    Text(title(now: now)).panelFont(size: 11.5, .medium).lineLimit(1)
                 }
                 .frame(height: 20 * typeScale)
                 .foregroundStyle(GanchoTokens.Palette.ink2)
             } else {
                 HStack(spacing: 5) {
                     Circle().fill(tint).frame(width: 7 * typeScale, height: 7 * typeScale)
-                    Text(title(now: now)).panelFont(.caption2, .bold).lineLimit(1)
+                    Text(title(now: now)).panelFont(size: 11.5, .bold).lineLimit(1)
                 }
                 .padding(.horizontal, GanchoTokens.Spacing.xs)
                 .frame(height: 20 * typeScale)

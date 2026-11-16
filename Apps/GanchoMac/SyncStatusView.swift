@@ -21,7 +21,7 @@ struct SyncStatusView: View {
                 Image(systemName: "checkmark").accessibilityHidden(true)
                 Text("Synced")
             }
-            .panelFont(.caption2)
+            .panelFont(size: 11.5)
             .foregroundStyle(GanchoTokens.Palette.ink2)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("sync-status")

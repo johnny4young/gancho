@@ -27,27 +27,44 @@ struct SearchModeControl: View {
                     search.searchMode = mode
                 } label: {
                     Text(mode.title)
-                        .panelFont(size: 10.5, .bold)
-                        .padding(.horizontal, 7)
-                        .frame(height: 20)
-                        .ganchoTab(selected: isSelected)
-                        .contentShape(Capsule())
+                        .panelFont(size: 11.5, .medium)
+                        .tracking(0)
+                        .padding(.horizontal, 8)
+                        .frame(height: 23 * scale)
+                        .foregroundStyle(
+                            isSelected ? GanchoTokens.Palette.ink : GanchoTokens.Palette.ink3
+                        )
+                        .background(
+                            isSelected ? GanchoTokens.Palette.controlFill : .clear, in: shape
+                        )
+                        .overlay {
+                            if isSelected {
+                                shape.strokeBorder(
+                                    GanchoTokens.Palette.hairlineStrong, lineWidth: 0.5)
+                            }
+                        }
+                        .contentShape(shape)
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
                 .accessibilityIdentifier("search-mode-\(mode.rawValue)")
             }
         }
-        .padding(2)
-        .background(Color.primary.opacity(0.07), in: Capsule())
         .fixedSize()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Search mode"))
         .accessibilityIdentifier("search-mode")
     }
 
+    @Environment(\.panelTypeScale) private var scale
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: 6, style: .continuous)
+    }
+
+    /// The default mode leads.
     private var modes: [PanelSearchMode] {
-        PanelSearchMode.allCases.filter { showsMeaning || $0 != .meaning }
+        [.fuzzy, .exact, .regex, .meaning].filter { showsMeaning || $0 != .meaning }
     }
 }
 

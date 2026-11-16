@@ -18,12 +18,12 @@ struct PasteStackStrip: View {
                     Image(systemName: "square.stack.3d.up")
                     Text("Stack")
                     countLabel
-                        .panelFont(.caption2, .medium, design: .monospaced)
+                        .panelFont(size: 11.5, .medium, design: .monospaced)
                         .contentTransition(.numericText(value: Double(stack.cursor)))
                         .animation(
                             GanchoMotion.quick(reduceMotion: reduceMotion), value: stack.cursor)
                 }
-                .panelFont(.caption2, isOpen ? .semibold : .regular)
+                .panelFont(size: 11.5, isOpen ? .semibold : .regular)
                 .foregroundStyle(isOpen ? GanchoTokens.Palette.ink : GanchoTokens.Palette.ink2)
                 .contentShape(Rectangle())
             }

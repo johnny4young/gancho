@@ -19,6 +19,7 @@ public struct SearchField<Leading: View, Trailing: View>: View {
     let leading: Leading
     /// Sits after the clear button: a mode control.
     let trailing: Trailing
+    @Environment(\.panelTypeScale) private var scale
 
     public init(
         _ promptKey: LocalizedStringKey, text: Binding<String>, style: Style = .card,
@@ -41,9 +42,11 @@ public struct SearchField<Leading: View, Trailing: View>: View {
                 .ganchoSurface(radius: GanchoTokens.Radius.md)
         case .bare:
             field
-                .panelFont(.title3)
-                .padding(.horizontal, GanchoTokens.Spacing.md)
-                .padding(.vertical, GanchoTokens.Spacing.sm)
+                .panelFont(size: 22)
+                .tracking(-0.33)
+                .padding(.leading, 22)
+                .padding(.trailing, 20)
+                .frame(height: 61 * scale)
         }
     }
 
@@ -51,12 +54,22 @@ public struct SearchField<Leading: View, Trailing: View>: View {
         hidesPreviews ? "eye.slash" : "magnifyingglass"
     }
 
-    private var field: some View {
-        HStack(spacing: GanchoTokens.Spacing.xs) {
+    /// The panel header leads with the hook; a card keeps the magnifier.
+    @ViewBuilder private var leadingGlyph: some View {
+        if style == .bare, !hidesPreviews {
+            HookMark()
+                .fill(GanchoTokens.Palette.ink2)
+                .frame(width: 22 * scale, height: 22 * scale)
+        } else {
             Image(systemName: glyph)
                 .foregroundStyle(.secondary)
-                .frame(width: 16, alignment: .center)
-                .accessibilityHidden(true)
+                .frame(width: (style == .bare ? 22 : 16) * scale, alignment: .center)
+        }
+    }
+
+    private var field: some View {
+        HStack(spacing: style == .bare ? 14 : GanchoTokens.Spacing.xs) {
+            leadingGlyph.accessibilityHidden(true)
             leading
             TextField(promptKey, text: $text)
                 .textFieldStyle(.plain)
