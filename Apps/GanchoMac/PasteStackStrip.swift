@@ -152,10 +152,9 @@ struct PasteStackStrip: View {
             if isNext {
                 Text("next")
                     .panelFont(.caption2, .semibold)
-                    .foregroundStyle(GanchoTokens.Palette.inverseText)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 1)
-                    .background(GanchoTokens.Palette.inverseFill, in: .capsule)
+                    .ganchoInverseBadge()
             }
             Button {
                 model.removeFromStack(entryID: entry.id)

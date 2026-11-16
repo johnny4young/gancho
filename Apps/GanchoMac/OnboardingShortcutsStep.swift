@@ -105,11 +105,7 @@ private struct OnboardingShortcutRow: View {
                     Array(PanelFirstRunStage.keycaps(for: shortcut.description).enumerated()),
                     id: \.offset
                 ) { _, cap in
-                    Text(verbatim: cap)
-                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                        .frame(minWidth: 18, minHeight: 18)
-                        .padding(.horizontal, 5)
-                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
+                    KeyCap(cap)
                 }
             }
             .accessibilityElement(children: .ignore)

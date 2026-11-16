@@ -77,16 +77,7 @@ struct RecentClipsLargeView: View {
             .font(.system(size: 10.5, weight: .semibold))
             .padding(.horizontal, 7)
             .frame(height: 18)
-            .background(
-                selected
-                    ? AnyShapeStyle(GanchoTokens.Palette.inverseFill)
-                    : AnyShapeStyle(.primary.opacity(0.07)),
-                in: Capsule()
-            )
-            .foregroundStyle(
-                selected
-                    ? AnyShapeStyle(GanchoTokens.Palette.inverseText)
-                    : AnyShapeStyle(.primary))
+            .ganchoChip(selected: selected)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])

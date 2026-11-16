@@ -24,7 +24,7 @@ struct GanchoiOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
-        GanchoFonts.registerIfNeeded()
+        Task.detached(priority: .userInitiated) { GanchoFonts.registerIfNeeded() }
         let model = IOSAppModel()
         _model = State(initialValue: model)
         // Expose the model's content-free diagnostics log to the app delegate,

@@ -79,7 +79,7 @@ struct PeekProvenanceHeader: View {
         case .synced:
             chip(
                 identifier: "peek-sync-state", ink: GanchoTokens.Palette.ink2,
-                fill: GanchoTokens.Palette.control
+                fill: GanchoTokens.Palette.controlFill
             ) {
                 Image(systemName: "checkmark.icloud")
                 Text("Synced")

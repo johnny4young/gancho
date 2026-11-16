@@ -14,7 +14,6 @@ public struct KeyCap: View {
     let keys: String
     let fill: Fill
     @Environment(\.panelTypeScale) private var scale
-    @Environment(\.colorScheme) private var colorScheme
 
     public init(_ keys: String, role: Role = .neutral) {
         self.keys = keys
@@ -27,7 +26,24 @@ public struct KeyCap: View {
     }
 
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 5 * scale, style: .continuous)
+        switch fill {
+        case .neutral:
+            cap(ink: GanchoTokens.Palette.ink2, fill: GanchoTokens.Palette.controlFill)
+                .overlay(
+                    shape.strokeBorder(
+                        GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline))
+        case .onAccent:
+            cap(ink: OnAccentInk(), fill: Color.black.opacity(0.14))
+        case .accent:
+            cap(ink: OnAccentInk(), fill: AccentFill())
+        }
+    }
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: 5 * scale, style: .continuous)
+    }
+
+    private func cap(ink: some ShapeStyle, fill background: some ShapeStyle) -> some View {
         Text(verbatim: keys)
             .font(font)
             .lineLimit(1)
@@ -36,12 +52,6 @@ public struct KeyCap: View {
             .frame(minWidth: 19 * scale, minHeight: 19 * scale)
             .foregroundStyle(ink)
             .background(background, in: shape)
-            .overlay {
-                if fill == .neutral {
-                    shape.strokeBorder(
-                        GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
-                }
-            }
     }
 
     private var font: Font {
@@ -51,22 +61,6 @@ public struct KeyCap: View {
         #else
             return GanchoType.font(.data, size: 10.5 * scale, weight: weight)
         #endif
-    }
-
-    private var ink: AnyShapeStyle {
-        switch fill {
-        case .neutral: AnyShapeStyle(GanchoTokens.Palette.ink2)
-        case .onAccent: AnyShapeStyle(Color(GanchoTokens.ColorPair.onAccent.resolved(colorScheme)))
-        case .accent: AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
-        }
-    }
-
-    private var background: AnyShapeStyle {
-        switch fill {
-        case .neutral: AnyShapeStyle(GanchoTokens.Palette.control)
-        case .onAccent: AnyShapeStyle(Color.black.opacity(0.14))
-        case .accent: AnyShapeStyle(GanchoTokens.Palette.accent)
-        }
     }
 }
 

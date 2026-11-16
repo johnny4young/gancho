@@ -21,8 +21,8 @@ struct GanchoFontsTests {
 
     @Test("Every family registers from the package bundle", arguments: GanchoFonts.Family.allCases)
     func registers(family: GanchoFonts.Family) {
-        GanchoFonts.registerIfNeeded([family])
-        GanchoFonts.registerIfNeeded([family])
+        GanchoFonts.registerIfNeeded()
+        GanchoFonts.registerIfNeeded()
         #expect(GanchoFonts.isAvailable(family))
         let name = "\(family.postScriptPrefix)-Regular"
         let font = CTFontCreateWithName(name as CFString, 13, nil)
@@ -58,6 +58,12 @@ struct GanchoFontsTests {
             let font = resolved(GanchoType.font(.title, size: 27, weight: weight))
             #expect(CTFontCopyPostScriptName(font) as String == "InstrumentSerif-Regular")
         }
+    }
+
+    @Test("Rounded has no bundled face and stays on the system font")
+    func roundedStaysSystem() {
+        let font = resolved(GanchoType.font(design: .rounded, size: 13, weight: .regular))
+        #expect(!(CTFontCopyPostScriptName(font) as String).hasPrefix("Geist"))
     }
 
     @Test("A text style keeps the role's face when it follows Dynamic Type")

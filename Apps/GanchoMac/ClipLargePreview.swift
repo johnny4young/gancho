@@ -37,7 +37,7 @@ struct ClipLargePreview: View {
                 .foregroundStyle(GanchoTokens.Palette.ink2)
                 .frame(width: 36, height: 36)
                 .background(
-                    GanchoTokens.Palette.control,
+                    GanchoTokens.Palette.controlFill,
                     in: RoundedRectangle(
                         cornerRadius: GanchoTokens.Radius.md, style: .continuous)
                 )

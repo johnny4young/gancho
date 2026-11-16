@@ -33,7 +33,7 @@ struct ContrastTokenTests {
         arguments: appearances)
     func onAccentInkOnEveryFillState(scheme: ColorScheme) {
         let fill = GanchoTokens.ColorPair.accent.resolved(scheme)
-        let ink = GanchoTokens.ColorPair.onAccent.resolved(scheme)
+        let ink = GanchoTokens.onAccentInk
         let lighter = scheme == .dark
         for fraction in [0, ButtonStates.hoverStep, ButtonStates.pressedStep] {
             let state = Contrast.stepped(fill, by: fraction, lighter: lighter)
@@ -48,7 +48,21 @@ struct ContrastTokenTests {
         for fraction in [0, ButtonStates.hoverStep, ButtonStates.pressedStep] {
             let fill = Contrast.stepped(lime, by: fraction, lighter: scheme == .dark)
             let ink = ContrastingForeground.ink(on: fill, scheme: scheme)
-            #expect(ink == GanchoTokens.ColorPair.onAccent.resolved(scheme), "step \(fraction)")
+            #expect(ink == GanchoTokens.onAccentInk, "step \(fraction)")
+        }
+    }
+
+    // On the main actor: a system accent is an AppKit colour.
+    @MainActor
+    @Test(
+        "The stepped accent fill and its ink come from one rule, in every state",
+        arguments: appearances)
+    func accentFillAndInkShareTheStep(scheme: ColorScheme) {
+        let environment = environment(scheme)
+        for fraction in [0, ButtonStates.hoverStep, ButtonStates.pressedStep] {
+            let fill = AccentFill(step: fraction).resolve(in: environment)
+            let ink = OnAccentInk(step: fraction).resolve(in: environment)
+            #expect(Contrast.ratio(ink, fill) >= Contrast.text, "step \(fraction)")
         }
     }
 
@@ -74,7 +88,7 @@ struct ContrastTokenTests {
 
     @Test("Ink and ink2 read on the selection and control washes", arguments: appearances)
     func inksOnWashes(scheme: ColorScheme) {
-        let washes: [GanchoTokens.ColorPair] = [.selection, .control]
+        let washes: [GanchoTokens.ColorPair] = [.selection, .controlFill]
         for surface in surfaces(scheme) {
             for wash in washes {
                 let backdrop = Contrast.composited(wash.resolved(scheme), over: surface)
@@ -232,7 +246,7 @@ struct ContrastTokenTests {
     func otherFillsUseBlackOrWhite(hex: Int) {
         let fill = resolved(hex, environment(.light))
         let ink = ContrastingForeground.ink(on: fill, scheme: .light)
-        #expect(ink != GanchoTokens.ColorPair.onAccent.resolved(.light))
+        #expect(ink != GanchoTokens.onAccentInk)
         #expect(Contrast.ratio(ink, fill) >= Contrast.text)
     }
 

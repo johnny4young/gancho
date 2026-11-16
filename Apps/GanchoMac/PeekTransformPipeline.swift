@@ -193,7 +193,7 @@ struct PeekTransformPipeline: View {
         .padding(GanchoTokens.Spacing.xs)
         .frame(maxWidth: .infinity, minHeight: 90, maxHeight: 160, alignment: .topLeading)
         .background(
-            isResult ? AnyShapeStyle(GanchoTokens.Palette.control) : AnyShapeStyle(.background),
+            isResult ? AnyShapeStyle(GanchoTokens.Palette.controlFill) : AnyShapeStyle(.background),
             in: shape
         )
         .overlay(shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))

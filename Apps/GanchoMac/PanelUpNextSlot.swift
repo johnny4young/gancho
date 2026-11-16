@@ -29,8 +29,8 @@ struct PanelUpNextSlot: View {
                 }
                 Spacer(minLength: 0)
                 HStack(spacing: 3) {
-                    keycap("⌘")
-                    keycap("↩")
+                    KeyCap("⌘")
+                    KeyCap("↩")
                 }
             }
             .padding(.horizontal, GanchoTokens.Spacing.sm)
@@ -72,13 +72,5 @@ struct PanelUpNextSlot: View {
         case .pastedRecently(let count):
             Text("Pasted into \(appName) \(count)× in the last 30 days")
         }
-    }
-
-    private func keycap(_ text: String) -> some View {
-        Text(verbatim: text)
-            .panelFont(size: 11, .semibold, design: .rounded)
-            .frame(minWidth: 18, minHeight: 18)
-            .padding(.horizontal, 4)
-            .background(.quaternary, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
     }
 }

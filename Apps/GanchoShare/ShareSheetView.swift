@@ -174,14 +174,6 @@ extension View {
         font(.subheadline.weight(selected ? .semibold : .medium))
             .padding(.horizontal, GanchoTokens.Spacing.sm)
             .frame(minHeight: 30)
-            .background(
-                selected
-                    ? AnyShapeStyle(GanchoTokens.Palette.inverseFill) : AnyShapeStyle(.quaternary),
-                in: Capsule()
-            )
-            .foregroundStyle(
-                selected
-                    ? AnyShapeStyle(GanchoTokens.Palette.inverseText)
-                    : AnyShapeStyle(.primary))
+            .ganchoChip(selected: selected)
     }
 }

@@ -325,15 +325,7 @@ struct CaptureView: View {
             }
             .padding(.horizontal, GanchoTokens.Spacing.sm)
             .padding(.vertical, GanchoTokens.Spacing.xs)
-            .background(
-                isActive
-                    ? AnyShapeStyle(GanchoTokens.Palette.inverseFill) : AnyShapeStyle(.quaternary),
-                in: Capsule()
-            )
-            .foregroundStyle(
-                isActive
-                    ? AnyShapeStyle(GanchoTokens.Palette.inverseText)
-                    : AnyShapeStyle(.primary))
+            .ganchoChip(selected: isActive)
         }
         .buttonStyle(.plain)
     }

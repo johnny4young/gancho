@@ -365,7 +365,7 @@ struct ClipPeek: View {
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .padding(.vertical, 6)
         .background(
-            GanchoTokens.Palette.control,
+            GanchoTokens.Palette.controlFill,
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         )
         .accessibilityIdentifier("board-suggestion")

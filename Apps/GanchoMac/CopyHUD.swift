@@ -92,7 +92,7 @@ private struct CopyHUDView: View {
                 .background(
                     danger
                         ? AnyShapeStyle(GanchoTokens.Palette.danger.opacity(0.15))
-                        : AnyShapeStyle(GanchoTokens.Palette.control),
+                        : AnyShapeStyle(GanchoTokens.Palette.controlFill),
                     in: shape
                 )
                 .accessibilityHidden(true)

@@ -540,7 +540,7 @@ extension PeekImageTextSection {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(
-                GanchoTokens.Palette.control,
+                GanchoTokens.Palette.controlFill,
                 in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)

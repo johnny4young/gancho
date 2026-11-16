@@ -178,7 +178,7 @@ signed direct-download DMG must build with re-signed helpers and pass
 
 Three typefaces ship inside the `GanchoDesign` resource bundle
 (`Packages/GanchoKit/Sources/GanchoDesign/Resources/Fonts/`) and register per
-process at launch (`GanchoFonts`); no target declares them in its Info.plist.
+process (`GanchoFonts`); no target declares them in its Info.plist.
 They are not packages: no lane watches them, so an update is a hand-made PR.
 
 | Typeface | File | Version | Source (`google/fonts`) | Licence |

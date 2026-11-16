@@ -335,10 +335,9 @@ struct KeyboardView: View {
             Text("Inserted").textCase(.lowercase)
         }
         .font(.caption2.weight(.semibold))
-        .foregroundStyle(GanchoTokens.Palette.inverseText)
         .padding(.horizontal, 7)
         .frame(minHeight: 18)
-        .background(GanchoTokens.Palette.inverseFill, in: .capsule)
+        .ganchoInverseBadge()
         .accessibilityHidden(true)
     }
 

@@ -30,23 +30,19 @@ public enum GanchoFonts {
         }
     }
 
-    private static let serifAvailable = register(.serif)
-    private static let sansAvailable = register(.sans)
-    private static let monoAvailable = register(.mono)
+    /// Built once, on first use from any thread.
+    private static let availability = Dictionary(
+        uniqueKeysWithValues: Family.allCases.map { ($0, register($0)) })
 
-    /// Registers the families once per process. Roles also register lazily on
-    /// first use; calling this at launch keeps that cost out of the first frame.
-    public static func registerIfNeeded(_ families: Set<Family> = Set(Family.allCases)) {
-        for family in families { _ = isAvailable(family) }
+    /// Registers the faces once per process. Roles also register on first use;
+    /// calling this at launch keeps that cost out of the first frame.
+    public static func registerIfNeeded() {
+        _ = availability
     }
 
     /// Whether the family resolves; false sends its role to the system fallback.
     public static func isAvailable(_ family: Family) -> Bool {
-        switch family {
-        case .serif: serifAvailable
-        case .sans: sansAvailable
-        case .mono: monoAvailable
-        }
+        availability[family] ?? false
     }
 
     private static func register(_ family: Family) -> Bool {
@@ -65,6 +61,16 @@ public enum GanchoType {
     public enum Role: Sendable {
         case title, ui, data
 
+        /// Rounded has no bundled face and stays on the system font.
+        init?(design: Font.Design) {
+            switch design {
+            case .serif: self = .title
+            case .monospaced: self = .data
+            case .rounded: return nil
+            default: self = .ui
+            }
+        }
+
         var family: GanchoFonts.Family {
             switch self {
             case .title: .serif
@@ -73,7 +79,7 @@ public enum GanchoType {
             }
         }
 
-        var fallback: Font.Design {
+        var design: Font.Design {
             switch self {
             case .title: .serif
             case .ui: .default
@@ -88,11 +94,19 @@ public enum GanchoType {
         _ role: Role, size: CGFloat, weight: Font.Weight = .regular,
         relativeTo style: Font.TextStyle? = nil
     ) -> Font {
-        guard let name = postScriptName(role, weight: weight) else {
-            if let style {
-                return Font.system(style, design: role.fallback, weight: weight)
-            }
-            return Font.system(size: size, weight: weight, design: role.fallback)
+        font(design: role.design, size: size, weight: weight, relativeTo: style)
+    }
+
+    /// The bundled face behind a system design, or the system font when the
+    /// design has no role or its face did not register.
+    static func font(
+        design: Font.Design, size: CGFloat, weight: Font.Weight,
+        relativeTo style: Font.TextStyle? = nil
+    ) -> Font {
+        let role = Role(design: design)
+        guard let role, let name = postScriptName(role, weight: weight) else {
+            if let style { return Font.system(style, design: design, weight: weight) }
+            return Font.system(size: size, weight: weight, design: design)
         }
         if let style { return Font.custom(name, size: size, relativeTo: style) }
         return Font.custom(name, fixedSize: size)

@@ -63,12 +63,7 @@ extension LibraryView {
                 .accessibilityLabel(Text("Search the Library"))
                 .accessibilityIdentifier("library-search-field")
             if searchText.isEmpty {
-                Text(verbatim: "⌘F")
-                    .panelFont(.caption2, .bold)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 5).frame(minWidth: 18, minHeight: 18)
-                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
-                    .accessibilityHidden(true)
+                KeyCap("⌘F").accessibilityHidden(true)
             } else {
                 IconActionButton(
                     "Clear search", systemImage: "xmark.circle.fill",
@@ -132,32 +127,22 @@ extension LibraryView {
                     kindFilter = filter
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: active ? "checkmark" : filter.symbolName)
-                            .foregroundStyle(
-                                active
-                                    ? AnyShapeStyle(GanchoTokens.Palette.inverseText)
-                                    : AnyShapeStyle(
-                                        filter.tintKind.map {
-                                            GanchoTokens.Palette.kindTint(for: $0)
-                                        }
-                                            ?? .secondary))
-                        if active { Text(filter.title) }
+                        if active {
+                            Image(systemName: "checkmark")
+                            Text(filter.title)
+                        } else {
+                            Image(systemName: filter.symbolName)
+                                .foregroundStyle(
+                                    filter.tintKind.map {
+                                        GanchoTokens.Palette.kindTint(for: $0)
+                                    } ?? .secondary)
+                        }
                     }
                     .panelFont(.caption, active ? .bold : .semibold)
-                    .foregroundStyle(
-                        active
-                            ? AnyShapeStyle(GanchoTokens.Palette.inverseText)
-                            : AnyShapeStyle(.secondary)
-                    )
                     .padding(.horizontal, active ? 8 : 0)
                     .frame(minWidth: 22, minHeight: 22)
                     .fixedSize()
-                    .background(
-                        active
-                            ? AnyShapeStyle(GanchoTokens.Palette.inverseFill)
-                            : AnyShapeStyle(.quaternary.opacity(0.6)),
-                        in: Capsule()
-                    )
+                    .ganchoChip(selected: active)
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)

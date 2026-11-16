@@ -45,16 +45,19 @@ struct DesignTokenGuardTests {
     /// Where each accent-bearing component may appear. The accent means
     /// "Return does this", so a new entry is a design decision, not a fix.
     static let accentBudget: [(pattern: String, files: Set<String>)] = [
-        (#"\bLiveDot\("#, ["PanelStatusFooter.swift"]),
+        (#"\bLiveDot\("#, ["Apps/GanchoMac/PanelStatusFooter.swift"]),
         (#"\bReturnKeyCap\("#, []),
         (
             #"ganchoPrimaryVerb\(|PrimaryVerb\.ui"#,
             [
-                "PeekActionButton.swift", "CaptureView.swift", "ClipDetailView+Sections.swift",
-                "ShareSheetView.swift", "RecentClipsLargeView.swift", "ClipLiveActivity.swift"
+                "Apps/GanchoMac/PeekActionButton.swift", "Apps/GanchoiOS/CaptureView.swift",
+                "Apps/GanchoiOS/ClipDetailView+Sections.swift",
+                "Apps/GanchoShare/ShareSheetView.swift",
+                "Apps/GanchoWidgets/RecentClipsLargeView.swift",
+                "Apps/GanchoWidgets/ClipLiveActivity.swift"
             ]
         ),
-        (#"Palette\.brandGreen\b"#, ["WrappedView.swift"])
+        (#"Palette\.brandGreen\b"#, ["Apps/GanchoMac/WrappedView.swift"])
     ]
 
     /// The apps cannot name the accent, its hex values or the system accent;
@@ -71,23 +74,26 @@ struct DesignTokenGuardTests {
         #expect(widgets.isEmpty, "use the neutral tokens, not the system accent: \(widgets)")
 
         for entry in Self.accentBudget {
-            let outside = try Self.matches(of: entry.pattern).filter { offender in
-                !entry.files.contains(String(offender.prefix { $0 != ":" }))
+            let outside = try Self.matches(of: entry.pattern, relativePaths: true).filter {
+                !entry.files.contains(String($0.prefix { $0 != ":" }))
             }
             #expect(outside.isEmpty, "outside the accent budget: \(outside)")
         }
     }
 
-    /// The budget cannot be bypassed from inside the module either: only the
-    /// four accent surfaces and the tokens themselves read the accent.
+    /// The budget cannot be bypassed from inside the module either: beside the
+    /// tokens and the ink rule, only the primary verb, the caps and dot, and the
+    /// search caret name the accent.
     @Test func designModuleSpendsTheAccentInFourPlaces() throws {
         let design = LocalizationTests.repoRoot
             .appendingPathComponent("Packages/GanchoKit/Sources/GanchoDesign")
         let offenders = try Self.matches(
-            of: #"Palette\.accent(Text)?\b|ColorPair\.(accent|accentText)\b"#, in: design,
+            of: #"Palette\.accent(Text)?\b|ColorPair\.(accent|accentText)\b"#
+                + #"|\b(AccentFill|OnAccentInk|AccentText)\("#,
+            in: design,
             excluding: [
-                "GanchoColors.swift", "GanchoButtonStyle.swift", "ContrastingForeground.swift",
-                "KeyCap.swift", "Components.swift"
+                "GanchoColors.swift", "ContrastingForeground.swift", "GanchoButtonStyle.swift",
+                "KeyCap.swift", "SearchField.swift"
             ])
         #expect(offenders.isEmpty, "the accent has four places: \(offenders)")
     }
@@ -123,8 +129,9 @@ struct DesignTokenGuardTests {
     static func matches(
         of pattern: String,
         in root: URL = LocalizationTests.repoRoot.appendingPathComponent("Apps"),
-        excluding skipped: [String] = []
+        excluding skipped: [String] = [], relativePaths: Bool = false
     ) throws -> [String] {
+        let prefix = LocalizationTests.repoRoot.standardizedFileURL.path + "/"
         let regex = try NSRegularExpression(pattern: pattern)
         let files = try #require(
             FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil))
@@ -137,7 +144,11 @@ struct DesignTokenGuardTests {
                 guard let bound = Range(match.range, in: text)?.lowerBound else { continue }
                 let line = text[..<bound]
                     .split(separator: "\n", omittingEmptySubsequences: false).count
-                offenders.append("\(url.lastPathComponent):\(line)")
+                let path = url.standardizedFileURL.path
+                let name =
+                    relativePaths && path.hasPrefix(prefix)
+                    ? String(path.dropFirst(prefix.count)) : url.lastPathComponent
+                offenders.append("\(name):\(line)")
             }
         }
         return offenders

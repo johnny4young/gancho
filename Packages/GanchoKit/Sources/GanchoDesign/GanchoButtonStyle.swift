@@ -60,23 +60,18 @@ extension View {
     /// widget, a dock): the accent fill and its ink. `step` is the hover or
     /// pressed fraction from `ButtonStates`.
     public func ganchoPrimaryVerb(in shape: some Shape, step: Double = 0) -> some View {
-        modifier(PrimaryVerbFill(shape: AnyShape(shape), step: step))
+        foregroundStyle(OnAccentInk(step: step))
+            .background(AccentFill(step: step), in: shape)
+            .modifier(DisabledDim())
     }
 }
 
-private struct PrimaryVerbFill: ViewModifier {
-    let shape: AnyShape
-    let step: Double
-    @Environment(\.self) private var environment
+/// A plain button dims only its hierarchical styles, so a custom fill says it.
+private struct DisabledDim: ViewModifier {
+    @Environment(\.isEnabled) private var isEnabled
 
     func body(content: Content) -> some View {
-        let fill = Color(
-            Contrast.stepped(
-                GanchoTokens.Palette.accent.resolve(in: environment), by: step,
-                lighter: environment.colorScheme == .dark))
-        content
-            .foregroundStyle(ContrastingForeground(on: fill))
-            .background(fill, in: shape)
+        content.opacity(isEnabled ? 1 : ButtonStates.disabledOpacity)
     }
 }
 
@@ -85,7 +80,7 @@ private struct PrimaryVerbFill: ViewModifier {
         /// The primary verb's colours for a UIKit control the system draws.
         public enum PrimaryVerb {
             public static var uiFill: UIColor { UIColor(Palette.accent) }
-            public static var uiInk: UIColor { UIColor(Color(ColorPair.onAccent.resolved(.light))) }
+            public static var uiInk: UIColor { UIColor(Color(onAccentInk)) }
         }
     }
 #endif
@@ -111,7 +106,7 @@ private struct GanchoButtonBody: View {
             .lineLimit(1)
             .padding(.horizontal, GanchoTokens.Spacing.sm)
             .frame(minHeight: GanchoTokens.HitTarget.button)
-            .foregroundStyle(ink(on: fill))
+            .foregroundStyle(ink)
             .background(fill ?? .clear, in: shape)
             .overlay {
                 if role == .secondary {
@@ -162,7 +157,7 @@ private struct GanchoButtonBody: View {
     private var fillColor: Color? {
         switch role {
         case .primary:
-            return stepped(GanchoTokens.Palette.accent)
+            return Color(AccentFill(step: step).resolve(in: environment))
         case .secondary:
             return stepped(GanchoTokens.Palette.surface(.control))
         case .tertiary, .neutral:
@@ -174,9 +169,9 @@ private struct GanchoButtonBody: View {
         }
     }
 
-    private func ink(on fill: Color?) -> AnyShapeStyle {
+    private var ink: AnyShapeStyle {
         switch role {
-        case .primary: AnyShapeStyle(ContrastingForeground(on: fill ?? .clear))
+        case .primary: AnyShapeStyle(OnAccentInk(step: step))
         case .secondary, .neutral: AnyShapeStyle(.primary)
         case .tertiary: AnyShapeStyle(GanchoTokens.Palette.ink2)
         case .destructive: AnyShapeStyle(GanchoTokens.Palette.danger)

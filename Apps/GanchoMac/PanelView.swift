@@ -1280,7 +1280,7 @@ struct PanelView: View {
                     .padding(.vertical, 5)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
-                        GanchoTokens.Palette.control,
+                        GanchoTokens.Palette.controlFill,
                         in: RoundedRectangle(
                             cornerRadius: GanchoTokens.Radius.md, style: .continuous))
             }
@@ -1329,7 +1329,7 @@ struct PanelView: View {
         }
         .padding(GanchoTokens.Spacing.sm)
         .background(
-            GanchoTokens.Palette.control,
+            GanchoTokens.Palette.controlFill,
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         )
         .padding(.horizontal, GanchoTokens.Spacing.xxs)
@@ -1887,7 +1887,7 @@ struct PanelView: View {
             .padding(.horizontal, GanchoTokens.Spacing.sm)
             .padding(.vertical, GanchoTokens.Spacing.xs)
             .background(
-                GanchoTokens.Palette.control,
+                GanchoTokens.Palette.controlFill,
                 in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)

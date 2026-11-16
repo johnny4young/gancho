@@ -22,7 +22,7 @@ public struct ContrastingForeground: ShapeStyle {
         guard blackContrast >= whiteContrast else {
             return Color.Resolved(colorSpace: .sRGB, red: 1, green: 1, blue: 1)
         }
-        let onAccent = GanchoTokens.ColorPair.onAccent.resolved(scheme)
+        let onAccent = GanchoTokens.onAccentInk
         guard isLime(fill, scheme), Contrast.ratio(onAccent, fill) >= Contrast.text else {
             return Color.Resolved(colorSpace: .sRGB, red: 0, green: 0, blue: 0)
         }

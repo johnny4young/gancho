@@ -18,7 +18,7 @@ struct GanchoMacApp: App {
 
     init() {
         GanchoSingleInstance.terminateOlderCopies()
-        GanchoFonts.registerIfNeeded()
+        Task.detached(priority: .userInitiated) { GanchoFonts.registerIfNeeded() }
         let model = AppModel()
         _model = State(initialValue: model)
         GanchoRuntime.model = model

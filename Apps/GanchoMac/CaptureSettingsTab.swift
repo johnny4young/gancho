@@ -109,7 +109,7 @@ private struct ConcealedRuleCard: View {
         .padding(GanchoTokens.Spacing.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            GanchoTokens.Palette.control,
+            GanchoTokens.Palette.controlFill,
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         )
         .overlay(

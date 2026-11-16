@@ -30,14 +30,7 @@ struct SearchModeControl: View {
                         .panelFont(size: 10.5, .bold)
                         .padding(.horizontal, 7)
                         .frame(height: 20)
-                        .foregroundStyle(
-                            isSelected
-                                ? AnyShapeStyle(GanchoTokens.Palette.ink)
-                                : AnyShapeStyle(.secondary)
-                        )
-                        .background {
-                            if isSelected { Capsule().fill(GanchoTokens.Palette.selectionWash) }
-                        }
+                        .ganchoTab(selected: isSelected)
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)

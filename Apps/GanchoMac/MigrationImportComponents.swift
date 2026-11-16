@@ -10,7 +10,7 @@ struct MigrationImportHeader: View {
                 .foregroundStyle(GanchoTokens.Palette.ink2)
                 .frame(width: 38, height: 38)
                 .background(
-                    GanchoTokens.Palette.control,
+                    GanchoTokens.Palette.controlFill,
                     in: RoundedRectangle(cornerRadius: 10)
                 )
                 .accessibilityHidden(true)
@@ -137,7 +137,7 @@ struct MigrationImportReview: View {
                     .foregroundStyle(GanchoTokens.Palette.ink2)
                     .padding(.horizontal, GanchoTokens.Spacing.sm)
                     .padding(.vertical, GanchoTokens.Spacing.xxs)
-                    .background(GanchoTokens.Palette.control, in: Capsule())
+                    .background(GanchoTokens.Palette.controlFill, in: Capsule())
             }
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 statistic(

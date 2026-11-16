@@ -10,11 +10,11 @@ import Testing
 struct PaletteTests {
     @Test("Multicolor (no AppleAccentColor key) falls back to the lime")
     func multicolorFallsBackToBrand() {
-        #expect(GanchoTokens.Palette.accentSource(appleAccentColorKeyPresent: false) == .brand)
+        #expect(GanchoTokens.Palette.usesBrandAccent(appleAccentColorKeyPresent: false))
     }
 
     @Test("A specific chosen accent is followed from the system")
     func chosenAccentFollowsSystem() {
-        #expect(GanchoTokens.Palette.accentSource(appleAccentColorKeyPresent: true) == .system)
+        #expect(!GanchoTokens.Palette.usesBrandAccent(appleAccentColorKeyPresent: true))
     }
 }

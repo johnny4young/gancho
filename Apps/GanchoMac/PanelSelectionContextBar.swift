@@ -48,7 +48,7 @@ struct PanelSelectionContextBar: View {
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .padding(.vertical, GanchoTokens.Spacing.xxs)
         .background(
-            GanchoTokens.Palette.control,
+            GanchoTokens.Palette.controlFill,
             in: RoundedRectangle(
                 cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         )

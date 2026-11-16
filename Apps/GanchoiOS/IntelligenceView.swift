@@ -164,7 +164,7 @@ struct IOSIntelligenceView: View {
                         .foregroundStyle(GanchoTokens.Palette.ink2)
                         .padding(.horizontal, GanchoTokens.Spacing.xs)
                         .padding(.vertical, 2)
-                        .background(GanchoTokens.Palette.control, in: Capsule())
+                        .background(GanchoTokens.Palette.controlFill, in: Capsule())
                 }
             }
             Text(description).font(.caption).foregroundStyle(.secondary)

@@ -38,7 +38,7 @@ struct SnippetSuggestionCard: View {
         }
         .padding(GanchoTokens.Spacing.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(GanchoTokens.Palette.control, in: shape)
+        .background(GanchoTokens.Palette.controlFill, in: shape)
         .overlay(
             shape.strokeBorder(
                 GanchoTokens.Palette.hairline,

@@ -143,7 +143,7 @@ private struct SettingsSidebar: View {
             }
             .padding(10)
             .background(
-                GanchoTokens.Palette.control,
+                GanchoTokens.Palette.controlFill,
                 in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
             )
             .contentShape(RoundedRectangle(cornerRadius: GanchoTokens.Radius.md))
@@ -174,13 +174,8 @@ private struct SettingsSidebar: View {
             .padding(.horizontal, GanchoTokens.Spacing.sm)
             .padding(.vertical, GanchoTokens.Spacing.xs)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .foregroundStyle(
-                isActive
-                    ? AnyShapeStyle(GanchoTokens.Palette.ink)
-                    : AnyShapeStyle(.primary)
-            )
-            .background(
-                isActive ? GanchoTokens.Palette.selectionWash : Color.clear,
+            .ganchoTab(
+                selected: isActive, idle: .primary,
                 in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
             )
             .contentShape(

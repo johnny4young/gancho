@@ -344,10 +344,8 @@ struct PrivacyCenterView: View {
             }
             Spacer(minLength: 0)
         }
-        .foregroundStyle(GanchoTokens.Palette.inverseText)
         .padding(GanchoTokens.Spacing.md)
-        .background(
-            GanchoTokens.Palette.inverseFill,
+        .ganchoInverseBadge(
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
     }
 

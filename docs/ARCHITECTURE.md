@@ -243,20 +243,24 @@ gallery switching; seed readiness is a separate boundary.
 never write a hex value, a shadow or an animation curve of their own.
 
 - **One accent, and it means "Return does this".** The interface is neutral
-  graphite: `ink`, `ink2` and `ink3` for text, `selectionWash` for the
-  selected row, tab or chip, `control` and `card` for fills, `hairline` for
-  strokes, an inverse fill (`inverseFill` / `inverseText`) where a chip needs
-  more weight. The lime accent is internal to the module and appears in four
+  graphite: `ink`, `ink2` and `ink3` for text, `hairline` for strokes,
+  `ganchoTab(selected:)` (ink on `selectionWash`) for tabs and rows with no
+  resting fill, `ganchoChip(selected:)` (`controlFill` at rest, inverse when
+  selected) for chips that have one, and `ganchoInverseBadge()` for a label
+  that must stand out. `controlFill` is a translucent fill for any surface;
+  `surface(.control)` is the opaque level controls sit on. The lime accent is internal to the module and appears in four
   places only: the search caret, `ReturnKeyCap`, the primary verb
   (`GanchoButtonStyle(.primary)`, or `ganchoPrimaryVerb(in:)` on a custom
-  label) and `LiveDot`. It still follows the OS theme colour when the user
+  label; both draw `AccentFill` with `OnAccentInk`) and `LiveDot`. It still follows the OS theme colour when the user
   picked one. System controls take `controlTint` through `ganchoTinted()`.
-  `DesignTokenGuardTests` lists the app files allowed to use each
-  accent-bearing component; adding one is a design decision.
+  `DesignTokenGuardTests` lists, by path, the app files allowed to use each
+  accent-bearing component; adding one is a design decision. Keys are drawn
+  with `KeyCap`.
 - **Type has three roles** (`GanchoType`): Instrument Serif for titles, Geist
   for interface text, Geist Mono for data, keys and captions. The faces are
-  bundled and registered per process by `GanchoFonts`; a role falls back to
-  the system serif, sans or mono face if registration fails. `panelFont`
+  bundled and registered per process by `GanchoFonts`, off the main thread at
+  launch and on first use otherwise; a role falls back to the system serif,
+  sans or mono face if registration fails. `panelFont`
   routes its `design:` through the roles, keeping Dynamic Type on iOS and the
   panel text-size scale on the Mac. Native forms keep the system font.
 - **Contrast is computed, not picked.** `Contrast` holds the WCAG maths and

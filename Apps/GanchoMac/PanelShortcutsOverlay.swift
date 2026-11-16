@@ -83,18 +83,10 @@ struct PanelShortcutsOverlay: View {
 
     private func shortcutLine(_ caps: [String], _ label: LocalizedStringKey) -> some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            HStack(spacing: 3) { ForEach(caps, id: \.self) { keycap($0) } }
+            HStack(spacing: 3) { ForEach(caps, id: \.self) { KeyCap($0) } }
                 .frame(width: 86, alignment: .leading)
             Text(label).panelFont(.callout)
             Spacer(minLength: 0)
         }
-    }
-
-    private func keycap(_ text: String) -> some View {
-        Text(verbatim: text)
-            .panelFont(size: 11, .semibold, design: .rounded)
-            .frame(minWidth: 18, minHeight: 18)
-            .padding(.horizontal, 4)
-            .background(.quaternary, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
     }
 }

@@ -111,7 +111,7 @@ struct PeekDescribeChange: View {
                 part.foregroundColor = GanchoTokens.Palette.danger
             } else if segment.kind == .added {
                 part.foregroundColor = GanchoTokens.Palette.ink
-                part.backgroundColor = GanchoTokens.Palette.control
+                part.backgroundColor = GanchoTokens.Palette.controlFill
             }
             text.append(part)
         }

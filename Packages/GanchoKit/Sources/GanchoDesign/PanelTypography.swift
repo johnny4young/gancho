@@ -27,16 +27,10 @@ public enum PanelTextStyle: Sendable, CaseIterable {
         /// The style's size at the default Dynamic Type setting, which a custom
         /// face scales from.
         var defaultSize: CGFloat {
-            switch self {
-            case .title2: 22
-            case .title3: 20
-            case .headline, .body: 17
-            case .callout: 16
-            case .subheadline: 15
-            case .footnote: 13
-            case .caption: 12
-            case .caption2: 11
-            }
+            PlatformFont.preferredFont(
+                forTextStyle: platformStyle,
+                compatibleWith: UITraitCollection(preferredContentSizeCategory: .large)
+            ).pointSize
         }
     #endif
 
@@ -98,30 +92,15 @@ private struct PanelFontModifier: ViewModifier {
     }
 
     private var font: Font {
-        guard let role else {
-            #if os(iOS)
-                if let style { return Font.system(style.textStyle, design: design, weight: weight) }
-            #endif
-            return Font.system(
-                size: (style?.baseSize ?? size) * scale, weight: weight, design: design)
-        }
         #if os(iOS)
             if let style {
                 return GanchoType.font(
-                    role, size: style.defaultSize, weight: weight, relativeTo: style.textStyle)
+                    design: design, size: style.defaultSize, weight: weight,
+                    relativeTo: style.textStyle)
             }
         #endif
-        return GanchoType.font(role, size: (style?.baseSize ?? size) * scale, weight: weight)
-    }
-
-    /// Rounded has no bundled face and stays on the system font.
-    private var role: GanchoType.Role? {
-        switch design {
-        case .monospaced: .data
-        case .serif: .title
-        case .rounded: nil
-        default: .ui
-        }
+        return GanchoType.font(
+            design: design, size: (style?.baseSize ?? size) * scale, weight: weight)
     }
 }
 

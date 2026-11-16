@@ -47,13 +47,7 @@ struct PanelFirstRunStageView: View {
             if !keys.isEmpty {
                 HStack(spacing: 3) {
                     ForEach(Array(keys.enumerated()), id: \.offset) { _, key in
-                        Text(verbatim: key)
-                            .panelFont(.caption, .bold)
-                            .padding(.horizontal, 5)
-                            .frame(minWidth: 18, minHeight: 18)
-                            .background(
-                                Color.primary.opacity(0.08),
-                                in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                        KeyCap(key)
                     }
                 }
                 .frame(minWidth: 72, alignment: .leading)

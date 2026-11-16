@@ -286,7 +286,7 @@ extension LibraryView {
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    GanchoTokens.Palette.control,
+                    GanchoTokens.Palette.controlFill,
                     in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
             }
             .buttonStyle(.plain)
