@@ -24,6 +24,8 @@ public enum GanchoMotion {
     /// A primary button under the pointer or key: scale and duration.
     public static let pressScale: CGFloat = 0.96
     public static let press: Animation = .easeOut(duration: 0.08)
+    /// A countdown's one-second step: linear, so a ring drains at a steady rate.
+    public static let tick: Animation = .linear(duration: 1)
 
     /// nil under Reduce Motion, so a `.animation(_:value:)` scope becomes a no-op.
     nonisolated public static func animation(_ base: Animation, reduceMotion: Bool) -> Animation? {
@@ -32,6 +34,10 @@ public enum GanchoMotion {
 
     nonisolated public static func quick(reduceMotion: Bool) -> Animation? {
         animation(quick, reduceMotion: reduceMotion)
+    }
+
+    nonisolated public static func tick(reduceMotion: Bool) -> Animation? {
+        animation(tick, reduceMotion: reduceMotion)
     }
 
     nonisolated public static func smooth(reduceMotion: Bool) -> Animation? {

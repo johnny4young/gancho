@@ -99,7 +99,7 @@ struct LibraryClipCard: View {
             }
             .padding(8)
         } else if clip.kind == .code || clip.kind == .json {
-            Text(GanchoTokens.Syntax.highlighted(String(clip.preview.prefix(240))))
+            Text(GanchoTokens.Syntax.tonal(String(clip.preview.prefix(240))))
                 .panelFont(.caption, design: .monospaced)
                 .lineLimit(4).padding(8)
         } else {

@@ -256,6 +256,18 @@ never write a hex value, a shadow or an animation curve of their own.
   `DesignTokenGuardTests` lists, by path, the app files allowed to use each
   accent-bearing component; adding one is a design decision. Keys are drawn
   with `KeyCap`.
+- **A row is the clip itself.** `ClipCard` is one 50 pt grammar on every
+  platform: a 34 pt `ClipTile`, the content in its native form over a quiet
+  description, then `Source · age` over the key cap. `ClipRowContent` decides
+  both lines per kind from what the row already holds (kind, title, stored
+  preview, image header) and never guesses: lines are counted only when the
+  preview is the whole clip. Tiles are neutral with an outline glyph, except
+  where the content is the picture: a colour's swatch, an image's thumbnail,
+  and `TimeRing` around a lock for a protected clip with a lifetime
+  (`Countdown`; ink, red in the last minute). A protected clip shows its
+  stored mask and kind; Private Mode shows three dots. Code in rows and cards
+  uses `Syntax.tonal`; the editor and the peek keep the full syntax palette.
+  The selected row is `selectionWash` and its key becomes `ReturnKeyCap`.
 - **Type has three roles** (`GanchoType`): Instrument Serif for titles, Geist
   for interface text, Geist Mono for data, keys and captions. The faces are
   bundled and registered per process by `GanchoFonts`, off the main thread at

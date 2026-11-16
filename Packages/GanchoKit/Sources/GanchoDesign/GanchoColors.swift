@@ -148,11 +148,9 @@ extension GanchoTokens {
 }
 
 extension GanchoTokens {
-    /// Token colors for `GanchoSyntax`. The dark values are the design editor's
-    /// palette; the light
-    /// values are darker, legible variants of the same hues, so highlighting
-    /// honours the app's Light/Dark choice — the code editor is an elevated
-    /// surface, not a fixed-dark panel.
+    /// Token colors for `GanchoSyntax`. The editor and the peek keep the full
+    /// palette (`color`, `highlighted`) in light and dark; one-line previews
+    /// in rows and cards use the quieter `tonal` tints.
     public enum Syntax {
         /// (light, dark) sRGB byte triples for a token kind.
         static func triples(
@@ -182,6 +180,40 @@ extension GanchoTokens {
                 let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
                 let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
                 attributed[lo..<hi].foregroundColor = color(for: token.kind)
+            }
+            return attributed
+        }
+
+        /// (light, dark) tonal tints for one-line previews in rows and cards:
+        /// three quiet hues instead of the editor's palette. Nil is ink.
+        static func tonalTriples(
+            for kind: GanchoSyntax.TokenKind
+        ) -> (light: (Int, Int, Int), dark: (Int, Int, Int))? {
+            switch kind {
+            case .keyword: nil
+            case .string: ((0x5E, 0x6B, 0x1A), (0xD5, 0xE3, 0xA6))
+            case .placeholder: ((0x2F, 0x56, 0x6F), (0xB5, 0xC9, 0xD8))
+            case .number: ((0x2C, 0x6A, 0x52), (0xA9, 0xCD, 0xBB))
+            case .comment: ((0x62, 0x66, 0x64), (0x9A, 0x99, 0x92))
+            }
+        }
+
+        /// `source` in ink with the tonal tints; keywords are ink in a heavier
+        /// weight. Callers own any size cap.
+        public static func tonal(_ source: String) -> AttributedString {
+            var attributed = AttributedString(source)
+            attributed.foregroundColor = Palette.ink
+            for token in GanchoSyntax.tokens(in: source) {
+                let lower = source.distance(from: source.startIndex, to: token.range.lowerBound)
+                let upper = source.distance(from: source.startIndex, to: token.range.upperBound)
+                let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
+                let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
+                if let tint = tonalTriples(for: token.kind) {
+                    attributed[lo..<hi].foregroundColor =
+                        ColorPair(light: tint.light, dark: tint.dark).color
+                } else {
+                    attributed[lo..<hi].inlinePresentationIntent = .stronglyEmphasized
+                }
             }
             return attributed
         }

@@ -55,6 +55,40 @@
             #expect(secret.preview.hasPrefix("●●●●"))
         }
 
+        @Test("A row is 50 pt high at the standard text size, with or without a description")
+        func rowHeight() throws {
+            let bare = ClipItem(kind: .text, preview: "One line", contentHash: "b")
+            for item in [Self.sampleItem, bare] {
+                let renderer = ImageRenderer(content: ClipCard(item: item).frame(width: 320))
+                renderer.scale = 1
+                #expect(try #require(renderer.cgImage).height == 50)
+            }
+        }
+
+        @Test("Every kind renders as a row and as a tile", arguments: [false, true])
+        func everyKind(dark: Bool) {
+            for kind in ClipContentKind.allCases {
+                let item = ClipItem(
+                    kind: kind, preview: kind == .color ? "#FF6B4A" : "let x = \"1\"",
+                    contentHash: "k", expiresAt: .now.addingTimeInterval(90))
+                let row = ClipCard(item: item, isSelected: kind == .url, shortcutNumber: 2)
+                #expect((render(row, dark: dark)?.width ?? 0) > 0, "row: \(kind)")
+                let tile = ClipTile(item: item, size: 34, previewsHidden: false)
+                #expect((render(tile, dark: dark)?.width ?? 0) > 0, "tile: \(kind)")
+            }
+        }
+
+        @Test("The time ring renders fresh, in its last minute and run out")
+        func timeRing() {
+            for left in [600.0, 30, -5] {
+                let ring = TimeRing(
+                    Countdown(start: .now.addingTimeInterval(-60), deadline: .now + left)
+                )
+                .frame(width: 34, height: 34)
+                #expect((render(ring, dark: true)?.width ?? 0) > 0, "left: \(left)")
+            }
+        }
+
         @Test("TypeBadge renders for every kind")
         func typeBadges() {
             for kind in ClipContentKind.allCases {

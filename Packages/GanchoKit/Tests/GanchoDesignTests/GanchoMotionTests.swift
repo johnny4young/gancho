@@ -8,6 +8,7 @@ struct GanchoMotionTests {
     @Test("Every token is returned as-is when motion is allowed")
     func allowed() {
         #expect(GanchoMotion.quick(reduceMotion: false) == GanchoMotion.quick)
+        #expect(GanchoMotion.tick(reduceMotion: false) == GanchoMotion.tick)
         #expect(GanchoMotion.smooth(reduceMotion: false) == GanchoMotion.smooth)
         #expect(GanchoMotion.leave(reduceMotion: false) == GanchoMotion.leave)
         #expect(GanchoMotion.pressScale(reduceMotion: false) == GanchoMotion.pressScale)
@@ -18,6 +19,7 @@ struct GanchoMotionTests {
     @Test("Reduce Motion: settle is instant, arrive and leave fade, no blur, no press scale")
     func reduced() {
         #expect(GanchoMotion.quick(reduceMotion: true) == nil)
+        #expect(GanchoMotion.tick(reduceMotion: true) == nil)
         #expect(GanchoMotion.smooth(reduceMotion: true) == GanchoMotion.fade)
         #expect(GanchoMotion.leave(reduceMotion: true) == GanchoMotion.fade)
         #expect(GanchoMotion.pressScale(reduceMotion: true) == 1)

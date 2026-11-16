@@ -185,15 +185,18 @@ extension GanchoTokens.Palette {
     }
 }
 
-/// One clip row/card: kind tile, title/preview (masked kinds render their
-/// stored masked preview — the secret never reaches this view), and a trailing
-/// meta column (source · time, markers, ⌘N).
+/// One clip row: its tile, the content in its native form over a quiet
+/// description (`ClipRowContent`), and a trailing meta column (source · time,
+/// markers, key cap). A protected clip shows its stored mask, never its content.
 public struct ClipCard: View {
     let item: ClipItem
     let isSelected: Bool
-    /// Private mode: show ONLY the kind — shoulder surfers and screen
-    /// shares see types, never content.
+    /// A protected clip or Private Mode: the VoiceOver label masks on it.
     let previewsHidden: Bool
+    let masking: ClipRowContent.Masking
+    let content: ClipRowContent
+    /// A protected clip's lifetime; nil without an expiry and in Private Mode.
+    let countdown: Countdown?
     /// 1–9 renders the ⌘N quick-paste badge; nil hides it (e.g. the Library,
     /// which has no quick-paste).
     let shortcutNumber: Int?
@@ -204,35 +207,39 @@ public struct ClipCard: View {
     /// namespace; only the anchor row claims the gliding highlight.
     let selectionNamespace: Namespace.ID?
     let isSelectionAnchor: Bool
-    /// iPhone rows: a protected clip names its kind and shows its stored mask,
-    /// source and expiry instead of three dots. Private Mode still hides all.
-    let showsStoredMask: Bool
+    /// The current lifetime setting, which caps a stored expiry.
+    let sensitiveLifetime: TimeInterval?
     /// A clip copied on another device names that device; nil leaves rows as they were.
     let foreignDevice: String?
     // Dynamic Type grows the tile on iOS; the panel's own scale on the Mac.
-    @ScaledMetric(relativeTo: .body) private var baseTileSize: CGFloat = 36
+    @ScaledMetric(relativeTo: .body) private var baseTileSize: CGFloat = 34
     @Environment(\.panelTypeScale) private var typeScale
     private var tileSize: CGFloat { baseTileSize * typeScale }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.listIsScrolling) private var listIsScrolling
-    @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
 
     public init(
         item: ClipItem, isSelected: Bool = false, previewsHidden: Bool = false,
         shortcutNumber: Int? = nil, thumbnail: Image? = nil,
         selectionNamespace: Namespace.ID? = nil, isSelectionAnchor: Bool = true,
-        showsStoredMask: Bool = false, currentDeviceName: String? = nil
+        currentDeviceName: String? = nil, sensitiveLifetime: TimeInterval? = nil
     ) {
+        let protected = ClipSafePresentation.requiresMasking(item)
+        let masking: ClipRowContent.Masking =
+            previewsHidden ? .hidden : protected ? .storedMask : .none
         self.item = item
         self.isSelected = isSelected
-        self.previewsHidden = previewsHidden || ClipSafePresentation.requiresMasking(item)
+        self.previewsHidden = previewsHidden || protected
+        self.masking = masking
+        self.content = ClipRowContent(item: item, masking: masking)
+        self.countdown =
+            masking == .storedMask ? Countdown(item: item, lifetime: sensitiveLifetime) : nil
         self.shortcutNumber = shortcutNumber
         self.thumbnail = thumbnail
         self.selectionNamespace = selectionNamespace
         self.isSelectionAnchor = isSelectionAnchor
-        self.showsStoredMask =
-            showsStoredMask && !previewsHidden && ClipSafePresentation.requiresMasking(item)
+        self.sensitiveLifetime = sensitiveLifetime
         // Hidden previews hide where a clip came from too, in the label as well.
         self.foreignDevice =
             previewsHidden
@@ -265,16 +272,6 @@ public struct ClipCard: View {
         return remaining > 0 && remaining < 3600
     }
 
-    /// The letter a link row's tile shows: the first character of the host,
-    /// without a leading `www.`. Parsed locally from the stored preview — no
-    /// favicon and no network, so the URL never leaves the device.
-    nonisolated public static func linkMonogram(for preview: String) -> String? {
-        guard let first = ClipLinkParts(text: preview)?.host.first,
-            first.isLetter || first.isNumber
-        else { return nil }
-        return String(first).uppercased()
-    }
-
     /// Whether a row shows its hover wash. While the list scrolls no row does,
     /// and a row that was under the pointer reads its cleared state once the
     /// list settles, so only the next pointer move lights it again.
@@ -289,26 +286,18 @@ public struct ClipCard: View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
             leadingTile
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                if showsStoredMask {
-                    Text(item.kind.cardName)
-                        .panelFont(.body, .semibold)
-                        .lineLimit(1)
-                } else if !item.title.isEmpty, !previewsHidden {
-                    Text(item.title)
-                        .panelFont(.body, .semibold)
-                        .lineLimit(1)
-                }
-                previewText
-                    .lineLimit(item.title.isEmpty && !showsStoredMask ? 2 : 1)
-                    .foregroundStyle(
-                        item.title.isEmpty && !showsStoredMask ? .primary : .secondary)
+            VStack(alignment: .leading, spacing: 3) {
+                headline
+                    .lineLimit(1)
+                    .foregroundStyle(GanchoTokens.Palette.ink)
+                description
             }
             Spacer(minLength: GanchoTokens.Spacing.xs)
             trailingMeta
         }
-        .padding(.vertical, 7)
-        .padding(.horizontal, GanchoTokens.Spacing.xs + 2)
+        // With the tile, a row is 50 pt at the standard text size.
+        .padding(.vertical, GanchoTokens.Spacing.xs)
+        .padding(.horizontal, GanchoTokens.Spacing.xs + 1)
         .background {
             // Scoped to the highlight: an animated selection transaction would
             // also cross-fade the peek and animate the list's scroll-to.
@@ -340,29 +329,59 @@ public struct ClipCard: View {
         .accessibilityIdentifier("clip-row")
     }
 
-    @ViewBuilder private var previewText: some View {
-        if showsStoredMask {
-            Text(verbatim: ClipSafePresentation.maskedTail(for: item))
+    /// Line 1: the clip as itself.
+    @ViewBuilder private var headline: some View {
+        switch content.headline {
+        case .text(let text):
+            Text(verbatim: text).panelFont(.body, .medium)
+        case .kindName(let kind):
+            Text(kind.cardName).panelFont(.body, .medium)
+        case .value(let value):
+            Text(verbatim: value).panelFont(.callout, design: .monospaced)
+        case .code(let line):
+            Text(GanchoTokens.Syntax.tonal(String(line.prefix(Self.syntaxPreviewLimit))))
                 .panelFont(.callout, design: .monospaced)
-        } else if previewsHidden {
-            Text(verbatim: "•••").panelFont(.callout)
-        } else if item.kind == .code {
-            Text(highlightedPreview).panelFont(.callout, design: .monospaced)
-        } else if item.kind == .image, let info = item.imageInfo {
-            // Untitled: "Image · 1200 × 800 · PNG"; titled: "PNG · 1200 × 800".
-            let detail = info.rowDetail(titled: !item.title.isEmpty)
-            (item.title.isEmpty ? Text("Image · \(detail)") : Text(verbatim: detail))
-                .panelFont(item.title.isEmpty ? .body : .callout)
-        } else {
-            Text(ByteSize.humanizedPreview(item.preview))
-                .panelFont(item.title.isEmpty ? .body : .callout)
+        case .link(let host, let path):
+            let rest = Text(verbatim: path ?? "").foregroundStyle(GanchoTokens.Palette.ink3)
+            Text("\(Text(verbatim: host).fontWeight(.semibold))\(rest)")
+                .panelFont(.body, .medium)
+                .truncationMode(.middle)
         }
     }
 
-    /// The same local tokenizer the peek and the Library editor use, so a code
-    /// row already reads as code in the list.
-    private var highlightedPreview: AttributedString {
-        GanchoTokens.Syntax.highlighted(String(item.preview.prefix(Self.syntaxPreviewLimit)))
+    /// Line 2: what the clip is, and for a protected clip the time it has left.
+    @ViewBuilder private var description: some View {
+        if let countdown {
+            // Ticks with the ring; rows without a lifetime never mount a timeline.
+            TimelineView(.periodic(from: countdown.deadline, by: 1)) { context in
+                descriptionLine(
+                    timeLeft: countdown.isRunning(at: context.date)
+                        ? countdown.clock(at: context.date) : nil)
+            }
+        } else if !content.details.isEmpty {
+            descriptionLine(timeLeft: nil)
+        }
+    }
+
+    private func descriptionLine(timeLeft: String?) -> some View {
+        let parts =
+            content.details.map(Self.text(for:)) + (timeLeft.map { [Text("\($0) left")] } ?? [])
+        let line = parts.dropFirst().reduce(parts.first ?? Text(verbatim: "")) {
+            Text("\($0) · \($1)")
+        }
+        return
+            line
+            .panelFont(.subheadline, digits: true)
+            .foregroundStyle(GanchoTokens.Palette.ink3)
+            .lineLimit(1)
+    }
+
+    private static func text(for detail: ClipRowContent.Detail) -> Text {
+        switch detail {
+        case .verbatim(let text): Text(verbatim: text)
+        case .lines(let count): Text("\(count) lines")
+        case .kindName(let kind): Text(kind.cardName)
+        }
     }
 
     @ViewBuilder private var hoverBackground: some View {
@@ -386,20 +405,16 @@ public struct ClipCard: View {
                     Text(verbatim: foreignDevice).lineLimit(1).truncationMode(.middle)
                 }
                 .panelFont(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(GanchoTokens.Palette.ink3)
                 .frame(maxWidth: 140, alignment: .trailing)
                 .accessibilityHidden(true)
             }
             HStack(spacing: GanchoTokens.Spacing.xxs) {
-                if item.expiresAt != nil {
-                    // A live "expires in mm:ss" on rows about to age out — sensitive
-                    // clips especially get a short lifetime, and the peek only warns
-                    // once you open it. The TimelineView re-evaluates the SHOW/HIDE
-                    // decision on a coarse tick (the inner Text self-updates every
-                    // second on its own), so the badge appears when a clip crosses
-                    // into the window and disappears once it expires — without
-                    // waiting for an unrelated view update. Rows without an expiry
-                    // never mount the timeline.
+                // The description already counts a protected clip down.
+                if item.expiresAt != nil, countdown == nil {
+                    // A coarse tick decides show/hide (the timer text updates
+                    // itself), so the badge appears as a clip enters its last
+                    // hour and goes once it expires.
                     TimelineView(.periodic(from: .now, by: 15)) { context in
                         if let expiresAt = item.expiresAt,
                             Self.showsExpiryCountdown(expiresAt: expiresAt, now: context.date)
@@ -422,29 +437,20 @@ public struct ClipCard: View {
                         .accessibilityLabel(Text("Pinned"))
                         .transition(.scale.combined(with: .opacity))
                 }
-                if let shortcutNumber {
-                    ClipShortcutBadge(number: shortcutNumber)
-                }
+                ClipShortcutBadge(number: shortcutNumber, isSelected: isSelected)
             }
         }
         .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: item.isPinned)
     }
 
-    @ViewBuilder private func expiryBadge(_ expiresAt: Date) -> some View {
-        let badge = HStack(spacing: 2) {
+    private func expiryBadge(_ expiresAt: Date) -> some View {
+        HStack(spacing: 2) {
             Image(systemName: "timer")
             Text(expiresAt, style: .timer)
         }
         .panelFont(.caption2, digits: true)
         .accessibilityLabel(Text("Expires soon"))
-        if showsStoredMask {
-            badge
-                .padding(.horizontal, 6)
-                .padding(.vertical, 1)
-                .ganchoTintedPill(GanchoTokens.Palette.warning, wash: 0.18)
-        } else {
-            badge.foregroundStyle(GanchoTokens.Palette.warningInk)
-        }
+        .foregroundStyle(GanchoTokens.Palette.warningInk)
     }
 
     private var selectionAnimation: Animation? {
@@ -468,13 +474,14 @@ public struct ClipCard: View {
 
     private var leadingTile: some View {
         ClipTile(
-            item: item, size: tileSize, previewsHidden: previewsHidden, thumbnail: thumbnail)
+            item: item, size: tileSize, previewsHidden: masking == .hidden, thumbnail: thumbnail,
+            sensitiveLifetime: sensitiveLifetime)
     }
 
     /// "Safari · 12 minutes ago", hidden in private mode. Minute-granular: it sits
     /// beside the preview, and a per-second timer would resize it every tick.
     @ViewBuilder private var sourceTimeLine: some View {
-        if !previewsHidden || showsStoredMask {
+        if masking != .hidden {
             HStack(spacing: 3) {
                 if let bundleID = item.sourceAppBundleID, !bundleID.isEmpty {
                     Text(SourceApp.fallbackName(forBundleID: bundleID))
@@ -483,7 +490,7 @@ public struct ClipCard: View {
                 Text(.currentDate, format: .reference(to: item.createdAt, maxFieldCount: 1))
             }
             .panelFont(.caption2)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(GanchoTokens.Palette.ink3)
             .lineLimit(1)
         }
     }
@@ -503,18 +510,32 @@ public struct ClipCard: View {
     }
 }
 
-/// The ⌘N quick-paste badge, shared by the list row and the gallery card. Hidden
-/// from VoiceOver: the row exposes the number as its accessibility value.
+/// A row's key: ⌘N for the first nine, and the Return cap in its place on the
+/// selected row. Hidden from VoiceOver: the row exposes the number as its
+/// accessibility value and selection as a trait.
 public struct ClipShortcutBadge: View {
-    let number: Int
+    public enum Key: Equatable, Sendable {
+        case returnKey
+        case number(Int)
+    }
 
-    public init(number: Int) {
-        self.number = number
+    let key: Key?
+
+    public init(number: Int?, isSelected: Bool = false) {
+        key = Self.key(number: number, isSelected: isSelected)
+    }
+
+    /// Return on the selected row, numbered or not; ⌘1–⌘9 elsewhere.
+    nonisolated public static func key(number: Int?, isSelected: Bool) -> Key? {
+        if isSelected { return .returnKey }
+        return number.flatMap { (1...9).contains($0) ? .number($0) : nil }
     }
 
     public var body: some View {
-        if (1...9).contains(number) {
-            KeyCap("⌘\(number)").accessibilityHidden(true)
+        switch key {
+        case .returnKey: ReturnKeyCap()
+        case .number(let number): KeyCap("⌘\(number)").accessibilityHidden(true)
+        case nil: EmptyView()
         }
     }
 }
@@ -528,63 +549,6 @@ extension Text {
             ? "•••"
             : item.imageInfo?.rowDetail(titled: false) ?? ByteSize.humanizedPreview(item.preview)
         return Text("\(Text(LocalizedStringKey(item.kind.rawValue))), \(preview)")
-    }
-}
-
-/// Kind-tinted rounded tile (the design's row icon). Links, colours and images
-/// carry their identity in full colour (a host monogram, the real swatch, the
-/// thumbnail); everything else keeps the glyph on a tint wash. Rows and the
-/// menu-bar menu share it.
-public struct ClipTile: View {
-    let item: ClipItem
-    let size: CGFloat
-    let previewsHidden: Bool
-    let thumbnail: Image?
-
-    public init(item: ClipItem, size: CGFloat, previewsHidden: Bool, thumbnail: Image? = nil) {
-        self.item = item
-        self.size = size
-        self.previewsHidden = previewsHidden || ClipSafePresentation.requiresMasking(item)
-        self.thumbnail = thumbnail
-    }
-
-    public var body: some View {
-        let tint = GanchoTokens.Palette.kindTint(for: item.kind)
-        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.card, style: .continuous)
-        Group {
-            if item.kind == .image, !previewsHidden, let thumbnail {
-                thumbnail
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size, height: size)
-                    .clipShape(shape)
-                    .overlay(
-                        shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
-            } else if item.kind == .color, !previewsHidden,
-                let color = Color(hexString: item.preview)
-            {
-                shape.fill(color)
-                    .overlay(
-                        shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
-            } else if item.kind == .url, !previewsHidden,
-                let monogram = ClipCard.linkMonogram(for: item.preview)
-            {
-                shape.fill(tint.gradient)
-                    .overlay {
-                        Text(verbatim: monogram)
-                            .font(.system(size: size * 16 / 36, weight: .bold, design: .rounded))
-                            .foregroundStyle(ContrastingForeground(on: tint))
-                    }
-            } else {
-                shape.fill(tint.opacity(0.16))
-                    .overlay {
-                        Image(systemName: item.kind.symbolName)
-                            .font(.system(size: size * 14 / 36, weight: .semibold))
-                            .foregroundStyle(tint)
-                    }
-            }
-        }
-        .frame(width: size, height: size)
     }
 }
 
