@@ -21,6 +21,11 @@ public enum PanelFirstRunStage {
     public static func isShown(historyEmpty: Bool, narrowed: Bool, hasPastedBack: Bool) -> Bool {
         historyEmpty && !narrowed && !hasPastedBack
     }
+
+    /// The footer says capture is waiting while the history itself is empty.
+    public static func awaitsFirstCopy(historyEmpty: Bool, narrowed: Bool) -> Bool {
+        historyEmpty && !narrowed
+    }
 }
 
 extension SuccessfulReuseMethod {

@@ -15,7 +15,7 @@ struct PanelResultsView<RowContent: View>: View {
 
     let query: String
     let hasActiveFilter: Bool
-    let firstRunHint: LocalizedStringKey
+    let firstRunHint: LocalizedStringKey?
     let isGroupedView: Bool
     let groups: [PanelDateGroup]
     let items: [ClipItem]
@@ -236,7 +236,7 @@ struct PanelResultsView<RowContent: View>: View {
 private struct PanelResultsEmptyState: View {
     let query: String
     let hasActiveFilter: Bool
-    let firstRunHint: LocalizedStringKey
+    let firstRunHint: LocalizedStringKey?
     let searchMode: PanelSearchMode
     let scopeName: String?
     let alternatives: [PanelAlternativeResult]
@@ -270,80 +270,63 @@ private struct PanelResultsEmptyState: View {
 
     private var firstRunContent: some View {
         Group {
-            Image(systemName: "doc.on.clipboard.fill")
-                .panelFont(size: 28, .medium)
-                .frame(width: 64, height: 64)
-                .ganchoInverseBadge(
-                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.xl, style: .continuous)
-                )
-                .padding(.bottom, GanchoTokens.Spacing.xs)
-            Text("Your history starts here")
-                .panelFont(.headline)
-            Text(
-                "Copy anything — text, a link, an image — and it appears here, ready to paste again."
-            )
-            .panelFont(.callout)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-            Text(firstRunHint)
-                .panelFont(.caption)
-                .foregroundStyle(.tertiary)
+            PanelEmptyMark()
+                .padding(.bottom, GanchoTokens.Spacing.sm)
+            Text("Nothing on the hook yet.")
+                .panelFont(size: 22, design: .serif)
+                .foregroundStyle(GanchoTokens.Palette.ink)
+                .accessibilityIdentifier("panel-empty-title")
+            Text("Copy anything, anywhere — it lands here, on this Mac, and stays yours.")
+                .panelFont(.callout)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
                 .multilineTextAlignment(.center)
-                .padding(.top, GanchoTokens.Spacing.xxs)
-            Button(
-                "Import from Maccy or CSV…", systemImage: "arrow.down.doc", action: importHistory
-            )
-            .ganchoButtonStyle(.secondary)
-            .padding(.top, GanchoTokens.Spacing.xs)
-            .accessibilityIdentifier("panel-empty-import-button")
+                .frame(maxWidth: 260)
+            if let firstRunHint {
+                Text(firstRunHint)
+                    .panelFont(.caption)
+                    .foregroundStyle(GanchoTokens.Palette.ink3)
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("panel-empty-capture-hint")
+            }
+            Button("Import from another app", action: importHistory)
+                .ganchoButtonStyle(.secondary)
+                .padding(.top, GanchoTokens.Spacing.xs)
+                .accessibilityIdentifier("panel-empty-import-button")
         }
     }
 
     private var noResultsContent: some View {
         Group {
-            Image(systemName: "magnifyingglass")
-                .panelFont(size: 26, .regular)
-                .foregroundStyle(.secondary)
-                .frame(width: 64, height: 64)
-                .background(
-                    .quaternary,
-                    in: RoundedRectangle(
-                        cornerRadius: GanchoTokens.Radius.xl, style: .continuous)
-                )
-                .padding(.bottom, GanchoTokens.Spacing.xs)
             Text("No matches")
-                .panelFont(.headline)
-            Text(detail)
-                .panelFont(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                .panelFont(size: 22, design: .serif)
+                .foregroundStyle(GanchoTokens.Palette.ink)
+                .accessibilityIdentifier("no-results-title")
+            // A filter alone can empty the list: quoting an empty query back
+            // would read as a bug.
+            Text(
+                PanelNoMatches.caption(query: query, scopeName: scopeName).text(mode: searchMode)
+            )
+            .panelFont(.callout)
+            .foregroundStyle(GanchoTokens.Palette.ink2)
+            .multilineTextAlignment(.center)
+            .accessibilityIdentifier("no-results-caption")
             if !alternatives.isEmpty {
                 PanelAlternativeList(results: alternatives, apply: applyAlternative)
             }
             if hasActiveFilter {
-                // esc hides the panel, so a "press esc" hint would be wrong; a
-                // real button clears the type/board/source filter narrowing
-                // the list.
+                // esc hides the panel, so a real button clears the filter.
                 Button("Clear filters", action: clearFilters)
                     .ganchoTextButton()
                     .padding(.top, GanchoTokens.Spacing.xxs)
                     .accessibilityIdentifier("clear-filters")
-            } else if PanelAlternativeResult.best(of: alternatives) == nil {
+            } else if PanelNoMatches.suggestsAnotherWord(
+                hasActiveFilter: hasActiveFilter, results: alternatives)
+            {
                 Text("Try another word.")
                     .panelFont(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(GanchoTokens.Palette.ink3)
                     .padding(.top, GanchoTokens.Spacing.xxs)
             }
         }
-    }
-
-    /// A filter alone can empty the list, and quoting an empty query back at
-    /// the user ("No clips for “”.") would read as a bug.
-    private var detail: LocalizedStringKey {
-        if query.isEmpty { return "No clips match this filter." }
-        if let scopeName {
-            return "No clips for “\(query)” in \(scopeName), \(searchMode.matchPhrase)."
-        }
-        return "No clips for “\(query)”, \(searchMode.matchPhrase)."
     }
 }

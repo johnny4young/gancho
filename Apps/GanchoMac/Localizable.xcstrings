@@ -892,16 +892,6 @@
         }
       }
     },
-    "⌘C in any app to start": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⌘C en cualquier app para empezar"
-          }
-        }
-      }
-    },
     "5 minutes": {
       "localizations": {
         "es": {
@@ -1381,16 +1371,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copiar"
-          }
-        }
-      }
-    },
-    "Copy anything — text, a link, an image — and it appears here, ready to paste again.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copia cualquier cosa — texto, un enlace, una imagen — y aparece aquí, lista para volver a pegar."
           }
         }
       }
@@ -4908,16 +4888,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tu portapapeles, a un atajo de distancia"
-          }
-        }
-      }
-    },
-    "Your history starts here": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu historial empieza aquí"
           }
         }
       }
@@ -10676,46 +10646,6 @@
         }
       }
     },
-    "%lld results, press ↓ to use them": {
-      "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld result, press ↓ to use it"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld results, press ↓ to use them"
-                }
-              }
-            }
-          }
-        },
-        "es": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld resultado, pulsa ↓ para usarlo"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld resultados, pulsa ↓ para usarlos"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "Save search as a filter": {
       "localizations": {
         "es": {
@@ -14226,6 +14156,146 @@
           "stringUnit": {
             "state": "translated",
             "value": "Texto · %lld transformaciones"
+          }
+        }
+      }
+    },
+    "Nothing on the hook yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todavía no hay nada en el gancho."
+          }
+        }
+      }
+    },
+    "Copy anything, anywhere — it lands here, on this Mac, and stays yours.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia lo que sea, donde sea — llega aquí, a este Mac, y sigue siendo tuyo."
+          }
+        }
+      }
+    },
+    "Import from another app": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importar desde otra app"
+          }
+        }
+      }
+    },
+    "First run · 30 seconds": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primer uso · 30 segundos"
+          }
+        }
+      }
+    },
+    "· waiting for your first copy": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "· esperando tu primera copia"
+          }
+        }
+      }
+    },
+    "Capturing · waiting for your first copy": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturando · esperando tu primera copia"
+          }
+        }
+      }
+    },
+    "%@ finds %lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ encuentra %lld"
+          }
+        }
+      }
+    },
+    "All boards have %lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos los tableros tienen %lld"
+          }
+        }
+      }
+    },
+    "press ↓ to use them": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pulsa ↓ para usarlos"
+          }
+        }
+      }
+    },
+    "press ↓ to use it": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pulsa ↓ para usarlo"
+          }
+        }
+      }
+    },
+    "%lld results": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld result"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld results"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld resultado"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld resultados"
+                }
+              }
+            }
           }
         }
       }

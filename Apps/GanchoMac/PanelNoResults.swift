@@ -42,6 +42,14 @@ extension PanelSearchAlternative {
         case .allBoards: "no-results-alt-all-boards"
         }
     }
+
+    /// The stage's headline: "Regex finds 3".
+    func headline(total: Int) -> LocalizedStringKey {
+        switch self {
+        case .mode(let mode): "\(String(localized: mode.title)) finds \(total)"
+        case .allBoards: "All boards have \(total)"
+        }
+    }
 }
 
 extension PanelSearchMode {
@@ -56,46 +64,54 @@ extension PanelSearchMode {
     }
 }
 
-/// The other modes and scopes, counted, as buttons; the best one is highlighted.
+extension PanelNoMatches.Caption {
+    func text(mode: PanelSearchMode) -> LocalizedStringKey {
+        switch self {
+        case .filter: "No clips match this filter."
+        case .query(let query): "No clips for “\(query)”, \(mode.matchPhrase)."
+        case .scoped(let query, let scope):
+            "No clips for “\(query)” in \(scope), \(mode.matchPhrase)."
+        }
+    }
+}
+
+/// The other modes and scopes, counted, as rows; ↓ takes the washed one.
 struct PanelAlternativeList: View {
     let results: [PanelAlternativeResult]
     let apply: (PanelSearchAlternative) -> Void
 
     var body: some View {
-        let best = PanelAlternativeResult.best(of: results)?.alternative
+        let washed = PanelNoMatches.washed(in: results)
         VStack(spacing: 5) {
             ForEach(results, id: \.alternative) { result in
-                let isBest = result.alternative == best
+                let isWashed = result.alternative == washed
+                let shape = RoundedRectangle(
+                    cornerRadius: GanchoTokens.Radius.md, style: .continuous)
                 Button {
                     apply(result.alternative)
                 } label: {
-                    HStack {
-                        Text(result.alternative.title).panelFont(.callout, .semibold)
+                    HStack(spacing: GanchoTokens.Spacing.xs) {
+                        Text(result.alternative.title)
+                            .panelFont(.callout, isWashed ? .semibold : .regular)
                         Spacer(minLength: GanchoTokens.Spacing.xs)
                         Text(verbatim: "\(result.total)")
-                            .panelFont(.caption, .semibold)
-                            .monospacedDigit()
-                            .padding(.horizontal, 6)
-                            .frame(minWidth: 20, minHeight: 18)
-                            .background(Color.primary.opacity(0.08), in: Capsule())
+                            .panelFont(size: 11.5, .medium, design: .monospaced)
+                            .foregroundStyle(
+                                isWashed ? GanchoTokens.Palette.ink : GanchoTokens.Palette.ink3)
+                        if isWashed { KeyCap("↓").accessibilityHidden(true) }
                     }
-                    .padding(.horizontal, GanchoTokens.Spacing.sm)
-                    .frame(height: 34)
-                    .background(
-                        isBest
-                            ? AnyShapeStyle(GanchoTokens.Palette.success.opacity(0.12))
-                            : AnyShapeStyle(.quaternary),
-                        in: RoundedRectangle(
-                            cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                    .foregroundStyle(
+                        isWashed ? GanchoTokens.Palette.ink : GanchoTokens.Palette.ink2
                     )
-                    .overlay {
-                        if isBest {
-                            RoundedRectangle(
-                                cornerRadius: GanchoTokens.Radius.md, style: .continuous
-                            )
-                            .strokeBorder(GanchoTokens.Palette.success.opacity(0.3))
-                        }
-                    }
+                    .padding(.horizontal, GanchoTokens.Spacing.sm)
+                    .frame(height: 32)
+                    .background(
+                        isWashed ? GanchoTokens.Palette.selectionWash : Color.clear, in: shape
+                    )
+                    .overlay(
+                        shape.strokeBorder(
+                            GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
+                    )
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -103,15 +119,15 @@ struct PanelAlternativeList: View {
                     Text(
                         verbatim: "\(String(localized: result.alternative.title)), \(result.total)")
                 )
-                .accessibilityAddTraits(isBest ? .isSelected : [])
+                .accessibilityAddTraits(isWashed ? .isSelected : [])
                 .accessibilityIdentifier(result.alternative.identifier)
             }
         }
-        .padding(.top, GanchoTokens.Spacing.xxs)
+        .padding(.top, GanchoTokens.Spacing.sm)
     }
 }
 
-/// The peek column while nothing matches: what the best alternative would show.
+/// The peek column while nothing matches: what ↓ would show.
 struct PanelAlternativeStage: View {
     let result: PanelAlternativeResult
     let previewsHidden: Bool
@@ -120,18 +136,27 @@ struct PanelAlternativeStage: View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
             Text(
                 verbatim: String(localized: result.alternative.title) + " · "
-                    + String(localized: "\(result.total) results, press ↓ to use them")
+                    + String(localized: "\(result.total) results")
             )
-            .panelFont(.caption, .bold)
-            .foregroundStyle(.secondary)
+            .peekCaps()
             .accessibilityIdentifier("no-results-stage-label")
+            HStack(alignment: .firstTextBaseline, spacing: GanchoTokens.Spacing.xs) {
+                Text(result.alternative.headline(total: result.total))
+                    .panelFont(size: 27, design: .serif)
+                    .foregroundStyle(GanchoTokens.Palette.ink)
+                    .lineLimit(1)
+                    .accessibilityIdentifier("no-results-stage-title")
+                Text(result.total == 1 ? "press ↓ to use it" : "press ↓ to use them")
+                    .panelFont(.caption)
+                    .foregroundStyle(GanchoTokens.Palette.ink3)
+                    .lineLimit(1)
+            }
+            .padding(.bottom, GanchoTokens.Spacing.xxs)
+            // Return does nothing here, so no row is selected: every cap is ⌘n.
             ForEach(Array(result.preview.enumerated()), id: \.element.id) { index, item in
-                ClipCard(
-                    item: item, isSelected: index == 0, previewsHidden: previewsHidden,
-                    shortcutNumber: index + 1
-                )
-                // A preview of the alternative, not a row of the list.
-                .accessibilityIdentifier("no-results-stage-row")
+                ClipCard(item: item, previewsHidden: previewsHidden, shortcutNumber: index + 1)
+                    // A preview of the alternative, not a row of the list.
+                    .accessibilityIdentifier("no-results-stage-row")
             }
             Spacer(minLength: 0)
         }

@@ -28,6 +28,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   the words you searched for, and the preview's actions are one line: Paste as
   the single filled button, then Plain, Pin, Board and Stack with their keys,
   and an Actions list that also holds whatever a narrow panel has no room for.
+- On the Mac, an empty history shows Gancho's hook and the three keys that
+  make the whole loop, and a search that finds nothing lists what the other
+  modes found, with the best one a single ↓ away and previewed beside it.
 - On the Mac, each copy costs Gancho far less work. Titles, search and board
   suggestions share one loaded language model instead of loading it for every
   clip, and the hidden history panel no longer redraws itself on every copy.

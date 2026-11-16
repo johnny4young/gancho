@@ -47,10 +47,14 @@ struct DesignTokenGuardTests {
     static let accentBudget: [(pattern: String, files: Set<String>)] = [
         (#"\bLiveDot\("#, ["Apps/GanchoMac/PanelStatusFooter.swift"]),
         // The link peek's "Pastes as" names the same Return the dock's verb runs;
-        // the action panel marks the row Return runs and filters with the caret.
+        // the action panel marks the row Return runs and filters with the caret;
+        // the first-run lesson teaches that Return pastes.
         (
             #"\bReturnKeyCap\("#,
-            ["Apps/GanchoMac/PeekLinkHero.swift", "Apps/GanchoMac/PeekTransformPopover.swift"]
+            [
+                "Apps/GanchoMac/PeekLinkHero.swift", "Apps/GanchoMac/PeekTransformPopover.swift",
+                "Apps/GanchoMac/PanelFirstRunStageView.swift"
+            ]
         ),
         (#"\.ganchoCaret\("#, ["Apps/GanchoMac/PeekTransformPopover.swift"]),
         (

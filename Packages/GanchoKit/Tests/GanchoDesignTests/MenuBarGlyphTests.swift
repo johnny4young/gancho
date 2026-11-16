@@ -71,6 +71,20 @@
             }
         }
 
+        @Test("The large mark is the same hook, scaled")
+        func largeMark() {
+            let mark = MenuBarGlyph.mark(side: 64)
+            #expect(mark.isTemplate)
+            #expect(mark.size == NSSize(width: 64, height: 64))
+            let small = MenuBarGlyph.hookImage(badged: false)
+            // The stem (x 50, y 50 of 96) is ink, a corner is clear, in both.
+            for (image, side) in [(mark, CGFloat(64)), (small, MenuBarGlyph.hookSide)] {
+                let unit = side / 96
+                #expect(pixel(image, at: NSPoint(x: 50 * unit, y: 50 * unit)).alpha == 255)
+                #expect(pixel(image, at: NSPoint(x: 4 * unit, y: 4 * unit)).alpha == 0)
+            }
+        }
+
         @Test("The hook stays a template; a badge notches it and paints its own colour")
         func render() {
             let plain = MenuBarGlyph.hookImage(badged: false)
