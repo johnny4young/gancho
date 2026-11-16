@@ -20,8 +20,6 @@ struct CaptureSettingsTab: View {
 
             Section {
                 ConcealedRuleCard()
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
             }
 
             Section {
@@ -82,41 +80,35 @@ struct CaptureSettingsTab: View {
 private struct ConcealedRuleCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: "checkmark.shield")
-                .foregroundStyle(GanchoTokens.Palette.ink2)
-                .padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Built-in rule · concealed and transient copies").font(.body.weight(.bold))
+                Text("Built-in rule · concealed and transient copies")
+                    .font(.body.weight(.medium))
                 Text(
                     // swiftlint:disable:next line_length
                     "Password managers and some apps mark a copy as concealed, transient or auto-generated. Gancho senses the mark and stops there: the content is never read, stored, indexed or synced. This cannot be turned off."
                 )
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GanchoTokens.Palette.ink3)
                 .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     ForEach(Self.types, id: \.self) { type in
                         Text(verbatim: type)
-                            .font(.caption2.weight(.semibold).monospaced())
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 4)
-                            .frame(height: 16)
-                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
+                            .font(GanchoType.font(.data, size: 10))
+                            .foregroundStyle(GanchoTokens.Palette.ink2)
+                            .padding(.horizontal, 7)
+                            .frame(height: 20)
+                            .background(
+                                GanchoTokens.Palette.controlFill,
+                                in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                     }
                 }
+                .padding(.top, 4)
             }
+            Spacer(minLength: 0)
+            Image(systemName: "lock")
+                .foregroundStyle(GanchoTokens.Palette.ink2)
+                .padding(.top, 2)
         }
-        .padding(GanchoTokens.Spacing.xs)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            GanchoTokens.Palette.controlFill,
-            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                .strokeBorder(
-                    GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
-        )
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("capture-concealed-rule-card")
     }

@@ -98,14 +98,16 @@ extension AppModel {
         }
         copyHUD.show(
             CopyHUD(
-                tile: .agent, title: Self.agentReadTitle(notice), detail: detail,
+                tile: .symbol("terminal"), title: Self.agentReadTitle(notice), detail: detail,
                 identifier: "agent-read-hud", actions: actions))
     }
 
     private func revokeFromAgentReadHUD(_ grantID: UUID) {
         // A failed save already says so in a toast.
         guard revokeMCPGrant(id: grantID) else { return }
-        copyHUD.show(CopyHUD(tile: .agent, title: "Access revoked", identifier: "agent-read-hud"))
+        copyHUD.show(
+            CopyHUD(
+                tile: .symbol("terminal"), title: "Access revoked", identifier: "agent-read-hud"))
     }
 
     static func agentReadTitle(_ notice: AgentReadFeed.Notice) -> LocalizedStringResource {

@@ -347,7 +347,7 @@ extension GanchoTokens {
         var lightAlpha: Double = 1
         var darkAlpha: Double = 1
 
-        private static let graphite = (0x12, 0x14, 0x13)
+        private static let graphite = StatusBytes.ink
         private static let white = (0xFF, 0xFF, 0xFF)
 
         static let brand = ColorPair(light: (0x34, 0xC7, 0x59), dark: (0x30, 0xD1, 0x58))
@@ -365,7 +365,7 @@ extension GanchoTokens {
             light: graphite, dark: white, lightAlpha: 0.10, darkAlpha: 0.085)
         static let ink = ColorPair(light: graphite, dark: (0xF5, 0xF4, 0xEF))
         static let ink2 = ColorPair(light: (0x4F, 0x53, 0x51), dark: (0xB6, 0xB5, 0xAD))
-        static let ink3 = ColorPair(light: (0x62, 0x66, 0x64), dark: (0x9A, 0x99, 0x92))
+        static let ink3 = ColorPair(light: StatusBytes.ink3, dark: (0x9A, 0x99, 0x92))
         static let controlTint = ColorPair(light: graphite, dark: (0x94, 0x93, 0x8C))
         static let imageOverlay = ColorPair(light: (0x80, 0x80, 0x7C), dark: (0x80, 0x80, 0x7C))
 

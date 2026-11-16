@@ -18,7 +18,7 @@ struct RetentionSettingsTab: View {
                     .listRowBackground(Color.clear)
             }
 
-            Section("History") {
+            SettingsSection("History") {
                 Picker("Keep history for", selection: $model.retentionPolicy.global) {
                     windowOptions
                 }
@@ -37,7 +37,7 @@ struct RetentionSettingsTab: View {
                 .foregroundStyle(.secondary)
             }
 
-            Section("Sensitive items") {
+            SettingsSection("Sensitive items") {
                 Picker(
                     "Sensitive items expire after",
                     selection: $model.retentionPolicy.sensitiveLifetime
@@ -54,7 +54,7 @@ struct RetentionSettingsTab: View {
                 .foregroundStyle(.secondary)
             }
 
-            Section("Forget recent clips") {
+            SettingsSection("Forget recent clips") {
                 Picker("Copied in the last", selection: $forgetWindow) {
                     Text("5 minutes").tag(ForgetRecentWindow.fiveMinutes)
                     Text("15 minutes").tag(ForgetRecentWindow.fifteenMinutes)
