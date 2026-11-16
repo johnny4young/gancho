@@ -61,7 +61,7 @@ struct ClipPeek: View {
     @State private var actionIndex = 0
     /// User-authored titles are edited inline; drafts never mutate the store
     /// until Save succeeds.
-    @State var presentedTitle: String
+    @State private var presentedTitle: String
     @State private var titleDraft: String
     @State private var isEditingTitle = false
     @State private var isSavingTitle = false
@@ -231,6 +231,14 @@ struct ClipPeek: View {
             } else {
                 addToBoard()
             }
+            return .handled
+        }
+        // The dock shows ⌘J on Context, which can fold away into Actions.
+        .onKeyPress(characters: CharacterSet(charactersIn: "jJ"), phases: .down) { press in
+            guard !isInlineEditing, press.modifiers.contains(.command), let showContext else {
+                return .ignored
+            }
+            showContext()
             return .handled
         }
         // ⌫ arrives as the system Delete command; the undo toast takes it back.
@@ -465,8 +473,8 @@ struct ClipPeek: View {
                 .accessibilityIdentifier("preview-edit-title")
                 favoriteButton
             }
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .clipDragSource(item)
     }
 }
@@ -479,12 +487,13 @@ extension ClipPeek {
     /// or the (syntax-tinted) text. The card is neutral: only content brings colour.
     private var hero: some View {
         let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
+        let link = isEditingText ? nil : linkParts
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-                if let parts = linkParts, !isEditingText {
-                    let markdown = parts.markdownLink(title: presentedTitle)
+                if let link {
+                    let markdown = link.markdownLink(title: presentedTitle)
                     PeekLinkHero(
-                        parts: parts, anatomy: LinkAnatomy(text: parts.text), markdown: markdown,
+                        parts: link, anatomy: LinkAnatomy(text: link.text), markdown: markdown,
                         copyMarkdown: copyMarkdownLink)
                 }
                 if let color = colorValue, !isEditingText {
@@ -494,7 +503,7 @@ extension ClipPeek {
                 }
                 heroBody
             }
-            .padding(linkParts == nil ? GanchoTokens.Spacing.sm : GanchoTokens.Spacing.md)
+            .padding(link == nil ? GanchoTokens.Spacing.sm : GanchoTokens.Spacing.md)
             if let suggestedBoard {
                 suggestionRow(suggestedBoard)
                     .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
@@ -521,7 +530,7 @@ extension ClipPeek {
     /// The link peek's Markdown row and the action panel's verb copy the same text.
     func copyMarkdownLink() {
         guard let markdown = linkParts?.markdownLink(title: presentedTitle) else { return }
-        SystemPasteboardWriter().write(.text(markdown), asPlainText: true)
+        model.writeManualText(markdown)
         model.toasts.show(GanchoToast(message: "Copied"))
     }
 
@@ -674,7 +683,7 @@ extension ClipPeek {
         return GanchoTokens.Syntax.highlighted(bodyText)
     }
 
-    private var isInlineEditing: Bool {
+    var isInlineEditing: Bool {
         isEditingTitle || isEditingText || isEditingOCR || isEditingTransformField
     }
 

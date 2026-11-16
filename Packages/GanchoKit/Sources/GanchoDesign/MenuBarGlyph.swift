@@ -76,15 +76,13 @@
                 width: badgeSide, height: badgeSide)
         }
 
-        /// The panel's state colours, from the bytes the palette is built on.
+        /// Grey, ink or red, from the bytes the palette is built on: grey
+        /// waits, ink is a mode, red needs the user.
         public static func fill(for badge: MenuBarBadge) -> NSColor {
             switch badge {
             case .denied: color(StatusBytes.dangerLight)
-            case .paused: color(StatusBytes.warning)
-            case .privateMode: color(StatusBytes.indigo)
-            case .ignoreNext: color((0x8E, 0x8E, 0x93))
-            case .agentRead: color(StatusBytes.agentDark)
-            case .stack: ink
+            case .paused, .ignoreNext: color(StatusBytes.ink3)
+            case .privateMode, .agentRead, .stack: color(StatusBytes.ink)
             }
         }
 
@@ -94,30 +92,31 @@
                 blue: CGFloat(bytes.2) / 255, alpha: 1)
         }
 
-        /// Dark on the light fills (amber, grey), white on the rest: 4.5:1 or more.
-        public static func glyphColor(for badge: MenuBarBadge) -> NSColor {
-            switch badge {
-            case .paused, .ignoreNext, .agentRead: ink
-            case .denied, .privateMode, .stack: .white
-            }
-        }
+        /// White reads at 4.5:1 or more on every fill.
+        public static func glyphColor(for badge: MenuBarBadge) -> NSColor { .white }
 
-        static let ink = NSColor(srgbRed: 0x1D / 255, green: 0x1D / 255, blue: 0x1F / 255, alpha: 1)
-
-        /// The capture-state dot beside the menu header, in the badge's colour.
+        /// The capture-state mark beside the menu header, tinted by the menu:
+        /// a dot while capturing, a ring while paused or private, red when denied.
         public static func stateDot(for badge: MenuBarBadge?) -> NSImage {
-            let color: NSColor =
-                switch badge {
-                case .some(let state) where [.denied, .paused, .privateMode].contains(state):
-                    fill(for: state)
-                default: NSColor.systemGreen
-                }
             let side: CGFloat = 10
-            return NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
-                color.setFill()
-                NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()
+            let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+                let dot = NSBezierPath(ovalIn: rect.insetBy(dx: 1.75, dy: 1.75))
+                switch badge {
+                case .denied:
+                    fill(for: .denied).setFill()
+                    dot.fill()
+                case .paused, .privateMode:
+                    NSColor.black.setStroke()
+                    dot.lineWidth = 1.5
+                    dot.stroke()
+                default:
+                    NSColor.black.setFill()
+                    NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()
+                }
                 return true
             }
+            image.isTemplate = badge != .denied
+            return image
         }
 
         /// The badge itself: a white ring, the fill and the glyph.

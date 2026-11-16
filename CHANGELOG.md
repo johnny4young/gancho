@@ -20,6 +20,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   swatch, code keeps its typeface with quiet tints, an image is its thumbnail,
   and a secret shows its mask inside a ring that counts down the time it has
   left. The selected row is a neutral wash, and its key becomes Return.
+- Settings, the menu-bar menu and the copy HUD follow the new look: serif pane
+  titles and mono section headers, menu-bar badges in grey, ink or red only,
+  the paste stack in its own menu section, and a dark HUD that shows the clip
+  you just copied and where it came from.
 - On the Mac, a link's preview leads with its site, names the parts of the URL
   (scheme, host, path, query, fragment), decodes each parameter, and shows what
   Return and ⌥Return paste and the Markdown link you can copy. The preview's

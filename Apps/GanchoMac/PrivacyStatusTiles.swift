@@ -36,9 +36,8 @@ struct PrivacyStatusTiles: View {
 
     private var dotColor: Color {
         switch chip {
-        case .capturing: GanchoTokens.Palette.success
-        case .privateMode: GanchoTokens.Palette.indigo
-        case .paused: GanchoTokens.Palette.warning
+        case .capturing, .privateMode: GanchoTokens.Palette.ink
+        case .paused: GanchoTokens.Palette.ink3
         case .denied: GanchoTokens.Palette.danger
         }
     }
@@ -52,7 +51,7 @@ struct PrivacyStatusTiles: View {
         } else if overview.encryption == nil {
             tile(
                 id: "privacy-status-encrypted", symbol: "lock",
-                ink: Color.secondary, value: Text("Checking encryption…"),
+                ink: GanchoTokens.Palette.ink3, value: Text("Checking encryption…"),
                 detail: Text("SQLCipher · key in your Keychain"))
         } else if overview.encryption?.isVerified == false {
             tile(
@@ -97,8 +96,7 @@ struct PrivacyStatusTiles: View {
         switch model.syncStatus {
         case .idle: AnyShapeStyle(.secondary)
         case .syncing, .pending: AnyShapeStyle(.primary)
-        case .upToDate: AnyShapeStyle(GanchoTokens.Palette.ink2)
-        case .paused: AnyShapeStyle(GanchoTokens.Palette.warningInk)
+        case .upToDate, .paused: AnyShapeStyle(GanchoTokens.Palette.ink2)
         case .failed: AnyShapeStyle(GanchoTokens.Palette.danger)
         }
     }
@@ -123,7 +121,8 @@ struct PrivacyStatusTiles: View {
         .background(.background, in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md))
         .overlay(
             RoundedRectangle(cornerRadius: GanchoTokens.Radius.md)
-                .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline)
+                .strokeBorder(
+                    GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
         )
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier(id)

@@ -3615,6 +3615,26 @@
         }
       }
     },
+    "Pastes with Option-Return": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se pega con Opción-Retorno"
+          }
+        }
+      }
+    },
+    "Pastes with Return": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se pega con Retorno"
+          }
+        }
+      }
+    },
     "pasted back": {
       "extractionState": "stale",
       "localizations": {
@@ -7058,6 +7078,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Acciones"
+          }
+        }
+      }
+    },
+    "All actions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todas las acciones"
           }
         }
       }
@@ -13956,6 +13986,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un marcador del portapapeles quedó vacío."
+          }
+        }
+      }
+    },
+    "Copied · from %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiado · desde %@"
           }
         }
       }

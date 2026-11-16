@@ -55,13 +55,16 @@
             #expect(ratio >= Contrast.text, "\(badge): \(ratio)")
         }
 
-        @Test("Badge fills match the panel's state colours")
+        @Test("Badge fills are the palette's grey, ink and red")
         func fillsMatchTokens() {
             var light = EnvironmentValues()
             light.colorScheme = .light
             let pairs: [(MenuBarBadge, Color)] = [
-                (.paused, GanchoTokens.Palette.warning),
-                (.privateMode, GanchoTokens.Palette.indigo),
+                (.paused, GanchoTokens.Palette.ink3),
+                (.ignoreNext, GanchoTokens.Palette.ink3),
+                (.privateMode, GanchoTokens.Palette.ink),
+                (.agentRead, GanchoTokens.Palette.ink),
+                (.stack(2), GanchoTokens.Palette.ink),
                 (.denied, GanchoTokens.Palette.danger)
             ]
             for (badge, token) in pairs {
@@ -99,9 +102,21 @@
             let badge = MenuBarGlyph.badgeImage(.privateMode)
             #expect(!badge.isTemplate)
             let fill = pixel(badge, at: NSPoint(x: 2.5, y: 6))
-            #expect(fill.red == 0x5E && fill.green == 0x5C && fill.blue == 0xE6, "\(fill)")
+            #expect(fill.red == 0x12 && fill.green == 0x14 && fill.blue == 0x13, "\(fill)")
             let ring = pixel(badge, at: NSPoint(x: 0.4, y: 6))
             #expect(ring.red > 240 && ring.green > 240 && ring.blue > 240, "white ring \(ring)")
+        }
+
+        @Test("The header mark takes the menu's tint, except red for denied")
+        func stateDot() {
+            #expect(MenuBarGlyph.stateDot(for: nil).isTemplate)
+            #expect(MenuBarGlyph.stateDot(for: .paused).isTemplate)
+            let ring = MenuBarGlyph.stateDot(for: .privateMode)
+            #expect(pixel(ring, at: NSPoint(x: 5, y: 5)).alpha == 0, "a ring, not a dot")
+            #expect(pixel(MenuBarGlyph.stateDot(for: nil), at: NSPoint(x: 5, y: 5)).alpha > 200)
+            let denied = MenuBarGlyph.stateDot(for: .denied)
+            #expect(!denied.isTemplate)
+            #expect(pixel(denied, at: NSPoint(x: 5, y: 5)).red == 0xC5)
         }
 
         @Test("The badge follows the status button as it resizes, and hides with no state")

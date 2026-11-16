@@ -45,7 +45,7 @@ struct MenuBarMenuPlanTests {
         #expect(recents(hidden).map(\.masked) == [true, true])
     }
 
-    @Test("The stack row sits after Library only while something waits")
+    @Test("The stack row has its own section under the recents, only while something waits")
     func stackRow() {
         let empty = MenuBarMenuPlan(
             recents: clips(1), stack: [], previewsHidden: false, accessDenied: false)
@@ -54,9 +54,11 @@ struct MenuBarMenuPlanTests {
         let waiting = clips(3)
         let plan = MenuBarMenuPlan(
             recents: clips(1), stack: waiting, previewsHidden: true, accessDenied: false)
-        let library = plan.entries.firstIndex(of: .command(.library))!
-        guard case .stack(let stack) = plan.entries[library + 1] else {
-            Issue.record("no stack row after Library")
+        let panel = plan.entries.firstIndex(of: .command(.openPanel))!
+        #expect(plan.entries[panel - 1] == .separator)
+        #expect(plan.entries[panel - 3] == .separator)
+        guard case .stack(let stack) = plan.entries[panel - 2] else {
+            Issue.record("no stack row between the recents and the commands")
             return
         }
         #expect(stack.waiting == waiting.count)

@@ -395,7 +395,6 @@ final class DesignV4SnapshotUITests: XCTestCase {
     {
         [
             "-use-temp-durable-store", "-start-capture-paused", "-appearance", appearance,
-            "-ui-test-brand-accent",
             "-AppleKeyboardUIMode", keyboardUIMode,
             "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)",
