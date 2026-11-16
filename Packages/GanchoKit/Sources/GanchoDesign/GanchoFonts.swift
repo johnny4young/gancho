@@ -4,6 +4,9 @@ import SwiftUI
 #if canImport(UIKit)
     import UIKit
 #endif
+#if canImport(AppKit)
+    import AppKit
+#endif
 
 /// The bundled typefaces. Registered per process from the package's resource
 /// bundle, so no target needs an Info.plist font entry.
@@ -147,5 +150,27 @@ public enum GanchoType {
         case .bold, .heavy, .black: "Bold"
         default: "Regular"
         }
+    }
+
+    #if canImport(AppKit)
+        /// The role's face for AppKit text such as menu items; nil when the
+        /// family did not register.
+        public static func nsFont(
+            _ role: Role, size: CGFloat, weight: Font.Weight = .regular
+        )
+            -> NSFont?
+        {
+            postScriptName(role, weight: weight).flatMap { NSFont(name: $0, size: size) }
+        }
+    #endif
+}
+
+extension View {
+    /// A mono caps caption: section headers and the label over a value.
+    public func ganchoCaps(size: CGFloat = 10) -> some View {
+        font(GanchoType.font(.data, size: size, weight: .medium))
+            .textCase(.uppercase)
+            .tracking(0.6)
+            .foregroundStyle(GanchoTokens.Palette.ink3)
     }
 }

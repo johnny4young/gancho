@@ -42,7 +42,7 @@ struct ProSettingsTab: View {
                 // it a user replacing their Mac would silently run out of
                 // activations with no way to reclaim them from the app.
                 if model.tier == .pro {
-                    Section("License") {
+                    SettingsSection("License") {
                         Button("Deactivate this Mac") {
                             Task { await deactivate() }
                         }
@@ -59,7 +59,7 @@ struct ProSettingsTab: View {
                         .foregroundStyle(.secondary)
                     }
                 }
-                Section("Software Updates") {
+                SettingsSection("Software Updates") {
                     Button("Check for Updates…") { model.updater.checkForUpdates() }
                     Text(
                         "Direct downloads update themselves automatically; you can also check now."

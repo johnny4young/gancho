@@ -7,7 +7,7 @@ struct IntegrationsSettingsTab: View {
     var body: some View {
         @Bindable var model = model
         Form {
-            Section("Local MCP server") {
+            SettingsSection("Local MCP server") {
                 Toggle(
                     "Allow approved local AI clients",
                     isOn: Binding(

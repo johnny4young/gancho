@@ -20,6 +20,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On iPhone, a color or an image fills the top of its clip, with each color
   format one tap to copy; Copy, Pin, Share and Delete stay docked below. Home
   counts every board, and the keyboard's Up next clip is a card of its own.
+- Settings, the menu-bar menu and the copy HUD follow the new look: serif pane
+  titles and mono section headers, menu-bar badges in grey, ink or red only,
+  the paste stack in its own menu section, and a dark HUD that shows the clip
+  you just copied and where it came from.
 - On the Mac, a link's preview leads with its site, names the parts of the URL
   (scheme, host, path, query, fragment), decodes each parameter, and shows what
   Return and ⌥Return paste and the Markdown link you can copy. The preview's
