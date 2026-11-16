@@ -457,8 +457,8 @@ struct ClipPeek: View {
                 .accessibilityIdentifier("preview-edit-title")
                 favoriteButton
             }
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .clipDragSource(item)
     }
 }
