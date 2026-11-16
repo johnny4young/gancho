@@ -30,7 +30,7 @@ extension AppModel {
         let hidden = previewsHidden
         let line = ClipRowContent(
             item: item, masking: .for(item, previewsHidden: hidden)
-        ).headline.line
+        ).headline.withoutLinkQuery.line
         let content = line.isEmpty ? nil : line
         switch action {
         case .color(let color):

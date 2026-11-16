@@ -135,3 +135,12 @@ public struct ClipRowContent: Equatable, Sendable {
         return ext.isEmpty || ext.count > 8 ? nil : ext.uppercased()
     }
 }
+
+extension ClipRowContent.Headline {
+    /// For surfaces that float over other apps: a link's query and fragment can carry tokens.
+    public var withoutLinkQuery: Self {
+        guard case .link(let host, let path) = self, let path else { return self }
+        let kept = path.prefix { $0 != "?" && $0 != "#" }
+        return .link(host: host, path: kept.isEmpty || kept == "/" ? nil : String(kept))
+    }
+}

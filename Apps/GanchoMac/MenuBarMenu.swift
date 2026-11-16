@@ -19,7 +19,6 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         let id: UUID
         let contentHash: String
         let kind: ClipContentKind
-        let hidden: Bool
         let masked: Bool
         let dark: Bool
         let scale: CGFloat
@@ -234,7 +233,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
             let kind = clip.kind.localizedName
             return String(localized: "\(kind) · masked")
         }
-        let headline = ClipRowContent(item: clip).headline.line
+        let headline = ClipRowContent(item: clip).headline.withoutLinkQuery.line
         let line = headline.isEmpty ? clip.kind.localizedName : headline
         return line.count > titleLimit ? String(line.prefix(titleLimit - 1)) + "…" : line
     }
@@ -248,8 +247,8 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         let scale = NSScreen.main?.backingScaleFactor ?? 2
         let thumbnail = recent.masked ? nil : model.thumbnails.cached(for: clip)
         let key = TileKey(
-            id: clip.id, contentHash: clip.contentHash, kind: clip.kind, hidden: hidden,
-            masked: recent.masked, dark: isDark, scale: scale, hasThumbnail: thumbnail != nil)
+            id: clip.id, contentHash: clip.contentHash, kind: clip.kind, masked: recent.masked,
+            dark: isDark, scale: scale, hasThumbnail: thumbnail != nil)
         if clip.expiresAt == nil, let cached = tiles[key] { return cached }
         let renderer = ImageRenderer(
             content: ClipTile(
