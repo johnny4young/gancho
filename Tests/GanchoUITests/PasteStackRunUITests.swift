@@ -29,7 +29,7 @@ final class PasteStackRunUITests: XCTestCase {
         GanchoUITestCommands.post("openPanel", token: nonce)
         XCTAssertTrue(strip.appears(within: 5))
         XCTAssertTrue(strip.label.contains("2 of 2"), strip.label)
-        strip.click()
+        // A panel opened during a run shows the stack without a click.
         XCTAssertTrue(waitForValue("Pasted", of: rows.element(boundBy: 0)))
         XCTAssertEqual(rows.element(boundBy: 1).value as? String, "Next")
         XCTAssertEqual(rows.count, 2, "a pasted row stays in the run")
