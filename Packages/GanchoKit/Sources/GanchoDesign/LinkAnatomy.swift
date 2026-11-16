@@ -24,7 +24,13 @@ public struct LinkAnatomy: Equatable, Sendable {
         public let name: String
         public let value: String
 
-        public var accessibilityIdentifier: String { "peek-link-param-\(name)" }
+        /// Kebab-case so a name like `utm_source` or `a b` still makes a usable id.
+        public var accessibilityIdentifier: String {
+            let slug = name.lowercased().unicodeScalars.map {
+                CharacterSet.alphanumerics.contains($0) ? String($0) : "-"
+            }
+            return "peek-link-param-" + slug.joined()
+        }
     }
 
     /// The trimmed link the ranges index into.

@@ -3625,6 +3625,26 @@
         }
       }
     },
+    "Pastes with Option-Return": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se pega con Opción-Retorno"
+          }
+        }
+      }
+    },
+    "Pastes with Return": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se pega con Retorno"
+          }
+        }
+      }
+    },
     "pasted back": {
       "extractionState": "stale",
       "localizations": {
