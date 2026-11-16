@@ -468,9 +468,8 @@ struct ClipPeek: View {
 extension ClipPeek {
     /// The kind-aware hero card: the image with its Live-Text regions, a link's
     /// host and original URL (parsed locally, never fetched), the colour hero,
-    /// or the (syntax-tinted) text. The card takes a wash of the kind's tint.
+    /// or the (syntax-tinted) text. The card is neutral: only content brings colour.
     private var hero: some View {
-        let tint = GanchoTokens.Palette.kindTint(for: item.kind)
         let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
@@ -497,17 +496,10 @@ extension ClipPeek {
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background {
-            ZStack {
-                shape.fill(.quaternary.opacity(0.35))
-                shape.fill(
-                    RadialGradient(
-                        colors: [tint.opacity(0.2), .clear], center: .topLeading,
-                        startRadius: 0, endRadius: 360))
-            }
-        }
+        .background(GanchoTokens.Palette.controlFill, in: shape)
         .overlay(
-            shape.strokeBorder(.separator.opacity(0.6), lineWidth: GanchoTokens.Stroke.hairline)
+            shape.strokeBorder(
+                GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("peek-hero")
