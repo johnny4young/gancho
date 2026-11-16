@@ -30,9 +30,9 @@ public enum PanelSizePreset: String, CaseIterable, Identifiable, Sendable {
 
     public var contentSize: CGSize {
         switch self {
-        case .compact: CGSize(width: 760, height: 480)
-        case .standard: CGSize(width: 864, height: 540)
-        case .large: CGSize(width: 1_080, height: 680)
+        case .compact: CGSize(width: 864, height: 540)
+        case .standard: CGSize(width: 1_040, height: 640)
+        case .large: CGSize(width: 1_200, height: 740)
         }
     }
 
@@ -93,6 +93,12 @@ public enum PanelLayout: String, CaseIterable, Sendable {
 
     public static func resolved(_ rawValue: String?) -> PanelLayout {
         rawValue.flatMap(Self.init(rawValue:)) ?? .list
+    }
+
+    /// The list column beside a peek: 432 of a 1040 pt panel, and never so
+    /// narrow or so wide that either pane stops reading.
+    nonisolated public static func listWidth(forPanelWidth width: CGFloat) -> CGFloat {
+        min(max((width * 432 / 1_040).rounded(), 340), 480)
     }
 
     /// Cards want about 168 pt each; never fewer than two across.

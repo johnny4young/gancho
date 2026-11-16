@@ -54,7 +54,7 @@ struct PanelDisplayPreferencesTests {
         for preset in PanelSizePreset.allCases {
             #expect(PanelSizePreset.matching(preset.contentSize) == preset)
         }
-        #expect(PanelSizePreset.matching(CGSize(width: 864.5, height: 540)) == .standard)
+        #expect(PanelSizePreset.matching(CGSize(width: 1_040.5, height: 640)) == .standard)
         #expect(PanelSizePreset.matching(CGSize(width: 900, height: 600)) == nil)
     }
 
@@ -78,6 +78,13 @@ struct PanelDisplayPreferencesTests {
         #expect(standard.width < large.width)
         #expect(compact.height < standard.height)
         #expect(standard.height < large.height)
-        #expect(compact == CGSize(width: 760, height: 480))
+        #expect(standard == CGSize(width: 1_040, height: 640))
+    }
+
+    @Test("The list column keeps the reference share and stays readable at the edges")
+    func listColumnWidth() {
+        #expect(PanelLayout.listWidth(forPanelWidth: 1_040) == 432)
+        #expect(PanelLayout.listWidth(forPanelWidth: 720) == 340)
+        #expect(PanelLayout.listWidth(forPanelWidth: 1_600) == 480)
     }
 }

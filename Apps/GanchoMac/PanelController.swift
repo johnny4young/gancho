@@ -404,7 +404,13 @@ final class PanelController: NSObject, NSWindowDelegate {
         // them to another space.
         created.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         applyBackground(to: created)
-        created.contentView = hosting
+        // In a container: as the content view itself, the hosting view resizes
+        // the window to its own ideal height on the first animated layout.
+        let container = NSView(frame: NSRect(origin: .zero, size: preferredSize))
+        hosting.frame = container.bounds
+        hosting.autoresizingMask = [.width, .height]
+        container.addSubview(hosting)
+        created.contentView = container
         created.contentMinSize = NSSize(
             width: Self.minimumContentSize.width, height: Self.minimumContentSize.height)
         created.contentMaxSize = NSSize(
@@ -418,6 +424,18 @@ final class PanelController: NSObject, NSWindowDelegate {
         #else
             created.setFrameAutosaveName("gancho-panel")
         #endif
+        // Autosave restores where the panel was; its size is the remembered
+        // content size, or the default preset when none was ever chosen.
+        let restored = created.frame
+        let preferredFrame = created.frameRect(
+            forContentRect: NSRect(origin: .zero, size: preferredSize))
+        if restored.size != preferredFrame.size {
+            created.setFrame(
+                NSRect(
+                    x: restored.minX, y: restored.maxY - preferredFrame.height,
+                    width: preferredFrame.width, height: preferredFrame.height),
+                display: false)
+        }
         created.isReleasedWhenClosed = false
         created.delegate = self
         panel = created
