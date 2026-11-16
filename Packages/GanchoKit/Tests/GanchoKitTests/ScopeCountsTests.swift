@@ -73,6 +73,89 @@ struct ScopeCountsTests {
         #expect(hiding.kinds[.code] == nil, "an excluded clip leaves its kind too")
     }
 
+    @Test("Each board's kinds follow its visible members and sum to its count")
+    func kindsPerBoard() async throws {
+        let store = try makeStore()
+        let work = try await store.createPinboard(name: "Work")
+        let design = try await store.createPinboard(name: "Design")
+        let shared = ClipItem(kind: .json, preview: "{}", contentHash: "shared")
+        let pending = ClipItem(kind: .url, preview: "https://pending.example", contentHash: "p")
+        let archived = ClipItem(kind: .image, preview: "archived", contentHash: "a")
+        let expired = ClipItem(
+            kind: .secret, preview: "expired", contentHash: "e", isSensitive: true,
+            expiresAt: .now.addingTimeInterval(-60))
+        let members: [(ClipItem, [UUID])] = [
+            (ClipItem(kind: .url, preview: "https://a.example", contentHash: "u1"), [work.id]),
+            (ClipItem(kind: .url, preview: "https://b.example", contentHash: "u2"), [work.id]),
+            (ClipItem(kind: .code, preview: "let x = 1", contentHash: "c"), [work.id]),
+            (ClipItem(kind: .color, preview: "#112233", contentHash: "k1"), [work.id, design.id]),
+            (ClipItem(kind: .color, preview: "#445566", contentHash: "k2"), [design.id]),
+            (ClipItem(kind: .image, preview: "image", contentHash: "i"), [design.id]),
+            (shared, [work.id, design.id]),
+            (pending, [design.id]),
+            (archived, [work.id]),
+            (expired, [work.id])
+        ]
+        for (item, boards) in members {
+            try await store.insert(item, content: .text(item.preview))
+            for board in boards { try await store.assign(clipID: item.id, toBoard: board) }
+        }
+        try await store.writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET isArchived = 1 WHERE id = ?",
+                arguments: [archived.id.uuidString])
+        }
+
+        let counts = try await store.scopeCounts(excluding: [pending.id])
+        #expect(counts.kindsByBoard[work.id] == [.url: 2, .code: 1, .color: 1, .json: 1])
+        #expect(counts.kindsByBoard[design.id] == [.color: 2, .image: 1, .json: 1])
+        for board in [work.id, design.id] {
+            let summed = counts.kindsByBoard[board]?.values.reduce(0, +)
+            #expect(summed == counts.boards[board])
+        }
+        let all = try await store.scopeCounts(excluding: [])
+        #expect(all.kindsByBoard[design.id]?[.url] == 1, "only the excluded clip leaves")
+    }
+
+    @Test("The per-board kind query walks the board index, not the whole clip table")
+    func boardKindQueryUsesTheBoardIndex() async throws {
+        let store = try makeStore()
+        var boards: [Pinboard] = []
+        for index in 0..<4 { boards.append(try await store.createPinboard(name: "b\(index)")) }
+        let kinds: [ClipContentKind] = [.text, .url, .code, .color, .image]
+        let seeded = (0..<2_000).map { index in
+            (
+                item: ClipItem(
+                    kind: kinds[index % kinds.count], preview: "p\(index)",
+                    contentHash: "h\(index)"),
+                content: ClipContent?.some(.text("body"))
+            )
+        }
+        try await store.importBatch(seeded)
+        try await store.writer.write { [boards] db in
+            for (index, entry) in seeded.prefix(200).enumerated() {
+                try db.execute(
+                    sql: "INSERT INTO clip_board (clipID, boardID) VALUES (?, ?)",
+                    arguments: [entry.item.id.uuidString, boards[index % 4].id.uuidString])
+            }
+            try db.execute(sql: "ANALYZE")
+        }
+        let visible = "clip.isArchived = 0 AND \(GRDBClipboardStore.unexpiredPredicate)"
+        let plan = try await store.writer.read { db in
+            try String.fetchAll(
+                db,
+                sql: "EXPLAIN QUERY PLAN "
+                    + GRDBClipboardStore.boardKindCountsSQL(visible: visible),
+                arguments: [Date.now], adapter: ColumnMapping(["detail": "detail"]))
+        }
+        #expect(
+            plan.contains { $0.contains("idx_clip_board_board") }, "board kinds planned as: \(plan)"
+        )
+        #expect(
+            !plan.contains { $0.hasPrefix("SCAN clip") && !$0.contains("clip_board") },
+            "board kinds scan every clip: \(plan)")
+    }
+
     @Test("Excluded clips leave both the total and their boards")
     func excludesPendingDeletes() async throws {
         let store = try makeStore()
