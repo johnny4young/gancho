@@ -2,20 +2,19 @@ import GanchoDesign
 import GanchoKit
 import SwiftUI
 
-/// Whether a clip has reached iCloud, for the peek's sync chip.
+/// Whether a clip has reached iCloud, for the peek's sync fact.
 enum PeekSyncState: Equatable {
     case synced, waiting
 }
 
-/// Re-reads the sync chip when the selection or the engine's status changes.
+/// Re-reads the sync fact when the selection or the engine's status changes.
 struct PeekSyncStateKey: Equatable {
     let id: UUID
     let status: SyncStatus
 }
 
-/// The provenance row beside the kind pill: source app, age, boards, expiry
-/// and the clip's sync state. A masked clip shows only the pill and its
-/// expiry, like its row.
+/// The provenance caption: kind, source app, age, boards, sync state and
+/// expiry on one line. A masked clip shows only its kind and expiry, like its row.
 struct PeekProvenanceHeader: View {
     let item: ClipItem
     let boards: [Pinboard]
@@ -24,88 +23,70 @@ struct PeekProvenanceHeader: View {
     /// Off when the peek's own countdown already shows the expiry.
     var showsExpiry = true
 
+    private struct Fact: Identifiable {
+        let id: String
+        let text: Text
+        var ink = AnyShapeStyle(GanchoTokens.Palette.ink3)
+    }
+
     var body: some View {
         FlowLayout(spacing: 6) {
-            TypeBadge(kind: item.kind, style: .pill)
-            if !masksProvenance {
-                if let bundleID = item.sourceAppBundleID { appChip(bundleID) }
-                chip(identifier: "peek-age") {
-                    Image(systemName: "clock")
-                    if item.createdAt > .now {
-                        Text(item.createdAt, format: .dateTime.day().month().year())
-                    } else {
-                        Text("\(Text(item.createdAt, style: .relative)) ago")
-                    }
-                }
-                ForEach(boards) { board in
-                    chip(identifier: "peek-board-\(board.id.uuidString)") {
-                        BoardIdentityMark(board: board, size: 9)
-                        board.displayTitle
-                    }
-                    .help(board.displayTitle)
+            ForEach(Array(facts.enumerated()), id: \.element.id) { index, fact in
+                HStack(spacing: 6) {
+                    if index > 0 { Text(verbatim: "·").accessibilityHidden(true) }
+                    fact.text
+                        .foregroundStyle(fact.ink)
+                        .lineLimit(1)
+                        .accessibilityIdentifier(fact.id)
                 }
             }
-            if showsExpiry, let expiresAt = item.expiresAt { expiryChip(expiresAt) }
-            if !masksProvenance, let syncState { syncChip(syncState) }
         }
+        .peekCaps()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("peek-provenance")
     }
 
-    private func appChip(_ bundleID: String) -> some View {
-        chip(identifier: "peek-source-app") {
-            if let icon = SourceApp.icon(forBundleID: bundleID) {
-                Image(nsImage: icon).resizable().frame(width: 12, height: 12)
-            } else {
-                Image(systemName: "app.dashed")
+    private var facts: [Fact] {
+        var facts = [Fact(id: "peek-kind", text: Text(item.kind.cardName))]
+        if !masksProvenance {
+            if let bundleID = item.sourceAppBundleID {
+                facts.append(
+                    Fact(
+                        id: "peek-source-app",
+                        text: Text(verbatim: SourceApp.displayName(forBundleID: bundleID))))
             }
-            Text(SourceApp.displayName(forBundleID: bundleID))
-        }
-    }
-
-    private func expiryChip(_ expiresAt: Date) -> some View {
-        chip(
-            identifier: "peek-expiry", ink: GanchoTokens.Palette.warningInk,
-            fill: GanchoTokens.Palette.warning.opacity(0.18)
-        ) {
-            Image(systemName: "hourglass")
-            Text(expiresAt, style: .relative)
-        }
-        .accessibilityLabel(Text("Expires in \(Text(expiresAt, style: .relative))"))
-    }
-
-    @ViewBuilder private func syncChip(_ state: PeekSyncState) -> some View {
-        switch state {
-        case .synced:
-            chip(
-                identifier: "peek-sync-state", ink: GanchoTokens.Palette.ink2,
-                fill: GanchoTokens.Palette.controlFill
-            ) {
-                Image(systemName: "checkmark.icloud")
-                Text("Synced")
+            let age =
+                item.createdAt > .now
+                ? Text(item.createdAt, format: .dateTime.day().month().year())
+                : Text("\(Text(item.createdAt, style: .relative)) ago")
+            facts.append(Fact(id: "peek-age", text: age))
+            if !boards.isEmpty { facts.append(Fact(id: "peek-boards", text: Text("Board"))) }
+            facts += boards.map {
+                Fact(id: "peek-board-\($0.id.uuidString)", text: $0.displayTitle)
             }
-        case .waiting:
-            chip(identifier: "peek-sync-state") {
-                Image(systemName: "icloud.and.arrow.up")
-                Text("Waiting to sync")
+            switch syncState {
+            case .synced: facts.append(Fact(id: "peek-sync-state", text: Text("Synced")))
+            case .waiting: facts.append(Fact(id: "peek-sync-state", text: Text("Waiting to sync")))
+            case nil: break
             }
         }
+        if showsExpiry, let expiresAt = item.expiresAt {
+            facts.append(
+                Fact(
+                    id: "peek-expiry",
+                    text: Text("Expires in \(Text(expiresAt, style: .relative))"),
+                    ink: AnyShapeStyle(GanchoTokens.Palette.warningInk)))
+        }
+        return facts
     }
+}
 
-    private func chip(
-        identifier: String,
-        ink: some ShapeStyle = Color.primary.opacity(0.8),
-        fill: some ShapeStyle = Color.primary.opacity(0.07),
-        @ViewBuilder content: () -> some View
-    ) -> some View {
-        HStack(spacing: 4) { content() }
-            .panelFont(.subheadline, .semibold)
-            .lineLimit(1)
-            .foregroundStyle(ink)
-            .padding(.horizontal, 7)
-            .frame(minHeight: 22)
-            .background(fill, in: Capsule())
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier(identifier)
+extension View {
+    /// The peek's captions and part labels: small mono capitals, letter-spaced.
+    func peekCaps(size: CGFloat = 10) -> some View {
+        panelFont(size: size, .medium, design: .monospaced)
+            .tracking(size * 0.09)
+            .textCase(.uppercase)
+            .foregroundStyle(GanchoTokens.Palette.ink3)
     }
 }

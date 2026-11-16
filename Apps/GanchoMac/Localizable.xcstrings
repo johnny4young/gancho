@@ -10116,16 +10116,6 @@
         }
       }
     },
-    "decoded · %@": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "decodificado · %@"
-          }
-        }
-      }
-    },
     "%@ · %lld": {
       "localizations": {
         "es": {
@@ -14046,6 +14036,126 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un marcador del portapapeles quedó vacío."
+          }
+        }
+      }
+    },
+    "SCHEME": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ESQUEMA"
+          }
+        }
+      }
+    },
+    "HOST": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HOST"
+          }
+        }
+      }
+    },
+    "PATH": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RUTA"
+          }
+        }
+      }
+    },
+    "QUERY": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CONSULTA"
+          }
+        }
+      }
+    },
+    "QUERY · %lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CONSULTA · %lld"
+          }
+        }
+      }
+    },
+    "FRAGMENT": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FRAGMENTO"
+          }
+        }
+      }
+    },
+    "DECODED": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DECODIFICADO"
+          }
+        }
+      }
+    },
+    "PASTES AS": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SE PEGA COMO"
+          }
+        }
+      }
+    },
+    "plain text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "texto sin formato"
+          }
+        }
+      }
+    },
+    "Markdown link": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "enlace Markdown"
+          }
+        }
+      }
+    },
+    "link": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "enlace"
+          }
+        }
+      }
+    },
+    "Looks like your %@ board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parece de tu tablero %@"
           }
         }
       }

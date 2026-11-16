@@ -41,11 +41,18 @@ final class PanelProvenanceUITests: XCTestCase {
         // Sync is off in UI tests, so the chip says nothing rather than guess.
         XCTAssertFalse(header.descendants(matching: .any)["peek-sync-state"].firstMatch.exists)
         XCTAssertTrue(app.staticTexts["preview-title"].firstMatch.exists)
-        let decoded = app.staticTexts["peek-link-decoded"].firstMatch
-        XCTAssertTrue(decoded.exists)
-        // Selectable text reports its string as the value on macOS.
-        let reading = decoded.label.isEmpty ? decoded.value as? String ?? "" : decoded.label
-        XCTAssertTrue(reading.contains("/a/b?q=a&b"), reading)
+        // The headline carries the decoded path; each parameter decodes in its own chip.
+        let headline = app.staticTexts["peek-link-headline"].firstMatch
+        XCTAssertTrue(headline.exists)
+        let reading = headline.label.isEmpty ? headline.value as? String ?? "" : headline.label
+        XCTAssertTrue(reading.contains("example.com/a/b"), reading)
+        let decoded = app.descendants(matching: .any)["peek-link-decoded"].firstMatch
+        let parameter = decoded.descendants(matching: .any)["peek-link-param-q"].firstMatch
+        XCTAssertTrue(parameter.exists)
+        XCTAssertEqual(parameter.value as? String, "a&b")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["peek-link-part-host"].firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any)["peek-pastes-as"].firstMatch.exists)
     }
 
     @MainActor
