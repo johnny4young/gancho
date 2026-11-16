@@ -129,6 +129,7 @@ struct PanelView: View {
     @State private var galleryColumns = 2
     /// Bumped by ⌘K (and ⌘T); the peek opens its action panel on each change.
     @State private var transformRequest = 0
+    @State private var revealRequest = 0
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.colorScheme) private var colorScheme
@@ -184,6 +185,9 @@ struct PanelView: View {
                 .keyboardShortcut("k", modifiers: .command)
             Button("") { transformRequest += 1 }
                 .keyboardShortcut("t", modifiers: .command)
+            // ⌘R shows the selected secret for its window, or hides it again.
+            Button("") { revealRequest += 1 }
+                .keyboardShortcut("r", modifiers: .command)
             ToastUndoShortcut()
         }
         // A field being edited owns ⌘V and friends; these would act on the list behind it.
@@ -621,7 +625,10 @@ struct PanelView: View {
     private var panelHeader: some View {
         @Bindable var search = search
         return VStack(spacing: 0) {
-            SearchField("Search your clipboard", text: $search.query, style: .bare) {
+            SearchField(
+                "Search your clipboard", text: $search.query, style: .bare,
+                hidesPreviews: model.previewsHidden
+            ) {
                 SearchTokenChips(search: search)
             } trailing: {
                 SearchModeControl(
@@ -903,6 +910,7 @@ struct PanelView: View {
         PanelStatusFooter(
             syncStatus: model.syncStatus,
             chip: model.captureChip(frontApp: model.pasteTarget.appName),
+            privateModeStart: model.preferences.privateModeStartedAt,
             privateModeShortcut: privateModeShortcut,
             awaitsFirstCopy: PanelFirstRunStage.awaitsFirstCopy(
                 historyEmpty: historyIsEmpty, narrowed: isNarrowed),
@@ -1653,6 +1661,7 @@ struct PanelView: View {
                 focus: $focus,
                 isEditingInline: $peekIsEditingInline,
                 transformRequest: transformRequest,
+                revealRequest: revealRequest,
                 addToBoard: presentBoardPicker,
                 addToLastBoard: { model.assignToLastBoard(search.selectedItems) },
                 showContext: peekShowContext

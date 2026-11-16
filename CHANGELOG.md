@@ -40,6 +40,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On the Mac, an empty history shows Gancho's hook and the three keys that
   make the whole loop, and a search that finds nothing lists what the other
   modes found, with the best one a single ↓ away and previewed beside it.
+- On the Mac, time left is a ring and privacy is redaction: a secret's preview
+  counts down on a dial (⌘R reveals it for 10 s), and Private Mode shows its
+  time left on the same ring and draws hidden rows and previews as bars and
+  hatch, with no indigo.
 - On the Mac, each copy costs Gancho far less work. Titles, search and board
   suggestions share one loaded language model instead of loading it for every
   clip, and the hidden history panel no longer redraws itself on every copy.

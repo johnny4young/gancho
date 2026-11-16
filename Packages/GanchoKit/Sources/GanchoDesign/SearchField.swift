@@ -12,6 +12,8 @@ public struct SearchField<Leading: View, Trailing: View>: View {
 
     let promptKey: LocalizedStringKey
     let style: Style
+    /// While previews are hidden the magnifier becomes an eye-slash.
+    let hidesPreviews: Bool
     @Binding var text: String
     /// Sits between the magnifier and the text: filter chips.
     let leading: Leading
@@ -20,9 +22,11 @@ public struct SearchField<Leading: View, Trailing: View>: View {
 
     public init(
         _ promptKey: LocalizedStringKey, text: Binding<String>, style: Style = .card,
+        hidesPreviews: Bool = false,
         @ViewBuilder leading: () -> Leading, @ViewBuilder trailing: () -> Trailing
     ) {
         self.promptKey = promptKey
+        self.hidesPreviews = hidesPreviews
         self._text = text
         self.style = style
         self.leading = leading()
@@ -43,9 +47,13 @@ public struct SearchField<Leading: View, Trailing: View>: View {
         }
     }
 
+    var glyph: String {
+        hidesPreviews ? "eye.slash" : "magnifyingglass"
+    }
+
     private var field: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: "magnifyingglass")
+            Image(systemName: glyph)
                 .foregroundStyle(.secondary)
                 .frame(width: 16, alignment: .center)
                 .accessibilityHidden(true)
@@ -85,9 +93,12 @@ extension View {
 }
 
 extension SearchField where Leading == EmptyView, Trailing == EmptyView {
-    public init(_ promptKey: LocalizedStringKey, text: Binding<String>, style: Style = .card) {
+    public init(
+        _ promptKey: LocalizedStringKey, text: Binding<String>, style: Style = .card,
+        hidesPreviews: Bool = false
+    ) {
         self.init(
-            promptKey, text: text, style: style, leading: { EmptyView() },
-            trailing: { EmptyView() })
+            promptKey, text: text, style: style, hidesPreviews: hidesPreviews,
+            leading: { EmptyView() }, trailing: { EmptyView() })
     }
 }

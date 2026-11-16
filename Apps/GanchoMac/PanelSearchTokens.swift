@@ -72,7 +72,7 @@ struct SearchTokenChips: View {
             .panelFont(.caption, .semibold)
             .padding(.horizontal, 7)
             .frame(height: 22)
-            .ganchoTintedPill(GanchoTokens.Palette.indigo, wash: 0.14)
+            .ganchoChip(selected: false)
             .fixedSize()
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("search-token-chip-\(chip.key.rawValue)")
@@ -110,7 +110,7 @@ struct SearchTokenPopover: View {
                 HStack(spacing: GanchoTokens.Spacing.xs) {
                     Text(verbatim: key(of: completion))
                         .panelFont(.caption, design: .monospaced)
-                        .foregroundStyle(ReadableInk(base: GanchoTokens.Palette.indigo))
+                        .foregroundStyle(GanchoTokens.Palette.ink)
                     Text(verbatim: detail(of: completion))
                         .panelFont(.caption)
                         .foregroundStyle(.secondary)

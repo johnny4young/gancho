@@ -9,8 +9,8 @@ struct PeekAction: Identifiable {
     let symbol: String
     /// A shorter label for the dock's quiet verbs; nil uses `title`.
     var shortTitle: LocalizedStringKey?
-    /// The key drawn beside a dock verb. Dock actions have one; the Dev
-    /// Action chips don't.
+    /// The key drawn beside a verb. Dock actions have one; of the chips,
+    /// only a secret's reveal does.
     var shortcut: String?
     /// Draws the chip's label in the danger ink (Delete now).
     var isDestructive = false
@@ -91,6 +91,9 @@ struct PeekActionButton: View {
         HStack(spacing: 4) {
             Image(systemName: action.symbol).panelFont(.caption)
             Text(action.title).panelFont(.subheadline, .medium).lineLimit(1)
+            if let shortcut = action.shortcut {
+                KeyCap(shortcut).accessibilityHidden(true)
+            }
         }
         .foregroundStyle(
             action.isDestructive

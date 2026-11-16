@@ -54,8 +54,61 @@ struct TimeRingTests {
         #expect(
             Countdown(item: secret, lifetime: 120)?.deadline == Self.start.addingTimeInterval(120))
 
+        // Retention's lifetime clause purges sensitive clips only.
+        let token = ClipItem(createdAt: Self.start, kind: .jwt, contentHash: "j", expiresAt: expiry)
+        #expect(Countdown(item: token, lifetime: 120) == Self.ten, "not sensitive: its own expiry")
+
         let plain = ClipItem(createdAt: Self.start, contentHash: "p", expiresAt: expiry)
         #expect(Countdown(item: plain) == nil)
         #expect(Countdown(item: ClipItem(kind: .secret, contentHash: "n")) == nil, "no expiry")
+    }
+
+    @Test("A reveal window empties over its ten seconds")
+    func revealWindow() {
+        let until = Self.start.addingTimeInterval(10)
+        let reveal = Countdown(window: 10, endingAt: until)
+        #expect(reveal.start == Self.start)
+        #expect(reveal.fraction(at: at(0)) == 1)
+        #expect(reveal.fraction(at: at(2.5)) == 0.75)
+        #expect(reveal.fraction(at: at(10)) == 0)
+    }
+
+    @Test("A timed mode's ring runs from its start to its deadline; none without both")
+    func timedMode() throws {
+        let end = Self.start.addingTimeInterval(3600)
+        let mode = try #require(Countdown(from: Self.start, until: end))
+        #expect(mode.fraction(at: at(0)) == 1)
+        #expect(mode.fraction(at: at(120)) == 58.0 / 60)
+        #expect(mode.fraction(at: at(3600)) == 0)
+
+        #expect(Countdown(from: Self.start, until: nil) == nil, "on until turned off")
+        #expect(Countdown(from: nil, until: end) == nil)
+        #expect(Countdown(from: end, until: Self.start) == nil, "dates out of order")
+    }
+
+    @Test("A ring redraws each second, or about once a degree on a long span")
+    func tickInterval() {
+        func span(_ seconds: TimeInterval) -> TimeInterval {
+            Countdown(window: seconds, endingAt: Self.start).tickInterval
+        }
+        #expect(span(10) == 1, "a reveal")
+        #expect(span(600) == 1, "a secret's lifetime")
+        #expect(span(900) == 2)
+        #expect(span(1800) == 5)
+        #expect(span(3600) == 10, "an hour of Private Mode")
+        #expect(span(86_400) == 10)
+        for seconds in [10.0, 900, 1800, 3600] {
+            #expect(60.0.truncatingRemainder(dividingBy: span(seconds)) == 0)
+        }
+    }
+
+    @Test("Only a secret's ring turns red in its last minute; a mode's never does")
+    @MainActor
+    func modeRingNeverWarns() throws {
+        let lastMinute = at(570)
+        #expect(TimeRing(Self.ten).strokeIsUrgent(at: lastMinute))
+        let mode = try #require(ModeRing(Self.ten).ring)
+        #expect(!mode.strokeIsUrgent(at: lastMinute))
+        #expect(ModeRing(nil).ring == nil, "no deadline: a plain ring")
     }
 }
