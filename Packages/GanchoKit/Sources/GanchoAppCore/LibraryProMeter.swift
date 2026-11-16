@@ -29,6 +29,11 @@ public struct LibraryProMeter: Equatable, Sendable {
         return min(max(shares.max() ?? 0, 0), 1)
     }
 
+    /// How many of the bar's `total` segments are lit; any use lights one.
+    public func filledSegments(of total: Int = 5) -> Int {
+        fraction > 0 ? max(1, Int((fraction * Double(total)).rounded())) : 0
+    }
+
     public var pressure: FreeTierLimits.Pressure {
         FreeTierLimits.pressure(slotsLeft: ceilings.map(\.left).min() ?? 0)
     }

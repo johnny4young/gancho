@@ -24,7 +24,6 @@ extension LibraryView {
         let lastID = clips.last?.id
         return VStack(spacing: 0) {
             scopeHeader
-            Divider()
             if metadataLoadFailed, !clips.isEmpty {
                 libraryReadFailure { Task { await refreshAll() } }
             }
@@ -48,7 +47,7 @@ extension LibraryView {
                 emptyScope
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
+                    LazyVStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
                         ForEach(ClipSections.grouped(clips, now: .now)) { group in
                             sectionHeader(group.section, count: group.clips.count)
                             sectionBody(group.clips, lastID: lastID)
@@ -78,15 +77,13 @@ extension LibraryView {
     @ViewBuilder private func sectionBody(_ group: [ClipItem], lastID: UUID?) -> some View {
         switch layout {
         case .grid:
-            LazyVGrid(
-                columns: [
-                    GridItem(
-                        .adaptive(minimum: 260), spacing: GanchoTokens.Spacing.sm, alignment: .top)
-                ],
-                spacing: GanchoTokens.Spacing.sm
-            ) {
-                ForEach(group) { clip in
-                    clipCard(clip).task { if clip.id == lastID { await clipList.loadMore() } }
+            // A layout measures every card it holds, so the wall is built in
+            // bands the lazy stack can mount and release one at a time.
+            ForEach(Self.bands(group), id: \.first?.id) { band in
+                MasonryLayout(spacing: GanchoTokens.Spacing.md) {
+                    ForEach(band) { clip in
+                        clipCard(clip).task { if clip.id == lastID { await clipList.loadMore() } }
+                    }
                 }
             }
         case .list:
@@ -98,15 +95,22 @@ extension LibraryView {
         }
     }
 
+    private static func bands(_ clips: [ClipItem], size: Int = 24) -> [[ClipItem]] {
+        stride(from: 0, to: clips.count, by: size).map {
+            Array(clips[$0..<min($0 + size, clips.count)])
+        }
+    }
+
     private func sectionHeader(_ section: ClipSection, count: Int) -> some View {
         HStack(spacing: 4) {
             if section == .pinned { Image(systemName: "pin.fill").panelFont(size: 8) }
             Text(sectionTitle(section))
             Text(verbatim: "· \(count)").monospacedDigit()
         }
-        .panelFont(.caption2, .bold)
+        .panelFont(.caption2, design: .monospaced)
         .textCase(.uppercase)
-        .foregroundStyle(.secondary)
+        .tracking(1)
+        .foregroundStyle(GanchoTokens.Palette.ink3)
         .padding(.top, GanchoTokens.Spacing.xs)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("library-section")
@@ -189,7 +193,8 @@ extension LibraryView {
                 } label: {
                     LibraryClipCard(
                         clip: clip, boards: cardBoards(clip), thumbnails: model.libraryThumbnails,
-                        previewsHidden: model.previewsHidden)
+                        previewsHidden: model.previewsHidden,
+                        sensitiveLifetime: model.retentionPolicy.sensitiveLifetime)
                 }
                 .buttonStyle(.plain)
                 .clipDragSource(clip)
@@ -341,6 +346,8 @@ extension LibraryView {
             allCount = nextAllCount
             pinnedCount = nextPinnedCount
             boardCounts = counts
+            kindCounts = scope?.kinds ?? [:]
+            boardKindCounts = scope?.kindsByBoard ?? [:]
             filterCounts = nextFilterCounts
             metadataLoadFailed = false
             await loadScope(preservingWindow: true)

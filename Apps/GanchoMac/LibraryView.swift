@@ -20,6 +20,9 @@ struct LibraryView: View {
     @State var selection: LibrarySelection? = .allClips
     @State var boards: [Pinboard] = []
     @State var boardCounts: [UUID: Int] = [:]
+    /// Visible clips by kind, overall and per board, for the header's mix bar.
+    @State var kindCounts: [ClipContentKind: Int] = [:]
+    @State var boardKindCounts: [UUID: [ClipContentKind: Int]] = [:]
     @State var allCount = 0
     @State var pinnedCount = 0
     @State var snippets: [ClipItem] = []

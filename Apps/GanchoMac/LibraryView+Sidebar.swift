@@ -54,6 +54,7 @@ extension LibraryView {
                 Section {
                     ForEach(model.savedFilters.rules) { rule in
                         savedFilterRow(rule).tag(LibrarySelection.savedFilter(rule.id))
+                            .listRowBackground(rowWash(.savedFilter(rule.id)))
                             .accessibilityIdentifier("saved-filter-row")
                             .contextMenu {
                                 Button("Edit filter…") { filterDraft = rule }
@@ -96,6 +97,7 @@ extension LibraryView {
                     }
                     ForEach(snippets) { snippet in
                         snippetRow(snippet).tag(LibrarySelection.snippet(snippet.id))
+                            .listRowBackground(rowWash(.snippet(snippet.id)))
                     }
                 } header: {
                     sectionHeader(
@@ -131,8 +133,7 @@ extension LibraryView {
                 }
             } header: {
                 Text("Suggested · \(snippetSuggestions.total - hidden)")
-                    .textCase(.uppercase)
-                    .foregroundStyle(GanchoTokens.Palette.ink2)
+                    .sidebarCaps()
                     .accessibilityIdentifier("snippet-suggestions-header")
             }
         }
@@ -155,16 +156,15 @@ extension LibraryView {
             } else {
                 Image(systemName: systemImage)
                     .frame(width: 18)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
             }
-            label.lineLimit(1)
+            label.lineLimit(1).foregroundStyle(GanchoTokens.Palette.ink)
             if let board, model.agentExposedBoardIDs.contains(board.id) {
                 AgentExposedBadge(compact: true)
             }
             Spacer(minLength: 0)
             if count > 0 {
-                Text(verbatim: "\(count)")
-                    .font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                rowCount(count)
                     .contentTransition(.numericText(value: Double(count)))
                     .animation(
                         GanchoMotion.quick(reduceMotion: reduceMotion),
@@ -172,6 +172,20 @@ extension LibraryView {
             }
         }
         .tag(selectionValue)
+        .listRowBackground(rowWash(selectionValue))
+    }
+
+    /// The selected row's neutral wash, in place of the system highlight.
+    private func rowWash(_ value: LibrarySelection) -> some View {
+        RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
+            .fill(selection == value ? GanchoTokens.Palette.selectionWash : Color.clear)
+            .padding(.horizontal, GanchoTokens.Spacing.xs)
+    }
+
+    private func rowCount(_ count: Int) -> some View {
+        Text(verbatim: "\(count)")
+            .panelFont(.caption2, design: .monospaced)
+            .foregroundStyle(GanchoTokens.Palette.ink3)
     }
 
     private func boardTitle(_ board: Pinboard) -> Text {
@@ -182,21 +196,24 @@ extension LibraryView {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             Image(systemName: "text.alignleft")
                 .frame(width: 18)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
             if snippet.title.isEmpty {
-                Text("Untitled").lineLimit(1).foregroundStyle(.secondary)
+                Text("Untitled").lineLimit(1).foregroundStyle(GanchoTokens.Palette.ink3)
             } else {
                 Text(verbatim: snippet.title).lineLimit(1)
+                    .foregroundStyle(GanchoTokens.Palette.ink)
             }
             Spacer(minLength: 0)
             if let keyword = snippet.keyword, !keyword.isEmpty {
                 Text(verbatim: keyword)
-                    .font(.caption2.weight(.semibold).monospaced())
-                    .foregroundStyle(.secondary)
+                    .panelFont(.caption2, .medium, design: .monospaced)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
                     .lineLimit(1)
                     .padding(.horizontal, 4)
                     .frame(height: 16)
-                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
+                    .background(
+                        GanchoTokens.Palette.controlFill, in: RoundedRectangle(cornerRadius: 5)
+                    )
                     .accessibilityIdentifier("snippet-keyword")
             }
         }
@@ -205,15 +222,12 @@ extension LibraryView {
     /// A saved filter with its glyph and how many clips it holds right now.
     private func savedFilterRow(_ rule: SmartCollectionRule) -> some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: "line.3.horizontal.decrease.circle")
+            Image(systemName: "line.3.horizontal.decrease")
                 .frame(width: 18)
-                .foregroundStyle(.secondary)
-            Text(verbatim: rule.name).lineLimit(1)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
+            Text(verbatim: rule.name).lineLimit(1).foregroundStyle(GanchoTokens.Palette.ink)
             Spacer(minLength: 0)
-            if let count = filterCounts[rule.id] {
-                Text(verbatim: "\(count)")
-                    .font(.caption).monospacedDigit().foregroundStyle(.secondary)
-            }
+            if let count = filterCounts[rule.id] { rowCount(count) }
         }
     }
 
@@ -224,13 +238,11 @@ extension LibraryView {
         -> some View
     {
         HStack {
-            label
-            if let badge {
-                badge.font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
-            }
+            label.sidebarCaps()
+            if let badge { badge.sidebarCaps() }
             Spacer()
             IconActionButton(addLabel, systemImage: "plus", identifier: identifier, action: add)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
         }
     }
 
@@ -267,19 +279,20 @@ extension LibraryView {
                     HStack(spacing: GanchoTokens.Spacing.xs) {
                         Image(systemName: "star.fill")
                             .foregroundStyle(GanchoTokens.Palette.ink2)
-                        Text(verbatim: "gancho Pro").font(.caption.weight(.bold))
+                        Text(verbatim: "gancho Pro").panelFont(.caption, .medium)
+                            .foregroundStyle(GanchoTokens.Palette.ink)
                     }
-                    GeometryReader { proxy in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(.quaternary)
-                            Capsule().fill(meterColor(meter.pressure))
-                                .frame(width: proxy.size.width * meter.fraction)
+                    HStack(spacing: 3) {
+                        ForEach(0..<5, id: \.self) { segment in
+                            Capsule().fill(
+                                segment < meter.filledSegments()
+                                    ? meterColor(meter.pressure) : GanchoTokens.Palette.hairline)
                         }
                     }
-                    .frame(height: 5)
+                    .frame(height: 3)
                     .accessibilityHidden(true)
                     Text(meterCaption(meter))
-                        .font(.caption2).foregroundStyle(.secondary)
+                        .panelFont(.caption2).foregroundStyle(GanchoTokens.Palette.ink3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.horizontal, GanchoTokens.Spacing.sm)
@@ -299,7 +312,7 @@ extension LibraryView {
 
     private func meterColor(_ pressure: FreeTierLimits.Pressure) -> Color {
         switch pressure {
-        case .comfortable: GanchoTokens.Palette.ink2
+        case .comfortable: GanchoTokens.Palette.ink
         case .almostFull: GanchoTokens.Palette.warning
         case .reached: GanchoTokens.Palette.danger
         }
@@ -322,4 +335,14 @@ extension LibraryView {
         return (counts + [tail]).joined(separator: " · ")
     }
 
+}
+
+extension View {
+    /// A sidebar section's header: small mono capitals.
+    fileprivate func sidebarCaps() -> some View {
+        panelFont(.caption2, design: .monospaced)
+            .textCase(.uppercase)
+            .tracking(1)
+            .foregroundStyle(GanchoTokens.Palette.ink3)
+    }
 }
