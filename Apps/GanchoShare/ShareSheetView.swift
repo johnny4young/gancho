@@ -64,6 +64,8 @@ struct ShareSheetView: View {
                 Button("OK", role: .cancel) {}
             }
         }
+        // The extension runs outside the app, so it doesn't inherit the app's tint.
+        .tint(GanchoTokens.Palette.controlTint)
         .accessibilityIdentifier("share-sheet")
     }
 

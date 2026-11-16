@@ -122,4 +122,10 @@ struct LinkAnatomyTests {
             LinkAnatomy.Parameter(name: "ref", value: "x").accessibilityIdentifier
                 == "peek-link-param-ref")
     }
+
+    @Test("A form-encoded plus reads as a space; an escaped plus stays a plus")
+    func formEncodedPlus() throws {
+        let anatomy = try #require(LinkAnatomy(text: "https://example.com/s?q=hello+world&p=1%2B1"))
+        #expect(anatomy.parameters.map(\.value) == ["hello world", "1+1"])
+    }
 }

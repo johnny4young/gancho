@@ -2242,7 +2242,8 @@ final class AppModel {
             await refreshRecents()
             return false
         }
-        if member { lastAssignedBoardID = board.id }
+        // Starring a clip shouldn't retarget ⇧⌘B away from the board in use.
+        if member, !board.isSystem { lastAssignedBoardID = board.id }
         await refreshRecents()
         notifyStoreChanged(for: .boards)
         return true

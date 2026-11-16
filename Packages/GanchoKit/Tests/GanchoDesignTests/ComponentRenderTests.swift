@@ -89,14 +89,6 @@
             }
         }
 
-        @Test("TypeBadge renders for every kind")
-        func typeBadges() {
-            for kind in ClipContentKind.allCases {
-                let image = render(TypeBadge(kind: kind), dark: false)
-                #expect((image?.width ?? 0) > 0, "kind: \(kind)")
-            }
-        }
-
         @Test("ActionButton and SearchField render", arguments: [false, true])
         func controls(dark: Bool) {
             let button = render(

@@ -130,6 +130,15 @@ struct ContrastTokenTests {
         #expect(Contrast.ratio(tint, resolved(0xFFFFFF, environment)) >= Contrast.largeText)
     }
 
+    @Test("Image overlays stay visible on black and on white images", arguments: appearances)
+    func imageOverlay(scheme: ColorScheme) {
+        let environment = environment(scheme)
+        let overlay = GanchoTokens.ColorPair.imageOverlay.resolved(scheme)
+        for image in [0x000000, 0xFFFFFF] {
+            #expect(Contrast.ratio(overlay, resolved(image, environment)) >= Contrast.largeText)
+        }
+    }
+
     @MainActor @Test("Danger reads as text on its surfaces", arguments: appearances)
     func dangerText(scheme: ColorScheme) {
         let environment = environment(scheme)
@@ -173,7 +182,7 @@ struct ContrastTokenTests {
     @MainActor
     @Test(
         "Kind and status pills stay AA on their own tinted wash",
-        arguments: [0.1, 0.12, TypeBadge.washOpacity, 0.15, 0.16])
+        arguments: [0.1, 0.12, 0.14, 0.15, 0.16])
     func readableInkOnTintedWash(wash: Double) {
         let hues =
             ClipContentKind.allCases.map(GanchoTokens.Palette.kindTint(for:))

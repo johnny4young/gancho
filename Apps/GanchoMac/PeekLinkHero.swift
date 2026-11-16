@@ -148,12 +148,15 @@ struct PeekLinkHero: View {
             // Return and ⌥Return write the same text for a link: plain paste
             // only strips rich representations, and a link has none.
             pasteRow(text: parts.text, note: "link", textID: "peek-link-url") { ReturnKeyCap() }
+                .textSelection(.enabled)
                 .accessibilityElement(children: .contain)
+                .accessibilityHint(Text("Pastes with Return"))
                 .accessibilityIdentifier("peek-pastes-as-return")
             pasteRow(text: parts.text, note: "plain text", textID: "peek-pastes-as-plain-text") {
                 KeyCap("⌥↩").accessibilityHidden(true)
             }
             .accessibilityElement(children: .contain)
+            .accessibilityHint(Text("Pastes with Option-Return"))
             .accessibilityIdentifier("peek-pastes-as-plain")
             // No key copies Markdown yet, so the row itself does.
             Button(action: copyMarkdown) {

@@ -60,7 +60,12 @@ struct PeekProvenanceHeader: View {
                 ? Text(item.createdAt, format: .dateTime.day().month().year())
                 : Text("\(Text(item.createdAt, style: .relative)) ago")
             facts.append(Fact(id: "peek-age", text: age))
-            if !boards.isEmpty { facts.append(Fact(id: "peek-boards", text: Text("Board"))) }
+            if !boards.isEmpty {
+                facts.append(
+                    Fact(
+                        id: "peek-boards", text: boards.count == 1 ? Text("Board") : Text("Boards"))
+                )
+            }
             facts += boards.map {
                 Fact(id: "peek-board-\($0.id.uuidString)", text: $0.displayTitle)
             }

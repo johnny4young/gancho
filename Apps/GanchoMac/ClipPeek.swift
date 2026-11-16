@@ -465,8 +465,8 @@ struct ClipPeek: View {
                 .accessibilityIdentifier("preview-edit-title")
                 favoriteButton
             }
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .clipDragSource(item)
     }
 }
@@ -479,14 +479,15 @@ extension ClipPeek {
     /// or the (syntax-tinted) text. The card is neutral: only content brings colour.
     private var hero: some View {
         let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
+        let link = isEditingText ? nil : linkParts
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-                if let parts = linkParts, !isEditingText {
-                    let markdown = parts.markdownLink(title: presentedTitle)
+                if let link {
+                    let markdown = link.markdownLink(title: presentedTitle)
                     PeekLinkHero(
-                        parts: parts, anatomy: LinkAnatomy(text: parts.text), markdown: markdown
+                        parts: link, anatomy: LinkAnatomy(text: link.text), markdown: markdown
                     ) {
-                        SystemPasteboardWriter().write(.text(markdown), asPlainText: true)
+                        model.writeManualText(markdown)
                         model.toasts.show(GanchoToast(message: "Copied"))
                     }
                 }
@@ -497,7 +498,7 @@ extension ClipPeek {
                 }
                 heroBody
             }
-            .padding(linkParts == nil ? GanchoTokens.Spacing.sm : GanchoTokens.Spacing.md)
+            .padding(link == nil ? GanchoTokens.Spacing.sm : GanchoTokens.Spacing.md)
             if let suggestedBoard {
                 suggestionRow(suggestedBoard)
                     .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
