@@ -45,6 +45,24 @@ final class IOSFlowsV4UITests: XCTestCase {
     }
 
     @MainActor
+    func testColorDetailShowsItsValueOnce() throws {
+        let app = try launch(["-seed-home-v4", "-seed-home-color"])
+        defer { app.terminate() }
+        let coral = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == 'clip-row' AND label CONTAINS %@", "#FF6B4A")
+        ).firstMatch
+        XCTAssertTrue(coral.appears(within: 10))
+        coral.tap()
+        expandSheet(in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["detail-color-hero"].firstMatch.appears(within: 5))
+        XCTAssertTrue(app.buttons["detail-format-hex"].firstMatch.exists)
+        XCTAssertFalse(
+            app.descendants(matching: .any)["detail-content"].firstMatch.exists,
+            "the hero and format rows carry the value; no text block repeats it")
+    }
+
+    @MainActor
     func testSnippetIsOffForASecretAndSetForASnippet() throws {
         let app = try launch(["-seed-home-v4"])
         defer { app.terminate() }

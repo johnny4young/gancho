@@ -199,7 +199,7 @@ extension IOSAppModel {
             else { return }
             Task {
                 let now = Date()
-                let rows: [(ClipItem, String)] = [
+                let base: [(ClipItem, String)] = [
                     (
                         ClipItem(
                             createdAt: now.addingTimeInterval(-3_600), title: "Standup notes",
@@ -233,6 +233,15 @@ extension IOSAppModel {
                         "let greeting = \"Hello\""
                     )
                 ]
+                var rows = base
+                // Opt-in, so the counts the other tests read stay as they are.
+                if ProcessInfo.processInfo.arguments.contains("-seed-home-color") {
+                    let coral = ClipItem(
+                        createdAt: now.addingTimeInterval(-360), kind: .color,
+                        title: "Launch coral", preview: "#FF6B4A", contentHash: "ios-home-color",
+                        sourceAppBundleID: "com.figma.Desktop", sourceDeviceName: "Studio Mac")
+                    rows.append((coral, "#FF6B4A"))
+                }
                 for (item, text) in rows { _ = try? await full.insert(item, content: .text(text)) }
                 // The pinned note doubles as a snippet with a keyword, for the boards home.
                 if let note = rows.first?.0 {

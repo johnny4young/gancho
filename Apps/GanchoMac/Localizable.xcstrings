@@ -11246,16 +11246,6 @@
         }
       }
     },
-    "Search clips": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Buscar clips"
-          }
-        }
-      }
-    },
     "Search the Library": {
       "localizations": {
         "es": {
@@ -11312,16 +11302,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vista"
-          }
-        }
-      }
-    },
-    "expires in %@": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "caduca en %@"
           }
         }
       }
@@ -13976,6 +13956,74 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un marcador del portapapeles quedó vacío."
+          }
+        }
+      }
+    },
+    "%@, %@": {
+      "comment": "Two parts of a spoken description, joined in a list.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, %@"
+          }
+        }
+      }
+    },
+    "Kinds: %@": {
+      "comment": "Spoken summary of a board's kind mix, e.g. Kinds: 9 Colors, 6 Images.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kinds: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipos: %@"
+          }
+        }
+      }
+    },
+    "%lld %@": {
+      "comment": "A count and the kind it counts, e.g. 9 Colors.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld %@"
+          }
+        }
+      }
+    },
+    "%lld other": {
+      "comment": "How many clips of a board are of kinds the mix bar does not name.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld other"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld de otro tipo"
           }
         }
       }

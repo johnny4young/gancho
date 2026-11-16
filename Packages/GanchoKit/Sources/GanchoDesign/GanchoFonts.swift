@@ -1,6 +1,9 @@
 import CoreText
 import SwiftUI
 
+#if canImport(UIKit)
+    import UIKit
+#endif
 #if canImport(AppKit)
     import AppKit
 #endif
@@ -100,6 +103,19 @@ public enum GanchoType {
     ) -> Font {
         font(design: role.design, size: size, weight: weight, relativeTo: style)
     }
+
+    #if canImport(UIKit)
+        /// The role's face for a bar the system draws, scaled with Dynamic
+        /// Type; nil when the face did not register.
+        public static func uiFont(
+            _ role: Role, size: CGFloat, textStyle: UIFont.TextStyle
+        ) -> UIFont? {
+            guard let name = postScriptName(role, weight: .regular),
+                let font = UIFont(name: name, size: size)
+            else { return nil }
+            return UIFontMetrics(forTextStyle: textStyle).scaledFont(for: font)
+        }
+    #endif
 
     /// The bundled face behind a system design, or the system font when the
     /// design has no role or its face did not register.

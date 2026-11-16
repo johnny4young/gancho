@@ -28,7 +28,12 @@ final class TranslationCapabilityUITests: XCTestCase {
         ).firstMatch
         XCTAssertTrue(detail.appears(within: 5))
         let menu = app.buttons["smart-paste-menu"].firstMatch
-        for _ in 0..<4 where !menu.exists || !menu.isHittable { detail.swipeUp() }
+        // Rows scroll under the docked Copy bar, where a tap would land on it.
+        let dock = app.buttons["detail-copy"].firstMatch
+        for _ in 0..<4
+        where !menu.exists || !menu.isHittable || menu.frame.maxY > dock.frame.minY {
+            detail.swipeUp()
+        }
         XCTAssertTrue(menu.appears(within: 5))
         XCTAssertTrue(menu.isHittable)
         XCTAssertFalse(app.buttons["smart-paste-summarize-action"].firstMatch.exists)

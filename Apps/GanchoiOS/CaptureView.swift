@@ -48,6 +48,10 @@ struct CaptureView: View {
                         Task { await model.search() }
                     }
                     .navigationTitle("Gancho")
+                    .navigationSubtitle(
+                        model.activeScopeCount.map { Text("\($0) clips") }
+                            ?? Text(verbatim: "")
+                    )
                     .navigationDestination(for: UUID.self) { id in
                         ClipDetailDestination(id: id, fallback: deepLinkedClips[id])
                     }
@@ -71,6 +75,10 @@ struct CaptureView: View {
                         .disabled(BoardsController.boardName(renameField) == nil)
                     }
                     .refreshable { await model.forceSync() }
+                    .task {
+                        model.tracksScopeCounts = true
+                        await model.refreshScopeCounts()
+                    }
                     .accessibilityIdentifier("capture-screen")
                     .reuseSuggestionInset()
             }
@@ -109,7 +117,11 @@ struct CaptureView: View {
         }
 
         if model.visibleClips.isEmpty {
-            Section(listTitle) { emptyState }
+            Section {
+                emptyState
+            } header: {
+                SectionCountHeader(title: listTitle, count: nil)
+            }
         } else if model.isGroupedView {
             // Pinned first, then Today / Yesterday / … date sections.
             ForEach(model.sections) { group in
@@ -242,54 +254,40 @@ struct CaptureView: View {
     private var listTitle: LocalizedStringKey { model.query.isEmpty ? "History" : "Results" }
 
     /// Boards axis (above the type filter), as a horizontal rail of chips: All
-    /// clips · Favorites · user boards · New board. The active chip takes the
-    /// inverse fill; long-press a user board to rename or delete it.
+    /// clips · Favorites · user boards · New board, each with its count. The
+    /// active chip takes the inverse fill; long-press a user board to rename
+    /// or delete it.
     private var boardRail: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: GanchoTokens.Spacing.xs) {
-                railChip(
-                    Text("All clips"), systemImage: "tray.full",
-                    isActive: model.selectedBoardID == nil,
-                    count: model.selectedBoardID == nil ? model.activeScopeCount : nil
-                ) {
-                    select(board: nil)
-                }
+                railChip(Text("All clips"), board: nil) { select(board: nil) }
                 ForEach(model.boards) { board in
-                    railChip(
-                        board.displayTitle,
-                        systemImage: board.sfSymbol,
-                        isActive: model.selectedBoardID == board.id,
-                        count: model.selectedBoardID == board.id ? model.activeScopeCount : nil,
-                        board: board
-                    ) {
-                        select(board: board.id)
-                    }
-                    .contextMenu {
-                        if !board.isSystem {
-                            Button("Customize board…") {
-                                let current = model.boards.first { $0.id == board.id } ?? board
-                                activeSheet = .boardAppearance(current)
-                            }
-                            Button("Rename board…") {
-                                renameField = board.name
-                                renameTarget = board
-                            }
-                            Button("Delete board", role: .destructive) {
-                                boardPendingDeletion = board
+                    railChip(board.displayTitle, board: board) { select(board: board.id) }
+                        .contextMenu {
+                            if !board.isSystem {
+                                Button("Customize board…") {
+                                    let current = model.boards.first { $0.id == board.id } ?? board
+                                    activeSheet = .boardAppearance(current)
+                                }
+                                Button("Rename board…") {
+                                    renameField = board.name
+                                    renameTarget = board
+                                }
+                                Button("Delete board", role: .destructive) {
+                                    boardPendingDeletion = board
+                                }
                             }
                         }
-                    }
                 }
                 Button {
                     newBoardName = ""
                     showNewBoard = true
                 } label: {
                     Label("New board…", systemImage: "plus")
+                        .labelStyle(.iconOnly)
                         .font(.subheadline.weight(.medium))
-                        .padding(.horizontal, GanchoTokens.Spacing.sm)
-                        .padding(.vertical, GanchoTokens.Spacing.xs)
-                        .background(.quaternary, in: Capsule())
-                        .foregroundStyle(.secondary)
+                        .padding(GanchoTokens.Spacing.xs)
+                        .ganchoChip(selected: false, in: Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("board-new")
@@ -301,25 +299,30 @@ struct CaptureView: View {
         .accessibilityIdentifier("board-rail")
     }
 
+    /// Every scope's count once they load; the active scope's own until then.
+    private func railCount(_ board: Pinboard?) -> Int? {
+        if let counts = model.scopeCounts {
+            return board.map { counts.boards[$0.id] ?? 0 } ?? counts.total
+        }
+        return model.selectedBoardID == board?.id ? model.activeScopeCount : nil
+    }
+
     private func railChip(
-        _ label: Text, systemImage: String, isActive: Bool, count: Int? = nil,
-        board: Pinboard? = nil, action: @escaping () -> Void
+        _ label: Text, board: Pinboard?, action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                if isActive {
-                    Image(systemName: "checkmark").font(.caption)
-                } else if let board {
-                    BoardIdentityMark(board: board, size: 10)
-                } else {
-                    Image(systemName: systemImage).font(.caption)
-                }
+        let isActive = model.selectedBoardID == board?.id
+        return Button(action: action) {
+            HStack(spacing: 6) {
+                if let board { BoardIdentityMark(board: board, size: 10) }
                 label.font(.subheadline.weight(.medium)).lineLimit(1)
-                // Only the active scope shows its count.
-                if let count {
-                    Text(verbatim: "· \(count.formatted())")
-                        .font(.subheadline.weight(.medium))
-                        .monospacedDigit()
+                if let count = railCount(board) {
+                    Text(verbatim: count.formatted())
+                        .font(GanchoType.font(.data, size: 12, relativeTo: .caption))
+                        .foregroundStyle(
+                            isActive
+                                ? GanchoTokens.Palette.inverseText.opacity(0.7)
+                                : GanchoTokens.Palette.ink3
+                        )
                         .accessibilityLabel(Text("\(count) clips"))
                 }
             }
@@ -328,6 +331,7 @@ struct CaptureView: View {
             .ganchoChip(selected: isActive)
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
     private func select(board id: UUID?) {
@@ -410,6 +414,8 @@ private struct ClipDetailDestination: View {
 /// banner or alert, because the OS itself mediates the user's tap.
 struct PasteControlView: UIViewRepresentable {
     var cornerStyle: UIButton.Configuration.CornerStyle = .capsule
+    /// The second, neutral control on the status card; the accent stays on one.
+    var quiet = false
     let onPaste: ([NSItemProvider]) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -421,9 +427,11 @@ struct PasteControlView: UIViewRepresentable {
         // tap, with no "pasted from" banner.
         let config = UIPasteControl.Configuration()
         config.cornerStyle = cornerStyle
-        config.displayMode = .iconAndLabel
-        config.baseBackgroundColor = GanchoTokens.PrimaryVerb.uiFill
-        config.baseForegroundColor = GanchoTokens.PrimaryVerb.uiInk
+        config.displayMode = quiet ? .labelOnly : .iconAndLabel
+        // Opaque fills: the system only honours a control it can read.
+        config.baseBackgroundColor =
+            quiet ? .tertiarySystemBackground : GanchoTokens.PrimaryVerb.uiFill
+        config.baseForegroundColor = quiet ? .label : GanchoTokens.PrimaryVerb.uiInk
         let control = UIPasteControl(configuration: config)
         control.target = context.coordinator.target
         // The identifier and label assistive tech sees come from the SwiftUI
@@ -433,7 +441,7 @@ struct PasteControlView: UIViewRepresentable {
         // container would mask this control. The UIKit-side copies only keep the
         // control queryable if those modifiers are ever dropped.
         control.isAccessibilityElement = true
-        control.accessibilityIdentifier = "paste-control"
+        control.accessibilityIdentifier = quiet ? "pasteboard-card-paste" : "paste-control"
         control.accessibilityLabel = String(localized: "Paste into Gancho")
         control.accessibilityTraits.insert(.button)
         return control
@@ -498,16 +506,25 @@ struct SectionCountHeader: View {
 
     var body: some View {
         HStack {
-            Text(title)
+            Text(title).textCase(.uppercase).tracking(0.8)
             Spacer(minLength: GanchoTokens.Spacing.xs)
             if let count {
                 Text(verbatim: count.value.formatted() + (count.isAtLeast ? "+" : ""))
-                    .monospacedDigit()
-                    .accessibilityLabel(
-                        count.isAtLeast
-                            ? Text("At least \(count.value) clips") : Text("\(count.value) clips"))
             }
         }
-        .accessibilityElement(children: .combine)
+        .font(GanchoType.font(.data, size: 11, weight: .medium, relativeTo: .caption2))
+        .foregroundStyle(GanchoTokens.Palette.ink3)
+        // Spoken in the title's own case, not the caps it is drawn in.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spokenLabel)
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    private var spokenLabel: Text {
+        guard let count else { return Text(title) }
+        let clips =
+            count.isAtLeast
+            ? Text("At least \(count.value) clips") : Text("\(count.value) clips")
+        return Text("\(Text(title)), \(clips)")
     }
 }
