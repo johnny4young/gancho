@@ -21,10 +21,17 @@ extension AppModel {
     }
 
     private func hud(for action: CopyAction, item: ClipItem) -> CopyHUD {
+        let caption = Self.copiedCaption(for: item)
+        // The clip's own first line; a protected clip keeps its stored mask.
+        let line = ClipRowContent(
+            item: item, masking: ClipSafePresentation.requiresMasking(item) ? .storedMask : .none
+        ).headline.line
+        let content = line.isEmpty ? nil : line
         switch action {
         case .color(let color):
-            CopyHUD(
-                tile: .swatch(color), title: "Color · \(color.hex)",
+            return CopyHUD(
+                tile: .clip(item), title: "Color · \(color.hex)", caption: caption,
+                content: content,
                 actions: [
                     CopyHUDAction(id: "rgb", title: "Copy as rgb()", isPrimary: true) {
                         [weak self] in self?.copyColorFormat(color.rgb, label: "RGB")
@@ -34,25 +41,34 @@ extension AppModel {
                     }
                 ])
         case .link(let url):
-            CopyHUD(
-                tile: .symbol("link"),
+            return CopyHUD(
+                tile: .clip(item),
                 title:
                     "Link · \(ClipLinkParts(text: url.absoluteString)?.host ?? url.host() ?? "")",
+                caption: caption, content: content,
                 actions: [
                     CopyHUDAction(id: "open", title: "Open", isPrimary: true) {
                         NSWorkspace.shared.open(url)
                     }
                 ])
         case .oneTimeCode:
-            CopyHUD(
+            return CopyHUD(
                 tile: .symbol("lock.fill", danger: true),
-                title: "One-time code · \(ClipSafePresentation.masked)",
+                title: "One-time code · \(ClipSafePresentation.masked)", caption: caption,
                 actions: [
                     CopyHUDAction(id: "forget", title: "Forget now", isPrimary: true) {
                         [weak self] in self?.forgetCopiedCode(item)
                     }
                 ])
         }
+    }
+
+    /// "Copied · from Figma", or "Copied" when the source app is unknown.
+    private static func copiedCaption(for item: ClipItem) -> String {
+        guard let bundleID = item.sourceAppBundleID, !bundleID.isEmpty else {
+            return String(localized: "Copied")
+        }
+        return String(localized: "Copied · from \(SourceApp.displayName(forBundleID: bundleID))")
     }
 
     /// Deletes the code's clip at once, with its sync tombstone; the copy on

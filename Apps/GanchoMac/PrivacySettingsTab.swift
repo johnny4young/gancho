@@ -3,6 +3,7 @@ import ClipboardCore
 import GanchoAppCore
 import GanchoDesign
 import GanchoKit
+import KeyboardShortcuts
 import SwiftUI
 
 extension PrivateModeAutoOff {
@@ -33,10 +34,17 @@ struct PrivacySettingsTab: View {
                     .listRowBackground(Color.clear)
             }
 
-            Section("Capture control") {
+            SettingsSection("Capture control") {
                 Toggle(isOn: $model.preferences.isPrivateModePaused) {
-                    Text("Private mode (pause capture)")
-                    Text("Nothing is saved while on. Pasting keeps working.")
+                    HStack(spacing: GanchoTokens.Spacing.xs) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Private mode (pause capture)")
+                            Text("Nothing is saved while on. Pasting keeps working.")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: GanchoTokens.Spacing.xs)
+                        PrivateModeRowStatus(preferences: model.preferences)
+                    }
                 }
                 ShortcutRecorder("Private mode shortcut:", name: .togglePrivateMode)
                 Picker(selection: $model.privateModeAutoOff) {
@@ -55,7 +63,7 @@ struct PrivacySettingsTab: View {
                 footnote("Secrets and card numbers stay masked; revealing one takes a click.")
             }
 
-            Section("Searches and Spotlight") {
+            SettingsSection("Searches and Spotlight") {
                 Toggle(isOn: $model.rememberSearches) {
                     Text("Remember searches")
                     Text(
@@ -71,7 +79,7 @@ struct PrivacySettingsTab: View {
                 .accessibilityIdentifier("spotlight-indexing-privacy-note")
             }
 
-            Section("Diagnostics") {
+            SettingsSection("Diagnostics") {
                 Toggle(
                     isOn: Binding(
                         get: { model.telemetryConsent == .enabled },
@@ -108,6 +116,41 @@ struct PrivacySettingsTab: View {
 
     private func footnote(_ text: LocalizedStringKey) -> some View {
         Text(text).font(.footnote).foregroundStyle(.secondary)
+    }
+}
+
+/// Beside the Private mode switch: the time left as a ring, and the shortcut
+/// that toggles it.
+private struct PrivateModeRowStatus: View {
+    let preferences: CapturePreferences
+    @State private var shortcut = KeyboardShortcuts.getShortcut(for: .togglePrivateMode)
+
+    var body: some View {
+        HStack(spacing: GanchoTokens.Spacing.xs) {
+            if preferences.isPrivateModePaused, let start = preferences.privateModeStartedAt,
+                let end = preferences.privateModeEndsAt
+            {
+                HStack(spacing: 6) {
+                    TimeRing(Countdown(start: start, deadline: end), lineWidth: 1.5)
+                        .frame(width: 14, height: 14)
+                    TimelineView(.periodic(from: end, by: 60)) { context in
+                        Text("\(PanelCaptureChip.minutesLeft(until: end, now: context.date)) min")
+                            .font(GanchoType.font(.data, size: 11, weight: .medium))
+                            .foregroundStyle(GanchoTokens.Palette.ink2)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("private-mode-time-left")
+            }
+            if let shortcut {
+                KeyCap(shortcut.description).accessibilityHidden(true)
+            }
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+        ) { _ in
+            shortcut = KeyboardShortcuts.getShortcut(for: .togglePrivateMode)
+        }
     }
 }
 

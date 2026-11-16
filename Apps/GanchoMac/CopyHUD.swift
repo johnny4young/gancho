@@ -8,12 +8,17 @@ import SwiftUI
 struct CopyHUD {
     enum Tile {
         case symbol(String, danger: Bool = false)
-        case agent
-        case swatch(ColorValue)
+        /// The clip's own tile: its swatch, thumbnail or kind glyph.
+        case clip(ClipItem)
     }
 
     let tile: Tile
+    /// What is announced, and shown unless `content` replaces it.
     let title: LocalizedStringResource
+    /// A mono caps line over the title: where the clip came from.
+    var caption: String?
+    /// The clip's own first line, shown in mono in place of the title.
+    var content: String?
     var detail: String?
     /// The title's accessibility identifier.
     var identifier = "copy-hud"
@@ -30,16 +35,20 @@ struct CopyHUDAction: Identifiable {
 }
 
 private struct CopyHUDView: View {
+    static let tileSide: CGFloat = 34
+
     let hud: CopyHUD
     let perform: (CopyHUDAction) -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: GanchoTokens.Spacing.sm) {
+        HStack(alignment: hud.actions.isEmpty ? .center : .top, spacing: GanchoTokens.Spacing.sm) {
             tile
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(hud.title)
-                        .font(.body.weight(.bold))
+                VStack(alignment: .leading, spacing: 3) {
+                    if let caption = hud.caption {
+                        Text(verbatim: caption).ganchoCaps(size: 9).lineLimit(1)
+                    }
+                    headline
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .accessibilityLabel(Text(hud.title))
@@ -53,7 +62,7 @@ private struct CopyHUDView: View {
                             .accessibilityIdentifier("\(hud.identifier)-detail")
                     }
                 }
-                .frame(maxWidth: 320, minHeight: 34, alignment: .leading)
+                .frame(maxWidth: 320, minHeight: Self.tileSide, alignment: .leading)
                 if !hud.actions.isEmpty {
                     HStack(spacing: 6) {
                         ForEach(hud.actions) { action in
@@ -65,11 +74,26 @@ private struct CopyHUDView: View {
                     }
                 }
             }
+            Image(nsImage: MenuBarGlyph.hookImage(badged: false))
+                .renderingMode(.template)
+                .foregroundStyle(GanchoTokens.Palette.ink)
+                .frame(height: Self.tileSide)
+                .accessibilityHidden(true)
         }
-        .padding(GanchoTokens.Spacing.sm)
-        .padding(.trailing, GanchoTokens.Spacing.xs)
-        .ganchoSurface(radius: GanchoTokens.Radius.lg)
+        .padding(.vertical, 13)
+        .padding(.leading, 14)
+        .padding(.trailing, 18)
+        // A capsule while it is one line tall.
+        .ganchoSurface(radius: hud.actions.isEmpty ? 30 : GanchoTokens.Radius.xl)
         .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder private var headline: some View {
+        if let content = hud.content {
+            Text(verbatim: content).font(GanchoType.font(.data, size: 14))
+        } else {
+            Text(hud.title).font(.body.weight(.semibold))
+        }
     }
 
     private func style(for action: CopyHUDAction) -> GanchoButtonRole {
@@ -77,9 +101,9 @@ private struct CopyHUDView: View {
     }
 
     @ViewBuilder private var tile: some View {
-        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         switch hud.tile {
         case .symbol(let name, let danger):
+            let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
             Image(systemName: name)
                 .font(.title3.weight(.medium))
                 .foregroundStyle(
@@ -88,7 +112,7 @@ private struct CopyHUDView: View {
                             ReadableInk(base: GanchoTokens.Palette.danger, onWash: 0.15))
                         : AnyShapeStyle(GanchoTokens.Palette.ink2)
                 )
-                .frame(width: 34, height: 34)
+                .frame(width: Self.tileSide, height: Self.tileSide)
                 .background(
                     danger
                         ? AnyShapeStyle(GanchoTokens.Palette.danger.opacity(0.15))
@@ -96,22 +120,8 @@ private struct CopyHUDView: View {
                     in: shape
                 )
                 .accessibilityHidden(true)
-        case .agent:
-            Image(systemName: "terminal")
-                .font(.title3.weight(.medium))
-                .foregroundStyle(ReadableInk(base: GanchoTokens.Palette.agent, onWash: 0.15))
-                .frame(width: 34, height: 34)
-                .background(GanchoTokens.Palette.agent.opacity(0.15), in: shape)
-                .accessibilityHidden(true)
-        case .swatch(let color):
-            shape
-                .fill(
-                    Color(
-                        red: Double(color.red) / 255, green: Double(color.green) / 255,
-                        blue: Double(color.blue) / 255)
-                )
-                .overlay(shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
-                .frame(width: 34, height: 34)
+        case .clip(let item):
+            ClipTile(item: item, size: Self.tileSide, previewsHidden: false)
                 .accessibilityHidden(true)
         }
     }
@@ -269,6 +279,8 @@ final class CopyHUDPresenter {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
+        // Dark in both appearances: it floats over other apps' windows.
+        panel.appearance = NSAppearance(named: .darkAqua)
         panel.level = .statusBar
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]

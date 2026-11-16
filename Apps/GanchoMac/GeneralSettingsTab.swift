@@ -70,7 +70,7 @@ struct GeneralSettingsTab: View {
                 Text("Last position").tag(PanelPosition.lastPosition)
             }
 
-            Section("Panel") {
+            SettingsSection("Panel") {
                 Picker("Text size", selection: textSizeBinding) {
                     Text("Small").tag(PanelTextSize.small)
                     Text("Standard").tag(PanelTextSize.standard)

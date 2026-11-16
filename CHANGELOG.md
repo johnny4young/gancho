@@ -17,6 +17,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   swatch, code keeps its typeface with quiet tints, an image is its thumbnail,
   and a secret shows its mask inside a ring that counts down the time it has
   left. The selected row is a neutral wash, and its key becomes Return.
+- Settings, the menu-bar menu and the copy HUD follow the new look: serif pane
+  titles and mono section headers, menu-bar badges in grey, ink or red only,
+  the paste stack in its own menu section, and a dark HUD that shows the clip
+  you just copied and where it came from.
 - On the Mac, each copy costs Gancho far less work. Titles, search and board
   suggestions share one loaded language model instead of loading it for every
   clip, and the hidden history panel no longer redraws itself on every copy.

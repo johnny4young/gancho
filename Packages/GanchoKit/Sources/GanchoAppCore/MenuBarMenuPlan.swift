@@ -63,15 +63,16 @@ public struct MenuBarMenuPlan: Equatable, Sendable {
             }
         }
         entries.append(.separator)
-        entries.append(contentsOf: [.command(.openPanel), .command(.library)])
         if let next = stack.first {
             entries.append(
                 .stack(
                     Stack(
                         waiting: stack.count, next: next,
                         nextMasked: previewsHidden || ClipSafePresentation.requiresMasking(next))))
+            entries.append(.separator)
         }
-        entries.append(.command(.copyScreenText))
+        entries.append(
+            contentsOf: [Command.openPanel, .library, .copyScreenText].map(Entry.command))
         entries.append(.separator)
         entries.append(
             contentsOf: [Command.toggleCapture, .togglePrivateMode, .ignoreNextCopy].map(
