@@ -2,11 +2,12 @@ import AppKit
 import GanchoAppCore
 import GanchoDesign
 import GanchoKit
+import KeyboardShortcuts
 import SwiftUI
 
 /// A paste-stack run while the panel is closed: a small strip under the menu
-/// bar with the position, the next clip and Skip / Back / Reset / End. It never
-/// takes focus, so the app being pasted into stays frontmost.
+/// bar with the position, the next clip and Skip / Back / Reset / End run. It
+/// never takes focus, so the app being pasted into stays frontmost.
 @MainActor
 final class PasteStackRunStripController {
     private var panel: NSPanel?
@@ -56,56 +57,78 @@ private struct PasteStackRunStripView: View {
 
     var body: some View {
         let stack = model.pasteStack
+        let verbs = PasteStackPresentation(stack: stack).dock(
+            skipKey: KeyboardShortcuts.getShortcut(for: .pasteStackSkip)?.description,
+            backKey: KeyboardShortcuts.getShortcut(for: .pasteStackBack)?.description)
         let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: "square.stack.3d.up.fill")
-                .foregroundStyle(.secondary)
             Text("\(stack.cursor + 1) of \(stack.count)")
-                .monospacedDigit()
-                .fontWeight(.semibold)
+                .panelFont(size: 12, .semibold, design: .monospaced)
+                .foregroundStyle(GanchoTokens.Palette.ink)
                 .accessibilityIdentifier("paste-stack-run-position")
             if let next = stack.next {
-                Image(systemName: next.clip.kind.symbolName)
-                    .foregroundStyle(.secondary)
                 Text(verbatim: title(next.clip))
+                    .panelFont(size: 12.5)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .frame(maxWidth: 200, alignment: .leading)
                     .accessibilityIdentifier("paste-stack-run-next")
+                // The global key pastes it here; Return belongs to the app in front.
+                if let key = KeyboardShortcuts.getShortcut(for: .pasteFromStack)?.description {
+                    KeyCap(key).accessibilityHidden(true)
+                }
             }
             Divider().frame(height: 14)
-            control("Skip", symbol: "forward.end", id: "paste-stack-run-skip") {
-                model.skipInStack()
-            }
-            control("Back", symbol: "backward.end", id: "paste-stack-run-back") {
-                model.backInStack()
-            }
-            control("Reset", symbol: "arrow.counterclockwise", id: "paste-stack-run-reset") {
-                model.resetStack()
-            }
-            control("End run", symbol: "xmark", id: "paste-stack-run-end") {
-                model.endStackRun()
+            ForEach(verbs.filter { $0.verb != .pasteNext }, id: \.verb) { verb in
+                control(verb)
             }
         }
-        .font(.callout)
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .padding(.vertical, GanchoTokens.Spacing.xs)
         .background(.regularMaterial, in: shape)
-        .overlay(shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
+        .overlay(
+            shape.strokeBorder(
+                GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline))
     }
 
-    private func control(
-        _ title: LocalizedStringKey, symbol: String, id: String, action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .frame(width: 22, height: 22)
-                .contentShape(.rect)
+    private func control(_ verb: PasteStackPresentation.DockVerb) -> some View {
+        Button {
+            switch verb.verb {
+            case .pasteNext: model.pasteNextFromStack()
+            case .skip: model.skipInStack()
+            case .back: model.backInStack()
+            case .reset: model.resetStack()
+            case .end: model.endStackRun()
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Text(title(verb.verb)).panelFont(size: 12.5, .medium).lineLimit(1)
+                // esc is the open panel's key, not this strip's.
+                if verb.verb != .end, let key = verb.key {
+                    KeyCap(key).accessibilityHidden(true)
+                }
+            }
+            .padding(.horizontal, 5)
+            .frame(height: 22)
+            .contentShape(.rect)
         }
-        .buttonStyle(.borderless)
-        .help(title)
-        .accessibilityLabel(Text(title))
-        .accessibilityIdentifier(id)
+        .buttonStyle(.plain)
+        .foregroundStyle(GanchoTokens.Palette.ink2)
+        .disabled(!verb.isEnabled)
+        .opacity(verb.isEnabled ? 1 : 0.4)
+        .accessibilityIdentifier(
+            "paste-stack-run-\(verb.verb == .end ? "end" : verb.verb.rawValue)")
+    }
+
+    private func title(_ verb: PasteStackPresentation.Verb) -> LocalizedStringKey {
+        switch verb {
+        case .pasteNext: "Paste next"
+        case .skip: "Skip"
+        case .back: "Back"
+        case .reset: "Reset"
+        case .end: "End run"
+        }
     }
 
     /// Kinds only for a secret, in Private Mode and during an unrevealed share.

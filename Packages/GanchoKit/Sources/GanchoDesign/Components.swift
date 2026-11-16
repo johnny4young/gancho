@@ -213,6 +213,8 @@ public struct ClipCard: View {
     let foreignDevice: String?
     /// The search words to mark in the row's text; nil for a masked row.
     let matchQuery: String?
+    /// Off while Return acts elsewhere: the selected row keeps its ⌘N.
+    let marksReturn: Bool
     // Dynamic Type grows the tile on iOS; the panel's own scale on the Mac.
     @ScaledMetric(relativeTo: .body) private var baseTileSize: CGFloat = 34
     @Environment(\.panelTypeScale) private var typeScale
@@ -226,7 +228,7 @@ public struct ClipCard: View {
         shortcutNumber: Int? = nil, thumbnail: Image? = nil,
         selectionNamespace: Namespace.ID? = nil, isSelectionAnchor: Bool = true,
         currentDeviceName: String? = nil, sensitiveLifetime: TimeInterval? = nil,
-        matchQuery: String? = nil
+        matchQuery: String? = nil, marksReturn: Bool = true
     ) {
         let protected = ClipSafePresentation.requiresMasking(item)
         let masking: ClipRowContent.Masking =
@@ -248,6 +250,7 @@ public struct ClipCard: View {
             previewsHidden
             ? nil : currentDeviceName.flatMap { Self.foreignDeviceName(of: item, current: $0) }
         self.matchQuery = Self.matchQuery(matchQuery, masking: masking)
+        self.marksReturn = marksReturn
     }
 
     /// A masked row never marks a match: the mark would say what it hides.
@@ -482,7 +485,7 @@ public struct ClipCard: View {
                         .accessibilityLabel(Text("Pinned"))
                         .transition(.scale.combined(with: .opacity))
                 }
-                ClipShortcutBadge(number: shortcutNumber, isSelected: isSelected)
+                ClipShortcutBadge(number: shortcutNumber, isSelected: isSelected && marksReturn)
             }
         }
         .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: item.isPinned)
