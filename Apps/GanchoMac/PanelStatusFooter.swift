@@ -110,6 +110,15 @@ struct PanelCaptureChipView: View {
                 }
                 .frame(height: 20 * typeScale)
                 .foregroundStyle(GanchoTokens.Palette.ink2)
+            } else if case .paused = chip {
+                // A pause is a state, not a warning: a hollow ink ring, no pill.
+                HStack(spacing: 6) {
+                    Circle().strokeBorder(GanchoTokens.Palette.ink3, lineWidth: 1.4)
+                        .frame(width: 9 * typeScale, height: 9 * typeScale)
+                    Text(title(now: now)).panelFont(.caption2, .medium).lineLimit(1)
+                }
+                .frame(height: 20 * typeScale)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
             } else {
                 HStack(spacing: 5) {
                     Circle().fill(tint).frame(width: 7 * typeScale, height: 7 * typeScale)
@@ -149,7 +158,7 @@ struct PanelCaptureChipView: View {
         switch chip {
         case .capturing: GanchoTokens.Palette.success
         case .privateMode: GanchoTokens.Palette.ink
-        case .paused: GanchoTokens.Palette.warning
+        case .paused: GanchoTokens.Palette.ink3
         case .denied: GanchoTokens.Palette.danger
         }
     }
@@ -232,8 +241,7 @@ struct PanelCaptureNoticeView: View {
 
     private var tint: Color {
         switch notice {
-        case .privateMode: GanchoTokens.Palette.ink
-        case .screenShare, .paused: GanchoTokens.Palette.warning
+        case .privateMode, .screenShare, .paused: GanchoTokens.Palette.ink
         case .denied, .storageEphemeral: GanchoTokens.Palette.danger
         }
     }
