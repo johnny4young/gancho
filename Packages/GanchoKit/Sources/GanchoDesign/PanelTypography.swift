@@ -26,12 +26,20 @@ public enum PanelTextStyle: Sendable, CaseIterable {
     #if os(iOS)
         /// The style's size at the default Dynamic Type setting, which a custom
         /// face scales from.
-        var defaultSize: CGFloat {
-            PlatformFont.preferredFont(
-                forTextStyle: platformStyle,
-                compatibleWith: UITraitCollection(preferredContentSizeCategory: .large)
-            ).pointSize
-        }
+        var defaultSize: CGFloat { Self.defaultSizes[self] ?? baseSize }
+
+        private static let defaultSizes: [PanelTextStyle: CGFloat] = {
+            let traits = UITraitCollection(preferredContentSizeCategory: .large)
+            return Dictionary(
+                uniqueKeysWithValues: allCases.map {
+                    (
+                        $0,
+                        PlatformFont.preferredFont(
+                            forTextStyle: $0.platformStyle, compatibleWith: traits
+                        ).pointSize
+                    )
+                })
+        }()
     #endif
 
     var textStyle: Font.TextStyle {
