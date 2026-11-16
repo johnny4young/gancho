@@ -13,7 +13,8 @@ extension View {
     /// A tab or row with no resting fill: ink on the selection wash when
     /// selected, `idle` text on nothing otherwise.
     public func ganchoTab(
-        selected: Bool, idle: HierarchicalShapeStyle = .secondary, in shape: some Shape = Capsule()
+        selected: Bool, idle: some ShapeStyle = HierarchicalShapeStyle.secondary,
+        in shape: some Shape = Capsule()
     ) -> some View {
         foregroundStyle(
             selected ? AnyShapeStyle(GanchoTokens.Palette.ink) : AnyShapeStyle(idle)

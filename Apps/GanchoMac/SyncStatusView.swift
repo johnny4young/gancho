@@ -10,10 +10,21 @@ struct SyncStatusView: View {
     let status: SyncStatus
     /// The Privacy Center passes `true` to also show the suggested-action line.
     var showsSuggestion = false
+    /// The panel footer's form: up to date is a plain check in quiet ink.
+    var isQuiet = false
 
     var body: some View {
         if case .idle = status {
             EmptyView()
+        } else if isQuiet, case .upToDate = status {
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark").accessibilityHidden(true)
+                Text("Synced")
+            }
+            .panelFont(.caption2)
+            .foregroundStyle(GanchoTokens.Palette.ink2)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("sync-status")
         } else {
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
                 Label {

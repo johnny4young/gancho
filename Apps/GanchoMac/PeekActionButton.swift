@@ -7,9 +7,9 @@ struct PeekAction: Identifiable {
     let id: String
     let title: LocalizedStringKey
     let symbol: String
-    /// A shorter label for the dock's narrow buttons; nil uses `title`.
+    /// A shorter label for the dock's quiet verbs; nil uses `title`.
     var shortTitle: LocalizedStringKey?
-    /// The key hint under a dock button. Dock actions have one; the Dev
+    /// The key drawn beside a dock verb. Dock actions have one; the Dev
     /// Action chips don't.
     var shortcut: String?
     /// Draws the chip's label in the danger ink (Delete now).
@@ -21,7 +21,8 @@ struct PeekAction: Identifiable {
 /// The enclosing peek owns arrow navigation; buttons keep native accessibility activation.
 struct PeekActionButton: View {
     enum Style {
-        case dock(isPrimary: Bool)
+        /// `short` lets the primary verb drop its target when the dock is tight.
+        case dock(isPrimary: Bool, short: Bool = false)
         case chip
     }
 
@@ -51,40 +52,38 @@ struct PeekActionButton: View {
                 isChip: !style.isDock)
         )
         .onHover { isHovered = $0 }
-        // Focus ring, hover wash and the pin ↔ unpin glyph all settle rather
-        // than snap; the glyph swap also bounces once so the toggle registers.
+        // The focus ring and the hover wash settle rather than snap.
         .animation(motion, value: isFocused)
         .animation(motion, value: isHovered)
-        .animation(motion, value: action.symbol)
         .focusable(false)
         .help(action.title)
         .accessibilityLabel(Text(action.title))
+        // The key is drawn as a cap; VoiceOver reads it after the name.
+        .accessibilityValue(Text(verbatim: action.shortcut ?? ""))
         .accessibilityIdentifier(action.id)
         .id(action.id)
     }
 
     private var dockShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+        RoundedRectangle(cornerRadius: 9, style: .continuous)
     }
 
+    /// The primary verb spells its whole title while it fits; the quiet ones
+    /// use the short one.
     private var dockLabel: some View {
-        VStack(spacing: 3) {
-            Image(systemName: action.symbol)
-                .panelFont(size: 15, .semibold)
-                .frame(height: 18 * typeScale)
-                .contentTransition(reduceMotion ? .identity : .symbolEffect(.replace))
-                // A constant value never triggers the discrete bounce.
-                .symbolEffect(.bounce, value: reduceMotion ? "" : action.symbol)
-            Text(action.shortTitle ?? action.title)
-                .panelFont(.caption, .semibold)
+        let isPrimary = style.isPrimary
+        return HStack(spacing: isPrimary ? 9 : 6) {
+            Text(isPrimary && !style.isShort ? action.title : action.shortTitle ?? action.title)
+                .panelFont(size: isPrimary ? 13 : 12.5, isPrimary ? .semibold : .medium)
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Text(verbatim: action.shortcut ?? "")
-                .panelFont(.caption2, design: .monospaced)
-                .opacity(0.75)
+            if let shortcut = action.shortcut {
+                KeyCap(shortcut, role: isPrimary ? .onAccent : .neutral)
+                    .accessibilityHidden(true)
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 7)
+        .padding(.leading, isPrimary ? 13 : 7)
+        .padding(.trailing, isPrimary ? 8 : 7)
+        .frame(height: 34 * typeScale)
         .contentShape(Rectangle())
     }
 
@@ -110,7 +109,12 @@ extension PeekActionButton.Style {
     }
 
     fileprivate var isPrimary: Bool {
-        if case .dock(let isPrimary) = self { return isPrimary }
+        if case .dock(let isPrimary, _) = self { return isPrimary }
+        return false
+    }
+
+    fileprivate var isShort: Bool {
+        if case .dock(_, let short) = self { return short }
         return false
     }
 }
@@ -167,7 +171,9 @@ private struct PeekActionFillBody<Label: View>: View {
             let wash = isPressed ? 0.09 : style.isHovered ? 0.05 + rest : rest
             label
                 .background(Color.primary.opacity(wash), in: style.shape)
-                .foregroundStyle(.primary)
+                .foregroundStyle(
+                    style.isChip || style.isHovered || style.isFocused
+                        ? GanchoTokens.Palette.ink : GanchoTokens.Palette.ink2)
         }
     }
 }

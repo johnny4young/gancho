@@ -27,6 +27,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   (scheme, host, path, query, fragment), decodes each parameter, and shows what
   Return and ⌥Return paste and the Markdown link you can copy. The preview's
   header is one caption line over a larger title, with a star for Favorites.
+- On the Mac, boards and type filters share one row with clip counts, rows mark
+  the words you searched for, and the preview's actions are one line: Paste as
+  the single filled button, then Plain, Pin, Board and Stack with their keys,
+  and an Actions list that also holds whatever a narrow panel has no room for.
 - On the Mac, each copy costs Gancho far less work. Titles, search and board
   suggestions share one loaded language model instead of loading it for every
   clip, and the hidden history panel no longer redraws itself on every copy.

@@ -4,9 +4,9 @@ import GanchoDesign
 import GanchoKit
 import SwiftUI
 
-/// The panel's operational footer: sync, capture health, paste stack, and the
-/// compact keyboard legend. It owns presentation only; the panel remains the
-/// navigation and action owner.
+/// The panel's operational footer: capture health, sync, the paste stack, and
+/// the keys the dock does not already show. It owns presentation only; the
+/// panel remains the navigation and action owner.
 struct PanelStatusFooter: View {
     let syncStatus: SyncStatus
     let chip: PanelCaptureChip
@@ -17,63 +17,45 @@ struct PanelStatusFooter: View {
     /// "I eyedropper" while the selected clip is a visible image.
     var offersEyedropper = false
     let showKeyboardShortcuts: () -> Void
-    @Environment(\.panelTypeScale) private var typeScale
 
     var body: some View {
         HStack(spacing: GanchoTokens.Spacing.md) {
             PanelCaptureChipView(chip: chip)
-            SyncStatusView(status: syncStatus)
+            SyncStatusView(status: syncStatus, isQuiet: true)
             PasteStackStrip()
             Spacer(minLength: 0)
             if let alternativeHint {
-                keyboardHint(alternativeHint, keys: ["arrow.down"])
+                keyboardHint(alternativeHint, keys: ["↓"])
             }
             if offersEyedropper {
-                keyboardHint("eyedropper", textKeys: ["I"])
+                keyboardHint("eyedropper", keys: ["I"])
             }
             if case .privateMode = chip, let privateModeShortcut {
-                keyboardHint(
-                    "off", textKeys: PanelFirstRunStage.keycaps(for: privateModeShortcut))
+                keyboardHint("off", keys: PanelFirstRunStage.keycaps(for: privateModeShortcut))
             }
-            keyboardHint("navigate", keys: ["arrow.up", "arrow.down"])
-            keyboardHint("actions", keys: ["arrow.right"])
-            keyboardHint("paste", keys: ["return"])
-            IconActionButton(
-                "Keyboard shortcuts", systemImage: "questionmark.circle",
-                identifier: "panel-shortcuts-button", help: "Keyboard shortcuts (⌘/)",
-                action: showKeyboardShortcuts
-            )
+            // The dock shows the key of each of its verbs, so none repeats here.
+            keyboardHint("navigate", keys: ["↑", "↓"])
+            keyboardHint("paste nth", keys: ["⌘", "1–9"])
+            Button(action: showKeyboardShortcuts) {
+                keyboardHint("keys", keys: ["⌘/"]).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Keyboard shortcuts (⌘/)")
+            .accessibilityLabel(Text("Keyboard shortcuts"))
+            .accessibilityIdentifier("panel-shortcuts-button")
         }
         .panelFont(.caption2)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(GanchoTokens.Palette.ink3)
         .padding(.top, GanchoTokens.Spacing.xxs)
         .padding(.horizontal, GanchoTokens.Spacing.xxs)
     }
 
-    private func keyboardHint(_ label: LocalizedStringKey, textKeys: [String]) -> some View {
-        HStack(spacing: GanchoTokens.Spacing.xxs) {
-            ForEach(Array(textKeys.enumerated()), id: \.offset) { _, key in
-                Text(verbatim: key)
-                    .panelFont(size: 9, .bold)
-                    .frame(minWidth: 17 * typeScale, minHeight: 16 * typeScale)
-                    .background(
-                        .quaternary,
-                        in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-            }
-            Text(label)
-        }
-    }
-
     private func keyboardHint(_ label: LocalizedStringKey, keys: [String]) -> some View {
-        HStack(spacing: GanchoTokens.Spacing.xxs) {
-            ForEach(keys, id: \.self) { key in
-                Image(systemName: key)
-                    .panelFont(size: 9, .semibold)
-                    .frame(width: 17 * typeScale, height: 16 * typeScale)
-                    .background(
-                        .quaternary,
-                        in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        HStack(spacing: 6) {
+            HStack(spacing: 3) {
+                ForEach(Array(keys.enumerated()), id: \.offset) { _, key in KeyCap(key) }
             }
+            .accessibilityHidden(true)
             Text(label)
         }
     }
@@ -99,10 +81,15 @@ struct PanelCaptureChipView: View {
 
     private func pill(now: Date) -> some View {
         Group {
-            if case .capturing = chip {
+            if case .capturing(let app) = chip {
                 HStack(spacing: 7) {
                     LiveDot(size: 7 * typeScale)
-                    Text(title(now: now)).panelFont(.caption2, .medium).lineLimit(1)
+                    Text("Capturing").panelFont(.caption2, .medium).lineLimit(1)
+                    if let app {
+                        // The label still says the app is in front.
+                        Text(verbatim: "· \(app)").panelFont(.caption2).lineLimit(1)
+                            .foregroundStyle(GanchoTokens.Palette.ink3)
+                    }
                 }
                 .frame(height: 20 * typeScale)
                 .foregroundStyle(GanchoTokens.Palette.ink2)
