@@ -17,9 +17,13 @@ public struct HookMark: Shape {
         mark.addPath(
             Path(ellipseIn: CGRect(x: 42, y: 16, width: 16, height: 16))
                 .strokedPath(StrokeStyle(lineWidth: 9)))
-        let scale = min(rect.width, rect.height) / 84
+        let side = min(rect.width, rect.height)
+        let scale = side / 84
         return mark.applying(
-            CGAffineTransform(translationX: rect.minX, y: rect.minY)
-                .scaledBy(x: scale, y: scale).translatedBy(x: -0.5, y: -9.5))
+            CGAffineTransform(
+                translationX: rect.minX + (rect.width - side) / 2,
+                y: rect.minY + (rect.height - side) / 2
+            )
+            .scaledBy(x: scale, y: scale).translatedBy(x: -0.5, y: -9.5))
     }
 }

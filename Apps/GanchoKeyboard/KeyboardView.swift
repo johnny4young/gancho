@@ -41,7 +41,7 @@ struct KeyboardView: View {
             }
             if model.expanded {
                 HStack(spacing: 8) {
-                    boardRow
+                    if model.boards.isEmpty { Spacer(minLength: 0) } else { boardRow }
                     savePill
                 }
                 expandedList

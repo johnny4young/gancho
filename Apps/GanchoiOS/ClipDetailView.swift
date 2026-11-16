@@ -256,6 +256,8 @@ struct ClipDetailView: View {
             if let colorValue { colorFormats(colorValue) }
             if let linkParts, !editingLink {
                 linkHero(linkParts)
+            } else if colorValue != nil {
+                // The hero and the format rows already show the value.
             } else if editableText != nil {
                 ClipTextEditor(
                     text: editableTextBinding, kind: item.kind, startsEditing: editingLink
@@ -315,6 +317,7 @@ struct ClipDetailView: View {
                 Text(ClipTextPreview.truncated(body, limit: 8_000))
                     .font(item.kind == .code ? .body.monospaced() : .body)
                     .textSelection(.enabled)
+                    .accessibilityIdentifier("detail-content")
                 if requiresMasking {
                     Button("Hide", systemImage: "eye.slash") {
                         fullText = ""
