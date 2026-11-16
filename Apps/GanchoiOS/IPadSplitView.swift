@@ -134,7 +134,7 @@ struct IPadSplitView: View {
 
     private func clipRow(_ item: ClipItem) -> some View {
         ClipCard(
-            item: item, thumbnail: model.thumbnails.cached(for: item), showsStoredMask: true,
+            item: item, thumbnail: model.thumbnails.cached(for: item),
             currentDeviceName: model.currentDeviceName
         )
         .tag(item.id)

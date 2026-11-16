@@ -27,16 +27,28 @@ struct ClipCardPrivacyTests {
         #expect(ClipCard(item: item, previewsHidden: hidden).previewsHidden == hidden)
     }
 
-    @Test("The stored mask shows only for a protected clip, opted in, outside Private Mode")
+    @Test("The stored mask shows only for a protected clip outside Private Mode")
     func storedMask() {
         let secret = ClipItem(kind: .secret, preview: "●●●● 4Q2v", contentHash: "s")
         let plain = ClipItem(kind: .text, preview: "hello", contentHash: "p")
-        #expect(ClipCard(item: secret, showsStoredMask: true).showsStoredMask)
-        #expect(!ClipCard(item: secret).showsStoredMask, "the Mac panel keeps its full mask")
-        #expect(
-            !ClipCard(item: secret, previewsHidden: true, showsStoredMask: true).showsStoredMask)
-        #expect(!ClipCard(item: plain, showsStoredMask: true).showsStoredMask)
-        #expect(ClipCard(item: secret, showsStoredMask: true).previewsHidden, "still masked")
+        #expect(ClipCard(item: secret).masking == .storedMask)
+        #expect(ClipCard(item: secret, previewsHidden: true).masking == .hidden)
+        #expect(ClipCard(item: plain).masking == .none)
+        #expect(ClipCard(item: plain, previewsHidden: true).masking == .hidden)
+        #expect(ClipCard(item: secret).previewsHidden, "still masked for VoiceOver")
+        #expect(ClipCard(item: secret).content.headline == .value("●●●● 4Q2v"))
+    }
+
+    @Test("A protected clip counts its lifetime down, except in Private Mode")
+    func lifetime() {
+        let secret = ClipItem(
+            kind: .secret, preview: "●●●● 4Q2v", contentHash: "s", isSensitive: true,
+            expiresAt: .now.addingTimeInterval(600))
+        #expect(ClipCard(item: secret).countdown != nil)
+        #expect(ClipCard(item: secret, previewsHidden: true).countdown == nil)
+        #expect(ClipCard(item: secret, sensitiveLifetime: 60).countdown?.isUrgent(at: .now) == true)
+        let plain = ClipItem(contentHash: "p", expiresAt: .now.addingTimeInterval(600))
+        #expect(ClipCard(item: plain).countdown == nil, "ordinary expiry keeps its badge")
     }
 
     @Test("Lock-screen and widget text keep three dots for a protected clip")

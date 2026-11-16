@@ -28,6 +28,34 @@ struct SyntaxTests {
         #expect(String(highlighted.characters) == source)
     }
 
+    @Test("Tonal previews tint strings, numbers, placeholders and comments; keywords stay ink")
+    func tonalTints() {
+        #expect(GanchoTokens.Syntax.tonalTriples(for: .keyword) == nil)
+        let tinted = GanchoSyntax.TokenKind.allCases.filter { $0 != .keyword }
+        let tints = tinted.compactMap { GanchoTokens.Syntax.tonalTriples(for: $0) }
+        #expect(tints.count == tinted.count)
+        #expect(Set(tints.map { "\($0.dark)" }).count == tints.count, "one tint per kind")
+        for kind in tinted {
+            let tonal = GanchoTokens.Syntax.tonalTriples(for: kind).map { "\($0)" }
+            #expect(tonal != "\(GanchoTokens.Syntax.triples(for: kind))", "\(kind) left the editor")
+        }
+    }
+
+    // On the main actor: the tints are AppKit dynamic colours.
+    @MainActor
+    @Test("A tonal preview keeps the text and marks keywords by weight, not hue")
+    func tonalPreview() {
+        let source = "let name = \"gancho\" // 1"
+        let tonal = GanchoTokens.Syntax.tonal(source)
+        #expect(String(tonal.characters) == source)
+        let strong = tonal.runs.filter { $0.inlinePresentationIntent == .stronglyEmphasized }
+        #expect(strong.map { String(tonal[$0.range].characters) } == ["let"])
+        let ink = GanchoTokens.Palette.ink
+        let plain = tonal.runs.filter { $0.foregroundColor == ink }
+        #expect(plain.map { String(tonal[$0.range].characters) }.joined().contains("name"))
+        #expect(!plain.contains { String(tonal[$0.range].characters).contains("gancho") })
+    }
+
     // MARK: Keywords
 
     @Test("Keywords are tinted; surrounding identifiers are not")

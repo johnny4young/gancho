@@ -4762,6 +4762,28 @@
         }
       }
     },
+    "%@ left": {
+      "comment": "Time left before a protected clip expires, e.g. 9:41 left.",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "quedan %@"
+          }
+        }
+      }
+    },
+    "%lld lines": {
+      "comment": "How many lines a clip has; always two or more.",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld líneas"
+          }
+        }
+      }
+    },
     "Rich text": {
       "localizations": {
         "es": {

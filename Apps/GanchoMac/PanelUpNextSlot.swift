@@ -58,7 +58,7 @@ struct PanelUpNextSlot: View {
     @ViewBuilder private var preview: some View {
         let text = ClipSafePresentation.displayText(for: slot.item)
         if slot.item.kind == .code {
-            Text(GanchoTokens.Syntax.highlighted(String(text.prefix(240))))
+            Text(GanchoTokens.Syntax.tonal(String(text.prefix(240))))
                 .panelFont(.callout, design: .monospaced)
         } else {
             Text(verbatim: text).panelFont(.callout)

@@ -14,7 +14,7 @@ struct DesignTokenGuardTests {
             #"\.("# + Self.curves + #")\(duration:"#,
             #"withAnimation\s*\{"#,
             #"(withAnimation|\.animation)\([^,)]*(?<!GanchoMotion)\.("# + Self.curves + #")\b"#,
-            #"GanchoMotion\.(quick|smooth|leave|fade)\b(?!\()"#
+            #"GanchoMotion\.(quick|smooth|leave|fade|tick)\b(?!\()"#
         ].joined(separator: "|")
         let design = LocalizationTests.repoRoot
             .appendingPathComponent("Packages/GanchoKit/Sources/GanchoDesign")
@@ -96,6 +96,11 @@ struct DesignTokenGuardTests {
                 "KeyCap.swift", "SearchField.swift"
             ])
         #expect(offenders.isEmpty, "the accent has four places: \(offenders)")
+
+        // The module draws the Return cap once: on the selected row's key.
+        let caps = try Self.matches(
+            of: #"\bReturnKeyCap\("#, in: design, excluding: ["Components.swift"])
+        #expect(caps.isEmpty, "the Return cap marks the selected row only: \(caps)")
     }
 
     /// A hand-built pill keeps the raw hue as text, below 4.5:1 on its own wash.

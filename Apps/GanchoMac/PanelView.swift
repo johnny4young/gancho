@@ -1579,9 +1579,8 @@ struct PanelView: View {
         }
     }
 
-    /// ClipCard is the design's ClipRow: kind glyph (or colour swatch),
-    /// title/preview, pin / Universal-Clipboard markers, and the ⌘N
-    /// quick-paste badge for the first nine rows.
+    /// The list row: the clip as itself, its markers, and ⌘N for the first
+    /// nine rows (Return on the selected one).
     private func listCard(for item: ClipItem, shortcutNumber: Int?) -> some View {
         ClipCard(
             item: item, isSelected: search.isSelected(item.id),
@@ -1591,7 +1590,8 @@ struct PanelView: View {
             // Only the anchor claims the gliding highlight: two rows sharing one
             // matched id (a ⇧ range) would log and draw nothing.
             selectionNamespace: selectionNamespace,
-            isSelectionAnchor: search.selectedItem?.id == item.id)
+            isSelectionAnchor: search.selectedItem?.id == item.id,
+            sensitiveLifetime: model.retentionPolicy.sensitiveLifetime)
     }
 
     /// Pin/board assignment — the context-menu path; drag & drop arrives
