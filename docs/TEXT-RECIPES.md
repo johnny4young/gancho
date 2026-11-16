@@ -29,10 +29,10 @@ invalid versions and parameters, admission cancellation and byte-limit boundarie
 
 ## Local editor and reviewed delivery
 
-In the macOS text peek, press **⌘T** and choose **Text recipes…**. Create, rename,
+In the macOS text peek, press **⌘K** (or ⌘T) and choose **Text recipes…**. Create, rename,
 edit, reorder or delete a definition, then review **Before** and **After** and
 explicitly choose **Copy result** or **Paste result**. A transform pipeline built
-from the ⌘T list can also be saved as a recipe. Unsaved changes require an explicit discard before choosing
+from the ⌘K list can also be saved as a recipe. Unsaved changes require an explicit discard before choosing
 another recipe. The first release supplies Clean OCR, Clean list and Prepare
 redacted context. Sorting is never an implicit part of list cleaning.
 

@@ -5422,16 +5422,6 @@
         }
       }
     },
-    "Runs on your Mac — nothing leaves the device.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Corre en tu Mac — nada sale del dispositivo."
-          }
-        }
-      }
-    },
     "Type the keyword in the panel to insert this snippet. Add {field} placeholders to fill in before pasting.": {
       "localizations": {
         "es": {
@@ -7118,6 +7108,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Acciones"
+          }
+        }
+      }
+    },
+    "All actions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todas las acciones"
           }
         }
       }
@@ -14234,6 +14234,86 @@
           "stringUnit": {
             "state": "translated",
             "value": "Parece de tu tablero %@"
+          }
+        }
+      }
+    },
+    "Add to board…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir a un tablero…"
+          }
+        }
+      }
+    },
+    "Copy as Markdown link": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar como enlace Markdown"
+          }
+        }
+      }
+    },
+    "Runs on your Mac": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corre en tu Mac"
+          }
+        }
+      }
+    },
+    "recipes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "recetas"
+          }
+        }
+      }
+    },
+    "smart paste": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pegado inteligente"
+          }
+        }
+      }
+    },
+    "translate": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "traducir"
+          }
+        }
+      }
+    },
+    "Clip": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clip"
+          }
+        }
+      }
+    },
+    "Text · %lld transforms": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto · %lld transformaciones"
           }
         }
       }

@@ -127,7 +127,7 @@ struct PanelView: View {
     @AppStorage private var firstPasteBackAt: Double?
     /// What the gallery currently fits; 1 while the list is showing.
     @State private var galleryColumns = 2
-    /// Bumped by ⌘T; the peek opens its Transform list on each change.
+    /// Bumped by ⌘K (and ⌘T); the peek opens its action panel on each change.
     @State private var transformRequest = 0
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
@@ -179,7 +179,9 @@ struct PanelView: View {
                 if let item = search.selectedItem { model.copyImageText(item, surface: .peek) }
             }
             .keyboardShortcut("c", modifiers: [.command, .shift])
-            // ⌘T opens the selected clip's Transform list.
+            // ⌘K opens the selected clip's action panel; ⌘T stays as an alias.
+            Button("") { transformRequest += 1 }
+                .keyboardShortcut("k", modifiers: .command)
             Button("") { transformRequest += 1 }
                 .keyboardShortcut("t", modifiers: .command)
             ToastUndoShortcut()

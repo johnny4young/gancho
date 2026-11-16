@@ -8,7 +8,7 @@ import SwiftUI
 
 extension ClipPeek {
     /// The keyboard order: the dock's visible verbs, then a secret's actions.
-    /// Transforms live behind ⌘T.
+    /// Everything else lives behind ⌘K.
     var navActions: [PeekAction] { shownDockActions + secretActions }
 
     /// The transforms apply to a clip the peek is showing in full; both

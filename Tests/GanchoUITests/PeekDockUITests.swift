@@ -32,28 +32,38 @@ final class PeekDockUITests: XCTestCase {
         verifyDockVerbs(["preview-paste-plain", "preview-pin", "preview-board"], in: app)
     }
 
-    /// Every verb is in the dock's row or, once a narrow dock folds it, in the
-    /// Actions list. Opens Actions, so it runs last.
+    /// Every verb is in the action panel, whether or not a narrow dock folded
+    /// it. Opens Actions, so it runs last.
     @MainActor
     private func verifyDockVerbs(_ ids: [String], in app: XCUIApplication) {
         let dock = app.descendants(matching: .any)["peek-dock"].firstMatch
         XCTAssertTrue(dock.buttons["preview-paste"].firstMatch.isHittable)
-        let folded = ids.filter { !dock.buttons[$0].firstMatch.exists }
-        guard !folded.isEmpty else { return }
         let actions = dock.buttons["transform-button"].firstMatch
-        XCTAssertTrue(actions.isHittable, "a dock that folds verbs must offer Actions")
+        XCTAssertTrue(actions.isHittable, "the dock always offers Actions")
+        XCTAssertEqual(actions.value as? String, "⌘K")
         actions.click()
-        for id in folded {
-            XCTAssertTrue(app.buttons[id].firstMatch.appears(within: 5), "\(id) must be in Actions")
+        XCTAssertTrue(app.buttons["action-row-paste"].firstMatch.appears(within: 5))
+        for id in ids {
+            let row = Self.actionRow(for: id)
+            XCTAssertTrue(app.buttons[row].firstMatch.exists, "\(row) must be in Actions")
         }
+        XCTAssertTrue(app.buttons["action-row-delete"].firstMatch.exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["action-panel-footer"].firstMatch.exists)
+    }
+
+    /// The action panel's row for a dock verb.
+    private static func actionRow(for dockID: String) -> String {
+        "action-row-" + (dockID.hasPrefix("preview-") ? String(dockID.dropFirst(8)) : dockID)
     }
 
     /// The Pin verb, from the row or from Actions. Opens Actions, so it runs last.
     @MainActor
     private func pinVerb(in app: XCUIApplication) -> XCUIElement {
         let pin = app.buttons["preview-pin"].firstMatch
-        if !pin.exists { app.buttons["transform-button"].firstMatch.click() }
-        return pin
+        guard !pin.exists else { return pin }
+        app.buttons["transform-button"].firstMatch.click()
+        return app.buttons["action-row-pin"].firstMatch
     }
 
     @MainActor

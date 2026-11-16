@@ -6,16 +6,15 @@ import GanchoKit
 import SwiftUI
 
 extension ClipPeek {
-    /// The dock's Actions entry: a click (or ⌘T, when the clip has transforms)
-    /// opens the list, with the verbs the dock had no room for on top.
-    func actionsButton(folded: [PeekAction]) -> some View {
+    /// The dock's Actions entry: a click or ⌘K opens the action panel.
+    var actionsButton: some View {
         let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
         return Button {
             showsTransformPopover.toggle()
         } label: {
             HStack(spacing: 6) {
                 Text("Actions").panelFont(size: 12.5, .medium).lineLimit(1)
-                if offersTransforms { KeyCap("⌘T").accessibilityHidden(true) }
+                KeyCap("⌘K").accessibilityHidden(true)
             }
             .padding(.horizontal, 7)
             .frame(height: 34 * typeScale)
@@ -28,19 +27,17 @@ extension ClipPeek {
         }
         .buttonStyle(.plain)
         .fixedSize()
-        // A running transform must not lock the verbs folded in here.
-        .disabled(isThinking && folded.isEmpty)
-        .accessibilityValue(Text(verbatim: offersTransforms ? "⌘T" : ""))
+        // Verbs stay reachable while a transform runs; only new transforms wait.
+        .accessibilityValue(Text(verbatim: "⌘K"))
         .accessibilityIdentifier("transform-button")
         .popover(isPresented: $showsTransformPopover, arrowEdge: .top) {
+            let actions = dockActions
             PeekTransformPopover(
-                verbs: folded, groups: offersTransforms ? transformGroups : [],
-                title: transformTitle, groupTitle: groupTitle, symbol: transformSymbol,
-                onSelect: runTransformRow,
-                runVerb: { verb in
-                    showsTransformPopover = false
-                    verb.run()
-                })
+                groups: panelGroups(actions),
+                title: { transformTitle($0) }, groupTitle: groupTitle,
+                symbol: { transformSymbol($0, dock: actions) },
+                key: { rowKey($0, dock: actions) }, footnote: panelFootnote,
+                onSelect: { runTransformRow($0, dock: actions) })
         }
     }
 
@@ -148,6 +145,14 @@ extension ClipPeek {
         }
     }
 
+    /// The clip's verbs first, then what it can be turned into.
+    private func panelGroups(_ dock: [PeekAction]) -> [TransformGroup] {
+        let clip = TransformCatalog.clipGroup(
+            dockIDs: dock.map(\.id), markdownLink: linkParts != nil && !hidesPreview,
+            deletes: !isInlineEditing)
+        return [clip] + (offersTransforms ? transformGroups : [])
+    }
+
     private var transformGroups: [TransformGroup] {
         guard canTransform || canSmartPaste else { return [] }
         let groups = TransformCatalog.groups(
@@ -163,6 +168,7 @@ extension ClipPeek {
 
     private func transformTitle(_ row: TransformRow) -> String {
         switch row {
+        case .verb(let verb): verbTitle(verb)
         case .recipes: String(localized: "Text recipes…")
         case .step(let step): String(localized: String.LocalizationValue(step.title))
         case .smartPaste(let action): String(localized: String.LocalizationValue(action.titleKey))
@@ -173,17 +179,70 @@ extension ClipPeek {
         }
     }
 
-    private func groupTitle(_ kind: TransformGroup.Kind) -> Text {
-        switch kind {
+    private func verbTitle(_ verb: ClipVerb) -> String {
+        switch verb {
+        case .paste: pasteVerbTitle
+        case .pastePlain: String(localized: "Paste plain")
+        case .convert: String(localized: "Convert")
+        case .stack: String(localized: "Add to paste stack")
+        case .pin: String(localized: item.isPinned ? "Unpin" : "Pin")
+        case .board: String(localized: "Add to board…")
+        case .context: String(localized: "Show context")
+        case .imageText: String(localized: "Copy text from image")
+        case .markdownLink: String(localized: "Copy as Markdown link")
+        case .delete: String(localized: "Delete")
+        }
+    }
+
+    private var pasteVerbTitle: String {
+        switch model.pasteTarget.label {
+        case .pasteInto(let app): String(localized: "Paste into \(app)")
+        case .paste: String(localized: "Paste")
+        case .copy: String(localized: "Copy")
+        }
+    }
+
+    /// The row's key outside the panel: its dock button's, or ⌫ for Delete.
+    private func rowKey(_ row: TransformRow, dock: [PeekAction]) -> String? {
+        guard case .verb(let verb) = row else { return nil }
+        if verb == .delete { return "⌫" }
+        return dock.first { $0.id == verb.dockID }?.shortcut
+    }
+
+    /// The on-device extras the panel really offers, for its footer.
+    private var panelFootnote: String {
+        let rows = offersTransforms ? transformGroups.flatMap(\.rows) : []
+        var names: [String] = []
+        if rows.contains(.recipes) { names.append(String(localized: "recipes")) }
+        if rows.contains(where: {
+            switch $0 {
+            case .smartPaste, .describeChange, .savedPrompt: true
+            default: false
+            }
+        }) {
+            names.append(String(localized: "smart paste"))
+        }
+        if rows.contains(where: { if case .translate = $0 { true } else { false } }) {
+            names.append(String(localized: "translate"))
+        }
+        return names.formatted(.list(type: .and, width: .narrow))
+    }
+
+    private func groupTitle(_ group: TransformGroup) -> Text {
+        switch group.kind {
+        case .clip: Text("Clip")
         case .clipKind(let clipKind): Text(clipKind.cardName)
-        case .text: Text("Text")
+        case .text: Text("Text · \(group.rows.count) transforms")
         case .recipes: Text("Recipes")
         case .smartPaste: Text("Smart paste · on-device")
         }
     }
 
-    private func transformSymbol(_ row: TransformRow) -> String {
+    private func transformSymbol(_ row: TransformRow, dock: [PeekAction]) -> String {
         switch row {
+        case .verb(.markdownLink): "link"
+        case .verb(.delete): "trash"
+        case .verb(let verb): dock.first { $0.id == verb.dockID }?.symbol ?? "circle"
         case .recipes: "list.bullet.rectangle"
         case .step(.text): "textformat"
         case .step(.dev): "chevron.left.forwardslash.chevron.right"
@@ -194,9 +253,14 @@ extension ClipPeek {
         }
     }
 
-    private func runTransformRow(_ row: TransformRow) {
+    /// A verb runs what its dock button or key runs.
+    private func runTransformRow(_ row: TransformRow, dock: [PeekAction]) {
+        if isThinking, !row.isVerb { return }
         showsTransformPopover = false
         switch row {
+        case .verb(.markdownLink): copyMarkdownLink()
+        case .verb(.delete): if !isInlineEditing { model.delete(item) }
+        case .verb(let verb): dock.first { $0.id == verb.dockID }?.run()
         case .recipes:
             recipeRequest = TextRecipeReviewRequest(clipID: item.id)
         case .step(let step):
@@ -221,5 +285,13 @@ extension ClipPeek {
             describeMode = true
             runDescribe(prompt)
         }
+    }
+}
+
+extension TransformRow {
+    /// Clip verbs stay runnable while a transform is in flight.
+    fileprivate var isVerb: Bool {
+        if case .verb = self { return true }
+        return false
     }
 }

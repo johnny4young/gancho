@@ -82,9 +82,13 @@ final class JumpToContextUITests: XCTestCase {
             XCTWaiter.wait(for: [selected], timeout: 5), .completed,
             "back on the row ⌘J was pressed on")
 
-        // A dock too narrow for the verb folds it into Actions, so this opens it last.
-        if !peekAction.exists { app.buttons["transform-button"].firstMatch.click() }
-        XCTAssertTrue(peekAction.appears(within: 5), "the peek offers Show context")
+        // A dock too narrow for the verb keeps it in Actions, so this opens it last.
+        if !peekAction.exists {
+            app.typeKey("k", modifierFlags: .command)
+            XCTAssertTrue(
+                app.buttons["action-row-context"].firstMatch.appears(within: 5),
+                "the action panel offers Show context")
+        }
         try keepRender(of: "history-panel", in: app, named: "Show context in the peek")
     }
 

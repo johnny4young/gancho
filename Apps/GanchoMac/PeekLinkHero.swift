@@ -158,7 +158,7 @@ struct PeekLinkHero: View {
             .accessibilityElement(children: .contain)
             .accessibilityHint(Text("Pastes with Option-Return"))
             .accessibilityIdentifier("peek-pastes-as-plain")
-            // No key copies Markdown yet, so the row itself does.
+            // No key of its own: the row copies it, as does "md" in the action panel.
             Button(action: copyMarkdown) {
                 pasteRow(text: markdown, note: "Markdown link", textID: "") { EmptyView() }
                     .contentShape(Rectangle())

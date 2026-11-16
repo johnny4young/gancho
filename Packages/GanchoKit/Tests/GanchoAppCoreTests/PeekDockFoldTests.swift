@@ -21,13 +21,10 @@ struct PeekDockFoldTests {
         #expect(tiers[2] == Array(text.dropLast(2)))
     }
 
-    @Test("Pin and Board fold together, into Actions, and keep the dock's order")
+    @Test("Pin and Board fold together and keep the dock's order")
     func pinAndBoardFoldTogether() {
         let tiers = rows(text)
         #expect(tiers[3] == ["preview-paste", "preview-paste-plain"])
-        #expect(
-            PeekDockFold.folded(from: text, showing: tiers[3])
-                == ["preview-pin", "preview-board", "preview-stack", "preview-context"])
         #expect(!tiers.contains { $0.contains("preview-pin") != $0.contains("preview-board") })
     }
 
