@@ -29,6 +29,8 @@ struct LibraryProMeterTests {
         #expect(LibraryProMeter(boards: 0, pins: 0, snippets: 1).filledSegments() == 1)
         #expect(LibraryProMeter(boards: boards, pins: 0, snippets: 0).filledSegments() == 5)
         #expect(LibraryProMeter(boards: boards, pins: 0, snippets: 0).filledSegments(of: 3) == 3)
+        let almost = PinLimits.freeMaxPins - 1
+        #expect(LibraryProMeter(boards: 0, pins: almost, snippets: 0).filledSegments() == 4)
     }
 
     @Test("Pressure escalates on whichever ceiling is closest, pins included")

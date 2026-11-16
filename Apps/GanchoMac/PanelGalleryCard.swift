@@ -11,6 +11,7 @@ struct PanelGalleryCard: View {
     let previewsHidden: Bool
     let shortcutNumber: Int?
     let thumbnails: GanchoDesign.ClipThumbnailStore
+    var sensitiveLifetime: TimeInterval?
 
     private var masked: Bool { previewsHidden || ClipSafePresentation.requiresMasking(item) }
 
@@ -18,7 +19,7 @@ struct PanelGalleryCard: View {
         let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         LibraryClipCard(
             clip: item, thumbnails: thumbnails, previewsHidden: previewsHidden,
-            specimenHeight: 96
+            specimenHeight: 96, sensitiveLifetime: sensitiveLifetime
         )
         .overlay {
             if isSelected {

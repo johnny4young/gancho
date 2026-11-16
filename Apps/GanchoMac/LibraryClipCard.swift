@@ -150,7 +150,9 @@ struct LibraryClipCard: View {
     /// narrows the wall never changes its height.
     nonisolated static func imageHeight(for info: ClipImageInfo?) -> CGFloat {
         guard let info, info.width > 0, info.height > 0 else { return 140 }
-        return min(max(210 * CGFloat(info.height) / CGFloat(info.width), 96), 260)
+        let height =
+            MasonryLayout.defaultMinColumnWidth * CGFloat(info.height) / CGFloat(info.width)
+        return min(max(height, 96), 260)
     }
 
     private var imageSpecimen: some View {
@@ -275,6 +277,9 @@ struct LibraryClipCard: View {
         case .text(let text): parts.append(Text(verbatim: isProse && !masked ? bodyText : text))
         case .kindName: break
         }
+        if let countdown = Countdown(item: clip, lifetime: sensitiveLifetime) {
+            parts.append(Text("\(countdown.clock(at: .now)) left"))
+        }
         if !masked, clip.kind == .image {
             parts.append(
                 thumbnails.cached(for: clip) != nil
@@ -284,6 +289,7 @@ struct LibraryClipCard: View {
         if clip.isPinned { parts.append(Text("Pinned")) }
         parts += boards.map(\.displayTitle) + facts
         if let sourceName { parts.append(Text(verbatim: sourceName)) }
+        if !previewsHidden { parts.append(Text(CompactAge(since: clip.createdAt).label)) }
         return parts.dropFirst().reduce(parts[0]) { Text("\($0), \($1)") }
     }
 }

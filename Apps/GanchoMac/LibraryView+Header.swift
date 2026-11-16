@@ -47,14 +47,20 @@ extension LibraryView {
         }
     }
 
-    /// Only scopes the store counts by kind have a mix: All clips and boards.
+    /// Only scopes the store counts by kind have a mix: All clips and boards,
+    /// less the clips hidden while their delete awaits Undo.
     private var kindMix: [KindMixCaption] {
         guard !clips.isEmpty else { return [] }
+        var counts: [ClipContentKind: Int]
         switch selection ?? .allClips {
-        case .allClips: return ClipKindFilter.captionedMix(of: kindCounts)
-        case .board(let id): return ClipKindFilter.captionedMix(of: boardKindCounts[id] ?? [:])
+        case .allClips: counts = kindCounts
+        case .board(let id): counts = boardKindCounts[id] ?? [:]
         case .pinned, .savedFilter, .snippet: return []
         }
+        for clip in clipList.items where model.pendingDeletionIDs.contains(clip.id) {
+            counts[clip.kind] = max(0, (counts[clip.kind] ?? 0) - 1)
+        }
+        return ClipKindFilter.captionedMix(of: counts)
     }
 
     @ViewBuilder private var syncCaption: some View {

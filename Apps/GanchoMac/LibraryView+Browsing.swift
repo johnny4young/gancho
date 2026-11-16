@@ -78,8 +78,11 @@ extension LibraryView {
         switch layout {
         case .grid:
             // A layout measures every card it holds, so the wall is built in
-            // bands the lazy stack can mount and release one at a time.
-            ForEach(Self.bands(group), id: \.first?.id) { band in
+            // bands the lazy stack can mount and release one at a time. Keyed by
+            // position, so a delete or a new copy moves only each band's edge card.
+            let bands = Self.bands(group)
+            ForEach(bands.indices, id: \.self) { index in
+                let band = bands[index]
                 MasonryLayout(spacing: GanchoTokens.Spacing.md) {
                     ForEach(band) { clip in
                         clipCard(clip).task { if clip.id == lastID { await clipList.loadMore() } }

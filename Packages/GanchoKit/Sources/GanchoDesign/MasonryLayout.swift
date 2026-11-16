@@ -8,10 +8,12 @@ public struct MasonryLayout: Layout {
         public let y: CGFloat
     }
 
+    public static let defaultMinColumnWidth: CGFloat = 210
+
     let minColumnWidth: CGFloat
     let spacing: CGFloat
 
-    public init(minColumnWidth: CGFloat = 210, spacing: CGFloat = 16) {
+    public init(minColumnWidth: CGFloat = defaultMinColumnWidth, spacing: CGFloat = 16) {
         self.minColumnWidth = minColumnWidth
         self.spacing = spacing
     }
@@ -20,7 +22,8 @@ public struct MasonryLayout: Layout {
     public static func columnCount(
         width: CGFloat, minColumnWidth: CGFloat, spacing: CGFloat
     ) -> Int {
-        max(1, Int((width + spacing) / (minColumnWidth + spacing)))
+        let fit = (width + spacing) / (minColumnWidth + spacing)
+        return fit.isFinite ? max(1, Int(fit)) : 1
     }
 
     public static func columnWidth(width: CGFloat, columns: Int, spacing: CGFloat) -> CGFloat {
@@ -65,7 +68,7 @@ public struct MasonryLayout: Layout {
     public func sizeThatFits(
         proposal: ProposedViewSize, subviews: Subviews, cache: inout Void
     ) -> CGSize {
-        let width = proposal.width ?? minColumnWidth
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? minColumnWidth
         return CGSize(width: width, height: arrangement(subviews, width: width).height)
     }
 

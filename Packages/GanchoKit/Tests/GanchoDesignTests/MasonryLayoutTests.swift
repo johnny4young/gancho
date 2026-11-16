@@ -13,6 +13,8 @@ struct MasonryLayoutTests {
         #expect(count(435) == 1)
         #expect(count(436) == 2)
         #expect(count(888) == 4)
+        #expect(count(.infinity) == 1)
+        #expect(count(.nan) == 1)
         #expect(MasonryLayout.columnWidth(width: 436, columns: 2, spacing: 16) == 210)
         #expect(MasonryLayout.columnWidth(width: 100, columns: 1, spacing: 16) == 100)
     }
