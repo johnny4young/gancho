@@ -3635,6 +3635,26 @@
         }
       }
     },
+    "Pastes with Option-Return": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se pega con Opción-Retorno"
+          }
+        }
+      }
+    },
+    "Pastes with Return": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se pega con Retorno"
+          }
+        }
+      }
+    },
     "pasted back": {
       "extractionState": "stale",
       "localizations": {
@@ -7088,6 +7108,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Acciones"
+          }
+        }
+      }
+    },
+    "All actions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todas las acciones"
           }
         }
       }
@@ -13950,6 +13980,16 @@
         }
       }
     },
+    "Copied · from %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiado · desde %@"
+          }
+        }
+      }
+    },
     "SCHEME": {
       "localizations": {
         "es": {
@@ -14272,6 +14312,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Se autodestruye"
+          }
+        }
+      }
+    },
+    "Private Mode time left": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiempo restante del Modo privado"
+          }
+        }
+      }
+    },
+    "Reveal time left": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiempo restante para mostrar"
           }
         }
       }

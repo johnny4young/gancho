@@ -83,9 +83,7 @@ final class JumpToContextUITests: XCTestCase {
             "back on the row ⌘J was pressed on")
 
         // A dock too narrow for the verb keeps it in Actions, so this opens it last.
-        if peekAction.exists {
-            XCTAssertTrue(peekAction.appears(within: 5), "the peek offers Show context")
-        } else {
+        if !peekAction.exists {
             app.typeKey("k", modifierFlags: .command)
             XCTAssertTrue(
                 app.buttons["action-row-context"].firstMatch.appears(within: 5),

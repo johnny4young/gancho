@@ -83,6 +83,7 @@ struct PeekSecretHero<Actions: View>: View {
                         warnsWhenUrgent: false
                     )
                     .frame(width: 14 * typeScale, height: 14 * typeScale)
+                    .accessibilityLabel(Text("Reveal time left"))
                     .accessibilityIdentifier("peek-reveal-ring")
                 }
             }

@@ -8,10 +8,10 @@ import Testing
 struct SecretRevealTests {
     private let captured = Date(timeIntervalSince1970: 1_800_000_000)
 
-    private func secret(lifetime: TimeInterval = 600) -> ClipItem {
+    private func secret() -> ClipItem {
         ClipItem(
             createdAt: captured, kind: .secret, preview: "●●●● 4Q2v", contentHash: "s",
-            isSensitive: true, expiresAt: captured.addingTimeInterval(lifetime))
+            isSensitive: true, expiresAt: captured.addingTimeInterval(600))
     }
 
     @Test("A reveal lasts exactly its window and can end early")

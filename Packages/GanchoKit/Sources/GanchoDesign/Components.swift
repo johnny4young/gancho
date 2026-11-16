@@ -73,45 +73,6 @@ private struct ElevationModifier: ViewModifier {
     }
 }
 
-/// Kind badge: distinctive icon + name, colored per family. VoiceOver reads
-/// the localized kind name, never "button".
-public struct TypeBadge: View {
-    /// `.plain` is secondary text; `.pill` sits on a wash of the kind's tint.
-    public enum Style: Sendable {
-        case plain, pill
-    }
-
-    let kind: ClipContentKind
-    let style: Style
-
-    nonisolated static let washOpacity = 0.14
-
-    public init(kind: ClipContentKind, style: Style = .plain) {
-        self.kind = kind
-        self.style = style
-    }
-
-    public var body: some View {
-        let label = Label(LocalizedStringKey(kind.rawValue), systemImage: kind.symbolName)
-            .labelStyle(.titleAndIcon)
-        switch style {
-        case .plain:
-            label
-                .panelFont(.caption2, .medium)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("type-badge")
-        case .pill:
-            let tint = GanchoTokens.Palette.kindTint(for: kind)
-            label
-                .panelFont(.subheadline, .semibold)
-                .padding(.horizontal, GanchoTokens.Spacing.xs)
-                .padding(.vertical, 3)
-                .ganchoTintedPill(tint, wash: Self.washOpacity)
-                .accessibilityIdentifier("type-badge")
-        }
-    }
-}
-
 /// The parts of a link a row tile or the peek hero shows: the host without
 /// a leading `www.`, and the complete original URL. Parsed locally from the stored
 /// text — no favicon and no metadata fetch, so the URL never leaves the device.
@@ -231,8 +192,7 @@ public struct ClipCard: View {
         matchQuery: String? = nil, marksReturn: Bool = true
     ) {
         let protected = ClipSafePresentation.requiresMasking(item)
-        let masking: ClipRowContent.Masking =
-            previewsHidden ? .hidden : protected ? .storedMask : .none
+        let masking = ClipRowContent.Masking.for(item, previewsHidden: previewsHidden)
         self.item = item
         self.isSelected = isSelected
         self.previewsHidden = previewsHidden || protected
@@ -485,7 +445,10 @@ public struct ClipCard: View {
                         .accessibilityLabel(Text("Pinned"))
                         .transition(.scale.combined(with: .opacity))
                 }
-                ClipShortcutBadge(number: shortcutNumber, isSelected: isSelected && marksReturn)
+                // Return pastes only the anchor of a ⇧ range.
+                ClipShortcutBadge(
+                    number: shortcutNumber,
+                    isSelected: isSelected && isSelectionAnchor && marksReturn)
             }
         }
         .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: item.isPinned)

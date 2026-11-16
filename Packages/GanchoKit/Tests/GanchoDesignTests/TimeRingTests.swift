@@ -54,6 +54,10 @@ struct TimeRingTests {
         #expect(
             Countdown(item: secret, lifetime: 120)?.deadline == Self.start.addingTimeInterval(120))
 
+        // Retention's lifetime clause purges sensitive clips only.
+        let token = ClipItem(createdAt: Self.start, kind: .jwt, contentHash: "j", expiresAt: expiry)
+        #expect(Countdown(item: token, lifetime: 120) == Self.ten, "not sensitive: its own expiry")
+
         let plain = ClipItem(createdAt: Self.start, contentHash: "p", expiresAt: expiry)
         #expect(Countdown(item: plain) == nil)
         #expect(Countdown(item: ClipItem(kind: .secret, contentHash: "n")) == nil, "no expiry")
@@ -80,5 +84,31 @@ struct TimeRingTests {
         #expect(Countdown(from: Self.start, until: nil) == nil, "on until turned off")
         #expect(Countdown(from: nil, until: end) == nil)
         #expect(Countdown(from: end, until: Self.start) == nil, "dates out of order")
+    }
+
+    @Test("A ring redraws each second, or about once a degree on a long span")
+    func tickInterval() {
+        func span(_ seconds: TimeInterval) -> TimeInterval {
+            Countdown(window: seconds, endingAt: Self.start).tickInterval
+        }
+        #expect(span(10) == 1, "a reveal")
+        #expect(span(600) == 1, "a secret's lifetime")
+        #expect(span(900) == 2)
+        #expect(span(1800) == 5)
+        #expect(span(3600) == 10, "an hour of Private Mode")
+        #expect(span(86_400) == 10)
+        for seconds in [10.0, 900, 1800, 3600] {
+            #expect(60.0.truncatingRemainder(dividingBy: span(seconds)) == 0)
+        }
+    }
+
+    @Test("Only a secret's ring turns red in its last minute; a mode's never does")
+    @MainActor
+    func modeRingNeverWarns() throws {
+        let lastMinute = at(570)
+        #expect(TimeRing(Self.ten).strokeIsUrgent(at: lastMinute))
+        let mode = try #require(ModeRing(Self.ten).ring)
+        #expect(!mode.strokeIsUrgent(at: lastMinute))
+        #expect(ModeRing(nil).ring == nil, "no deadline: a plain ring")
     }
 }

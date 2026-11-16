@@ -26,19 +26,28 @@ public struct Countdown: Equatable, Sendable {
     }
 
     /// A protected clip's lifetime; nil when it has no expiry. `lifetime` is
-    /// the current setting: retention purges by capture time once it is
-    /// shortened, so the earlier of the two is the real deadline.
+    /// the current setting: retention purges a sensitive clip by capture time
+    /// once it is shortened, so for those the earlier of the two is the deadline.
     public init?(item: ClipItem, lifetime: TimeInterval? = nil) {
         guard ClipSafePresentation.requiresMasking(item), let expiresAt = item.expiresAt
         else { return nil }
         start = item.createdAt
         deadline =
-            lifetime.map { min(expiresAt, item.createdAt.addingTimeInterval($0)) }
-            ?? expiresAt
+            lifetime.flatMap {
+                item.isSensitive ? min(expiresAt, item.createdAt.addingTimeInterval($0)) : nil
+            } ?? expiresAt
     }
 
     public func remaining(at now: Date) -> TimeInterval {
         max(0, deadline.timeIntervalSince(now))
+    }
+
+    /// How often a ring needs redrawing: each second, or on a long span about
+    /// as often as the arc moves a degree. Each step divides a minute, so the
+    /// last minute still starts on a tick.
+    public var tickInterval: TimeInterval {
+        let perDegree = deadline.timeIntervalSince(start) / 360
+        return [10, 5, 2].first { $0 <= perDegree } ?? 1
     }
 
     public func isRunning(at now: Date) -> Bool {
@@ -70,7 +79,7 @@ public struct Countdown: Equatable, Sendable {
 }
 
 /// Time left as a ring that empties: hairline track, ink progress, red only in
-/// the last minute. Ticks once a second; under Reduce Motion it steps.
+/// the last minute. Ticks every `tickInterval`; under Reduce Motion it steps.
 public struct TimeRing<Center: View>: View {
     let countdown: Countdown
     let lineWidth: CGFloat
@@ -91,7 +100,7 @@ public struct TimeRing<Center: View>: View {
 
     public var body: some View {
         // Anchored to the deadline, so the ring and a clock beside it tick together.
-        TimelineView(.periodic(from: countdown.deadline, by: 1)) { context in
+        TimelineView(.periodic(from: countdown.deadline, by: countdown.tickInterval)) { context in
             let fraction = countdown.fraction(at: context.date)
             ZStack {
                 Circle()
@@ -100,7 +109,7 @@ public struct TimeRing<Center: View>: View {
                     .inset(by: lineWidth / 2)
                     .trim(from: 0, to: fraction)
                     .stroke(
-                        warnsWhenUrgent && countdown.isUrgent(at: context.date)
+                        strokeIsUrgent(at: context.date)
                             ? GanchoTokens.Palette.danger : GanchoTokens.Palette.ink,
                         style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                     )
@@ -112,10 +121,14 @@ public struct TimeRing<Center: View>: View {
             .accessibilityValue(Text("\(countdown.clock(at: context.date)) left"))
         }
     }
+
+    func strokeIsUrgent(at now: Date) -> Bool {
+        warnsWhenUrgent && countdown.isUrgent(at: now)
+    }
 }
 
-/// A timed mode's time left on the same ring; a plain ink ring while the mode
-/// has no deadline.
+/// A timed mode's time left on the same ring, never red: a mode running out
+/// is not a danger. A plain ink ring while the mode has no deadline.
 public struct ModeRing: View {
     let countdown: Countdown?
     let lineWidth: CGFloat
@@ -125,9 +138,13 @@ public struct ModeRing: View {
         self.lineWidth = lineWidth
     }
 
+    var ring: TimeRing<EmptyView>? {
+        countdown.map { TimeRing($0, lineWidth: lineWidth, warnsWhenUrgent: false) }
+    }
+
     public var body: some View {
-        if let countdown {
-            TimeRing(countdown, lineWidth: lineWidth)
+        if let ring {
+            ring
         } else {
             Circle().strokeBorder(GanchoTokens.Palette.ink, lineWidth: lineWidth)
                 .accessibilityHidden(true)
