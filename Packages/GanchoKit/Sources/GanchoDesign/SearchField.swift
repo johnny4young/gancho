@@ -12,6 +12,8 @@ public struct SearchField<Leading: View, Trailing: View>: View {
 
     let promptKey: LocalizedStringKey
     let style: Style
+    /// The leading symbol; a hidden-previews state swaps the magnifier out.
+    let glyph: String
     @Binding var text: String
     /// Sits between the magnifier and the text: filter chips.
     let leading: Leading
@@ -20,9 +22,11 @@ public struct SearchField<Leading: View, Trailing: View>: View {
 
     public init(
         _ promptKey: LocalizedStringKey, text: Binding<String>, style: Style = .card,
+        glyph: String = "magnifyingglass",
         @ViewBuilder leading: () -> Leading, @ViewBuilder trailing: () -> Trailing
     ) {
         self.promptKey = promptKey
+        self.glyph = glyph
         self._text = text
         self.style = style
         self.leading = leading()
@@ -45,7 +49,7 @@ public struct SearchField<Leading: View, Trailing: View>: View {
 
     private var field: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: "magnifyingglass")
+            Image(systemName: glyph)
                 .foregroundStyle(.secondary)
                 .frame(width: 16, alignment: .center)
                 .accessibilityHidden(true)

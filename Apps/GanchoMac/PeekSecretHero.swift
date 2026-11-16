@@ -3,74 +3,90 @@ import GanchoDesign
 import GanchoKit
 import SwiftUI
 
-/// A secret's card in the peek: the stored mask (or the revealed text), the
-/// time it has left and a lifetime bar. Reveal and Delete now are peek actions.
-struct PeekSecretHero: View {
+/// A secret's stage in the peek: its lifetime as a dial, then the stored mask
+/// (or the revealed text), its actions and what never happens to it.
+struct PeekSecretHero<Actions: View>: View {
     let item: ClipItem
-    let lifetime: SecretLifetime?
+    let countdown: Countdown?
     let revealedText: String?
     let reveal: SecretReveal
+    @ViewBuilder let actions: Actions
+    @Environment(\.panelTypeScale) private var typeScale
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-            // The window is checked here too, so a late timer never extends it.
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                let shown = reveal.isRevealed(at: context.date) ? revealedText : nil
-                Text(verbatim: shown ?? ClipSafePresentation.maskedTail(for: item))
-                    .panelFont(.body, design: .monospaced)
-                    .fontWeight(.bold)
-                    .lineLimit(shown == nil ? 1 : 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier(shown == nil ? "peek-masked" : "peek-revealed")
-            }
-            if let lifetime {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    countdown(lifetime, at: context.date)
+        HStack(alignment: .center, spacing: GanchoTokens.Spacing.md) {
+            if let countdown { dial(countdown) }
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                token
+                actions
+                // Sync, the semantic index and agent reads all skip sensitive clips.
+                if item.isSensitive {
+                    Label(
+                        "Never indexed, never synced, never read by agents.",
+                        systemImage: "checkmark.shield"
+                    )
+                    .panelFont(.caption2)
+                    .foregroundStyle(GanchoTokens.Palette.ink3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("peek-secret-note")
                 }
             }
         }
-        .padding(.vertical, GanchoTokens.Spacing.sm)
-        .padding(.horizontal, GanchoTokens.Spacing.md)
+        .padding(GanchoTokens.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(GanchoTokens.Palette.danger.opacity(0.06), in: shape)
+        .background(GanchoTokens.Palette.surface(.card), in: shape)
         .overlay(
             shape.strokeBorder(
-                GanchoTokens.Palette.danger.opacity(0.25), lineWidth: GanchoTokens.Stroke.hairline)
+                GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("peek-secret-hero")
     }
 
-    private func countdown(_ lifetime: SecretLifetime, at now: Date) -> some View {
-        let fraction = lifetime.fraction(at: now)
-        // The row's badge uses the same system timer, so both tick together.
-        let time =
-            lifetime.remaining(at: now) > 0
-            ? Text(lifetime.deadline, style: .timer) : Text(verbatim: "0:00")
-        return VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-            HStack(spacing: GanchoTokens.Spacing.xxs) {
-                Image(systemName: "timer")
-                Text("Self-destructs in \(time.monospacedDigit().bold())")
+    /// One element for VoiceOver: the clock it shows, in a sentence.
+    private func dial(_ countdown: Countdown) -> some View {
+        TimelineView(.periodic(from: countdown.deadline, by: 1)) { context in
+            let clock = countdown.clock(at: context.date)
+            TimeRing(countdown, lineWidth: 3) {
+                VStack(spacing: 2) {
+                    Text(verbatim: clock)
+                        .panelFont(size: 25, .medium, design: .monospaced)
+                        .foregroundStyle(
+                            countdown.isUrgent(at: context.date)
+                                ? GanchoTokens.Palette.danger : GanchoTokens.Palette.ink)
+                    Text("Self-destructs")
+                        .panelFont(size: 8.5, .medium, design: .monospaced)
+                        .textCase(.uppercase)
+                        .foregroundStyle(GanchoTokens.Palette.ink3)
+                }
             }
-            .panelFont(.caption)
-            .foregroundStyle(GanchoTokens.Palette.warningInk)
-            .accessibilityElement(children: .combine)
+            .frame(width: 108 * typeScale, height: 108 * typeScale)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Self-destructs in \(clock)"))
             .accessibilityIdentifier("peek-secret-countdown")
-            GeometryReader { proxy in
-                Capsule()
-                    .fill(GanchoTokens.Palette.warning.opacity(0.2))
-                    .overlay(alignment: .leading) {
-                        Capsule()
-                            .fill(GanchoTokens.Palette.warning)
-                            .frame(width: proxy.size.width * fraction)
-                    }
+        }
+    }
+
+    private var token: some View {
+        // The window is checked here too, so a late timer never extends it.
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let shown = reveal.isRevealed(at: context.date) ? revealedText : nil
+            HStack(alignment: .top, spacing: GanchoTokens.Spacing.xs) {
+                Text(verbatim: shown ?? ClipSafePresentation.maskedTail(for: item))
+                    .panelFont(.body, .medium, design: .monospaced)
+                    .lineLimit(shown == nil ? 1 : 6)
+                    .accessibilityIdentifier(shown == nil ? "peek-masked" : "peek-revealed")
+                if shown != nil, let until = reveal.until {
+                    TimeRing(
+                        Countdown(window: SecretReveal.window, endingAt: until),
+                        warnsWhenUrgent: false
+                    )
+                    .frame(width: 14 * typeScale, height: 14 * typeScale)
+                    .accessibilityIdentifier("peek-reveal-ring")
+                }
             }
-            .frame(height: 6)
-            .accessibilityElement()
-            .accessibilityLabel(Text("Lifetime left"))
-            .accessibilityValue(Text(fraction, format: .percent.precision(.fractionLength(0))))
-            .accessibilityIdentifier("peek-secret-lifetime")
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

@@ -14,6 +14,17 @@ public struct Countdown: Equatable, Sendable {
         self.deadline = deadline
     }
 
+    /// A fixed window that ends at `deadline`: a timed reveal.
+    public init(window: TimeInterval, endingAt deadline: Date) {
+        self.init(start: deadline.addingTimeInterval(-window), deadline: deadline)
+    }
+
+    /// A timed mode; nil while it has no deadline or the dates are out of order.
+    public init?(from start: Date?, until deadline: Date?) {
+        guard let start, let deadline, deadline > start else { return nil }
+        self.init(start: start, deadline: deadline)
+    }
+
     /// A protected clip's lifetime; nil when it has no expiry. `lifetime` is
     /// the current setting: retention purges by capture time once it is
     /// shortened, so the earlier of the two is the real deadline.
@@ -63,15 +74,18 @@ public struct Countdown: Equatable, Sendable {
 public struct TimeRing<Center: View>: View {
     let countdown: Countdown
     let lineWidth: CGFloat
+    /// False for a span too short to have a last minute (a 10 s reveal).
+    let warnsWhenUrgent: Bool
     let center: Center
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(
-        _ countdown: Countdown, lineWidth: CGFloat = 2,
+        _ countdown: Countdown, lineWidth: CGFloat = 2, warnsWhenUrgent: Bool = true,
         @ViewBuilder center: () -> Center = { EmptyView() }
     ) {
         self.countdown = countdown
         self.lineWidth = lineWidth
+        self.warnsWhenUrgent = warnsWhenUrgent
         self.center = center()
     }
 
@@ -86,7 +100,7 @@ public struct TimeRing<Center: View>: View {
                     .inset(by: lineWidth / 2)
                     .trim(from: 0, to: fraction)
                     .stroke(
-                        countdown.isUrgent(at: context.date)
+                        warnsWhenUrgent && countdown.isUrgent(at: context.date)
                             ? GanchoTokens.Palette.danger : GanchoTokens.Palette.ink,
                         style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                     )
@@ -96,6 +110,27 @@ public struct TimeRing<Center: View>: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityValue(Text("\(countdown.clock(at: context.date)) left"))
+        }
+    }
+}
+
+/// A timed mode's time left on the same ring; a plain ink ring while the mode
+/// has no deadline.
+public struct ModeRing: View {
+    let countdown: Countdown?
+    let lineWidth: CGFloat
+
+    public init(_ countdown: Countdown?, lineWidth: CGFloat = 1.5) {
+        self.countdown = countdown
+        self.lineWidth = lineWidth
+    }
+
+    public var body: some View {
+        if let countdown {
+            TimeRing(countdown, lineWidth: lineWidth)
+        } else {
+            Circle().strokeBorder(GanchoTokens.Palette.ink, lineWidth: lineWidth)
+                .accessibilityHidden(true)
         }
     }
 }

@@ -58,4 +58,27 @@ struct TimeRingTests {
         #expect(Countdown(item: plain) == nil)
         #expect(Countdown(item: ClipItem(kind: .secret, contentHash: "n")) == nil, "no expiry")
     }
+
+    @Test("A reveal window empties over its ten seconds")
+    func revealWindow() {
+        let until = Self.start.addingTimeInterval(10)
+        let reveal = Countdown(window: 10, endingAt: until)
+        #expect(reveal.start == Self.start)
+        #expect(reveal.fraction(at: at(0)) == 1)
+        #expect(reveal.fraction(at: at(2.5)) == 0.75)
+        #expect(reveal.fraction(at: at(10)) == 0)
+    }
+
+    @Test("A timed mode's ring runs from its start to its deadline; none without both")
+    func timedMode() throws {
+        let end = Self.start.addingTimeInterval(3600)
+        let mode = try #require(Countdown(from: Self.start, until: end))
+        #expect(mode.fraction(at: at(0)) == 1)
+        #expect(mode.fraction(at: at(120)) == 58.0 / 60)
+        #expect(mode.fraction(at: at(3600)) == 0)
+
+        #expect(Countdown(from: Self.start, until: nil) == nil, "on until turned off")
+        #expect(Countdown(from: nil, until: end) == nil)
+        #expect(Countdown(from: end, until: Self.start) == nil, "dates out of order")
+    }
 }

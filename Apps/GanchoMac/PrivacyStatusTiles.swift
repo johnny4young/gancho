@@ -27,20 +27,26 @@ struct PrivacyStatusTiles: View {
     private var captureTile: some View {
         let size = overview.bytesOnDisk.formatted(.byteCount(style: .file))
         return tile(
-            id: "privacy-status-capturing", dot: dotColor, ink: .primary,
+            id: "privacy-status-capturing", dot: dotColor, ring: privateModeRing, ink: .primary,
             value: Text(verbatim: MenuBarMenu.stateTitle(chip)),
             detail: model.storageIsEphemeral
                 ? Text("\(overview.clips) clips · not saved")
                 : Text("\(overview.clips) clips · \(size) on this Mac"))
     }
 
-    private var dotColor: Color {
+    private var dotColor: Color? {
         switch chip {
         case .capturing: GanchoTokens.Palette.success
-        case .privateMode: GanchoTokens.Palette.indigo
+        case .privateMode: nil
         case .paused: GanchoTokens.Palette.warning
         case .denied: GanchoTokens.Palette.danger
         }
+    }
+
+    /// Private Mode shows its time left as a ring, not a colour.
+    private var privateModeRing: ModeRing? {
+        guard case .privateMode(let end) = chip else { return nil }
+        return ModeRing(Countdown(from: model.preferences.privateModeStartedAt, until: end))
     }
 
     @ViewBuilder private var encryptionTile: some View {
@@ -104,12 +110,13 @@ struct PrivacyStatusTiles: View {
     }
 
     private func tile(
-        id: String, symbol: String? = nil, dot: Color? = nil, ink: some ShapeStyle, value: Text,
-        detail: Text
+        id: String, symbol: String? = nil, dot: Color? = nil, ring: ModeRing? = nil,
+        ink: some ShapeStyle, value: Text, detail: Text
     ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
                 if let dot { Circle().fill(dot).frame(width: 8, height: 8) }
+                if let ring { ring.frame(width: 11, height: 11).accessibilityHidden(true) }
                 if let symbol { Image(systemName: symbol).font(.caption.weight(.semibold)) }
                 value.font(.callout.weight(.bold)).lineLimit(2)
             }

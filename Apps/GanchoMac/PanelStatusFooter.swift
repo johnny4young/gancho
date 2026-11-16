@@ -10,6 +10,7 @@ import SwiftUI
 struct PanelStatusFooter: View {
     let syncStatus: SyncStatus
     let chip: PanelCaptureChip
+    var privateModeStart: Date?
     /// The recorded Private Mode shortcut; with none there is no "off" hint.
     let privateModeShortcut: String?
     /// "↓ use fuzzy" while a query matches nothing and an alternative does.
@@ -20,7 +21,7 @@ struct PanelStatusFooter: View {
 
     var body: some View {
         HStack(spacing: GanchoTokens.Spacing.md) {
-            PanelCaptureChipView(chip: chip)
+            PanelCaptureChipView(chip: chip, privateModeStart: privateModeStart)
             SyncStatusView(status: syncStatus, isQuiet: true)
             PasteStackStrip()
             Spacer(minLength: 0)
@@ -61,11 +62,12 @@ struct PanelStatusFooter: View {
     }
 }
 
-/// The footer's capture state: the live dot while capturing, otherwise a
-/// colour and its cause and, while a Private Mode countdown runs, the minutes
-/// left.
+/// The footer's capture state: the live dot while capturing, Private Mode's
+/// time left as a ring, otherwise a colour and its cause.
 struct PanelCaptureChipView: View {
     let chip: PanelCaptureChip
+    /// Private Mode's start: the ring empties from here to the deadline.
+    var privateModeStart: Date?
     @Environment(\.panelTypeScale) private var typeScale
 
     var body: some View {
@@ -93,6 +95,19 @@ struct PanelCaptureChipView: View {
                 }
                 .frame(height: 20 * typeScale)
                 .foregroundStyle(GanchoTokens.Palette.ink2)
+            } else if case .privateMode(let end) = chip {
+                HStack(spacing: 6) {
+                    ModeRing(Countdown(from: privateModeStart, until: end))
+                        .frame(width: 11 * typeScale, height: 11 * typeScale)
+                    Text("Private").panelFont(.caption2, .medium).lineLimit(1)
+                    if let end {
+                        Text("· \(PanelCaptureChip.minutesLeft(until: end, now: now)) min left")
+                            .panelFont(.caption2).lineLimit(1)
+                            .foregroundStyle(GanchoTokens.Palette.ink3)
+                    }
+                }
+                .frame(height: 20 * typeScale)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
             } else {
                 HStack(spacing: 5) {
                     Circle().fill(tint).frame(width: 7 * typeScale, height: 7 * typeScale)
@@ -100,7 +115,7 @@ struct PanelCaptureChipView: View {
                 }
                 .padding(.horizontal, GanchoTokens.Spacing.xs)
                 .frame(height: 20 * typeScale)
-                .ganchoTintedPill(tint, wash: wash)
+                .ganchoTintedPill(tint, wash: 0.16)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -108,6 +123,7 @@ struct PanelCaptureChipView: View {
         .accessibilityIdentifier("capture-indicator")
     }
 
+    /// The spoken label; Private Mode's keeps the full phrase the ring shortens.
     private func title(now: Date) -> LocalizedStringKey {
         switch chip {
         case .capturing(let app?): "Capturing · \(app) in front"
@@ -130,14 +146,10 @@ struct PanelCaptureChipView: View {
     private var tint: Color {
         switch chip {
         case .capturing: GanchoTokens.Palette.success
-        case .privateMode: GanchoTokens.Palette.indigo
+        case .privateMode: GanchoTokens.Palette.ink
         case .paused: GanchoTokens.Palette.warning
         case .denied: GanchoTokens.Palette.danger
         }
-    }
-
-    private var wash: Double {
-        if case .privateMode = chip { 0.14 } else { 0.16 }
     }
 }
 
@@ -156,15 +168,25 @@ struct PanelCaptureNoticeView: View {
     var body: some View {
         let tint = self.tint
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: symbol).foregroundStyle(ReadableInk(base: tint))
-                .accessibilityHidden(true)
+            if notice == .privateMode {
+                ModeRing(
+                    Countdown(
+                        from: preferences.privateModeStartedAt,
+                        until: preferences.privateModeEndsAt), lineWidth: 2
+                )
+                .frame(width: 22, height: 22)
+                .accessibilityIdentifier("private-mode-ring")
+            } else {
+                Image(systemName: symbol).foregroundStyle(ReadableInk(base: tint))
+                    .accessibilityHidden(true)
+            }
             VStack(alignment: .leading, spacing: 0) {
                 titleText.panelFont(.caption, .semibold)
-                    .foregroundStyle(
-                        notice == .privateMode
-                            ? AnyShapeStyle(ReadableInk(base: tint, onWash: 0.12))
-                            : AnyShapeStyle(.primary))
                 detailText.panelFont(.caption2).foregroundStyle(.secondary)
+                if notice == .privateMode, let privateModeSpan {
+                    privateModeSpan.panelFont(.caption2, digits: true)
+                        .foregroundStyle(GanchoTokens.Palette.ink3)
+                }
             }
             .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -184,7 +206,10 @@ struct PanelCaptureNoticeView: View {
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .padding(.vertical, GanchoTokens.Spacing.xs)
         .background(
-            tint.opacity(0.12),
+            // Private Mode is a neutral state; the others keep their warning wash.
+            notice == .privateMode
+                ? AnyShapeStyle(GanchoTokens.Palette.controlFill)
+                : AnyShapeStyle(tint.opacity(0.12)),
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         )
         .padding(.horizontal, GanchoTokens.Spacing.xxs)
@@ -204,7 +229,7 @@ struct PanelCaptureNoticeView: View {
 
     private var tint: Color {
         switch notice {
-        case .privateMode: GanchoTokens.Palette.indigo
+        case .privateMode: GanchoTokens.Palette.ink
         case .screenShare, .paused: GanchoTokens.Palette.warning
         case .denied, .storageEphemeral: GanchoTokens.Palette.danger
         }
@@ -213,12 +238,7 @@ struct PanelCaptureNoticeView: View {
     private var titleText: Text {
         switch notice {
         case .storageEphemeral: Text("History isn't being saved")
-        case .privateMode:
-            if let start = preferences.privateModeStartedAt {
-                Text("Private Mode is on · since \(Self.clock(start))")
-            } else {
-                Text("Private Mode is on")
-            }
+        case .privateMode: Text("Private Mode is on")
         case .denied: Text("Clipboard access is off")
         case .screenShare:
             if previewsHidden {
@@ -235,10 +255,7 @@ struct PanelCaptureNoticeView: View {
         case .storageEphemeral:
             Text("Gancho couldn't open its secure storage — clips vanish when you quit.")
         case .privateMode:
-            Text(
-                verbatim: String(
-                    localized: "\(preferences.privateModeSkippedCopies) copies skipped, none read")
-                    + " · " + privateModeEnd)
+            Text("\(preferences.privateModeSkippedCopies) copies skipped, none read.")
         case .denied: Text("Gancho can't see what you copy.")
         case .screenShare: shareDetail
         case .paused: Text("Resume capture to save new copies.")
@@ -254,15 +271,16 @@ struct PanelCaptureNoticeView: View {
         }
     }
 
-    private var privateModeEnd: String {
-        if let end = preferences.privateModeEndsAt {
-            String(localized: "turns off at \(Self.clock(end)) or when you say so")
-        } else {
-            String(localized: "stays on until you turn it off")
+    /// "On since 2:02 PM · off at 3:02 PM"; no end while it stays on.
+    private var privateModeSpan: Text? {
+        guard let start = preferences.privateModeStartedAt else { return nil }
+        guard let end = preferences.privateModeEndsAt else {
+            return Text("On since \(Self.clock(start))")
         }
+        return Text("On since \(Self.clock(start)) · off at \(Self.clock(end))")
     }
 
-    /// Filled indigo, the one saturated control in the banner.
+    /// Inverse ink: the banner's one filled control, and not the accent.
     private var turnOffButton: some View {
         Button {
             perform(.resumePrivateMode)
@@ -270,14 +288,13 @@ struct PanelCaptureNoticeView: View {
             HStack(spacing: GanchoTokens.Spacing.xxs) {
                 Text("Turn off")
                 if let privateModeShortcut {
-                    Text(verbatim: privateModeShortcut).opacity(0.85)
+                    Text(verbatim: privateModeShortcut).opacity(0.7)
                 }
             }
             .panelFont(.caption2, .bold)
-            .foregroundStyle(.white)
             .padding(.horizontal, 9)
             .frame(height: 22)
-            .background(GanchoTokens.Palette.indigo, in: Capsule())
+            .ganchoInverseBadge()
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)

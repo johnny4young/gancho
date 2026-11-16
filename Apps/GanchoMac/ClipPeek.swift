@@ -28,6 +28,8 @@ struct ClipPeek: View {
     @Binding var isEditingInline: Bool
     /// Bumped by the panel's ⌘K.
     let transformRequest: Int
+    /// Bumped by the panel's ⌘R.
+    let revealRequest: Int
     /// Shared with the list: the peek owns the keyboard when this equals `.peek`
     /// (entered with → from the list, left with ←).
     var focus: FocusState<PanelFocus?>.Binding
@@ -90,7 +92,7 @@ struct ClipPeek: View {
     init(
         item: ClipItem, text: String, isTextEditable: Bool,
         focus: FocusState<PanelFocus?>.Binding, isEditingInline: Binding<Bool>,
-        transformRequest: Int = 0,
+        transformRequest: Int = 0, revealRequest: Int = 0,
         addToBoard: @escaping () -> Void, addToLastBoard: @escaping () -> Void,
         showContext: (() -> Void)? = nil
     ) {
@@ -100,6 +102,7 @@ struct ClipPeek: View {
         self.focus = focus
         _isEditingInline = isEditingInline
         self.transformRequest = transformRequest
+        self.revealRequest = revealRequest
         self.addToBoard = addToBoard
         self.addToLastBoard = addToLastBoard
         self.showContext = showContext
@@ -261,6 +264,7 @@ struct ClipPeek: View {
         .onChange(of: transformRequest) { _, _ in
             if !isThinking { showsTransformPopover = true }
         }
+        .onChange(of: revealRequest) { _, _ in toggleSecretReveal() }
         // A verb that folds away must not keep the keyboard focus.
         .onChange(of: visibleDockIDs) { _, _ in
             actionIndex = min(actionIndex, max(0, navActions.count - 1))
@@ -427,8 +431,12 @@ struct ClipPeek: View {
                     .panelFont(size: 27, design: .serif)
                     .accessibilityIdentifier("preview-title")
             } else if hidesPreview {
+                // The mask stays as the spoken title; a bar is what shows.
                 Text(verbatim: ClipSafePresentation.masked)
                     .panelFont(size: 27, design: .serif)
+                    .foregroundStyle(.clear)
+                    .frame(width: 180, alignment: .leading)
+                    .overlay(alignment: .leading) { RedactionBar(width: 180, weight: .title) }
                     .accessibilityIdentifier("preview-title")
             } else if isEditingTitle {
                 TextField("Title", text: $titleDraft)
