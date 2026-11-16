@@ -24,7 +24,10 @@ struct GanchoiOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
-        Task.detached(priority: .userInitiated) { GanchoFonts.registerIfNeeded() }
+        // Large titles take the serif; the bar draws them, so UIKit sets it.
+        if let serif = GanchoType.uiFont(.title, size: 40, textStyle: .largeTitle) {
+            UINavigationBar.appearance().largeTitleTextAttributes = [.font: serif]
+        }
         let model = IOSAppModel()
         _model = State(initialValue: model)
         // Expose the model's content-free diagnostics log to the app delegate,
