@@ -72,8 +72,13 @@ public struct LinkAnatomy: Equatable, Sendable {
         }
         parameters = trimmed[bounds[3].1].dropFirst().split(separator: "&").map { pair in
             let halves = pair.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            // Form encoding writes a space as `+` in query values.
+            func formUnescaped(_ raw: some StringProtocol) -> String {
+                unescaped(raw.replacingOccurrences(of: "+", with: " "))
+            }
             return Parameter(
-                name: unescaped(halves[0]), value: halves.count > 1 ? unescaped(halves[1]) : "")
+                name: formUnescaped(halves[0]),
+                value: halves.count > 1 ? formUnescaped(halves[1]) : "")
         }
         let fragment = unescaped(trimmed[bounds[4].1].dropFirst())
         self.fragment = fragment.isEmpty ? nil : fragment
