@@ -123,7 +123,7 @@ struct PanelCaptureChipView: View {
         .accessibilityIdentifier("capture-indicator")
     }
 
-    /// The spoken label; Private Mode's keeps the full phrase the ring shortens.
+    /// The spoken label, also shown for the paused and denied pills.
     private func title(now: Date) -> LocalizedStringKey {
         switch chip {
         case .capturing(let app?): "Capturing · \(app) in front"

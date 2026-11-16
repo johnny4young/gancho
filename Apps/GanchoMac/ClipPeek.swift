@@ -435,7 +435,7 @@ struct ClipPeek: View {
                 Text(verbatim: ClipSafePresentation.masked)
                     .panelFont(size: 27, design: .serif)
                     .foregroundStyle(.clear)
-                    .frame(width: 180, alignment: .leading)
+                    .frame(width: 180 * typeScale, alignment: .leading)
                     .overlay(alignment: .leading) { RedactionBar(width: 180, weight: .title) }
                     .accessibilityIdentifier("preview-title")
             } else if isEditingTitle {
