@@ -21,6 +21,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   titles and mono section headers, menu-bar badges in grey, ink or red only,
   the paste stack in its own menu section, and a dark HUD that shows the clip
   you just copied and where it came from.
+- On the Mac, a link's preview leads with its site, names the parts of the URL
+  (scheme, host, path, query, fragment), decodes each parameter, and shows what
+  Return and ⌥Return paste and the Markdown link you can copy. The preview's
+  header is one caption line over a larger title, with a star for Favorites.
 - On the Mac, each copy costs Gancho far less work. Titles, search and board
   suggestions share one loaded language model instead of loading it for every
   clip, and the hidden history panel no longer redraws itself on every copy.
