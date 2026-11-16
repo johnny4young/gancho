@@ -11,10 +11,10 @@ extension ClipPeek {
     /// Transforms live behind ⌘T.
     var navActions: [PeekAction] { shownDockActions + secretActions }
 
-    /// The transforms apply to a clip the peek is showing in full.
+    /// The transforms apply to a clip the peek is showing in full; both
+    /// checks already rule out a masked one.
     var offersTransforms: Bool {
         (canTransform || canSmartPaste) && !model.preferences.isPrivateModePaused
-            && !showsSecretHero
     }
 
     /// Paste variants first (the common case), then OCR, Pin, Board and Stack.

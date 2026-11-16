@@ -233,6 +233,14 @@ struct ClipPeek: View {
             }
             return .handled
         }
+        // The dock shows ⌘J on Context, which can fold away into Actions.
+        .onKeyPress(characters: CharacterSet(charactersIn: "jJ"), phases: .down) { press in
+            guard !isInlineEditing, press.modifiers.contains(.command), let showContext else {
+                return .ignored
+            }
+            showContext()
+            return .handled
+        }
         // ⌫ arrives as the system Delete command; the undo toast takes it back.
         .onDeleteCommand {
             guard !isInlineEditing else { return }

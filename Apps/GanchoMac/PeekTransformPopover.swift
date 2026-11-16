@@ -59,6 +59,7 @@ struct PeekTransformPopover: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text(verb.title))
         .accessibilityValue(Text(verbatim: verb.shortcut ?? ""))
         .accessibilityIdentifier(verb.id)
     }

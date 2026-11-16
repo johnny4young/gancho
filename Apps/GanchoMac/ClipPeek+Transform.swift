@@ -28,7 +28,8 @@ extension ClipPeek {
         }
         .buttonStyle(.plain)
         .fixedSize()
-        .disabled(isThinking)
+        // A running transform must not lock the verbs folded in here.
+        .disabled(isThinking && folded.isEmpty)
         .accessibilityValue(Text(verbatim: offersTransforms ? "⌘T" : ""))
         .accessibilityIdentifier("transform-button")
         .popover(isPresented: $showsTransformPopover, arrowEdge: .top) {
