@@ -85,6 +85,19 @@ struct TransformCatalogTests {
         #expect(
             TransformRow.step(.text(.uppercase)).panelIdentifier == "transform-row-text-uppercase")
         #expect(ClipVerb.allCases.compactMap(\.dockID).contains("preview-convert"))
+
+        let editing = TransformCatalog.clipGroup(
+            dockIDs: ["preview-paste"], markdownLink: true, deletes: false)
+        #expect(editing.rows == [.verb(.paste), .verb(.markdownLink)])
+    }
+
+    @Test("↑ and ↓ stop at the ends of the list instead of wrapping")
+    func highlightClamps() {
+        #expect(TransformCatalog.movedHighlight(0, by: -1, count: 5) == 0)
+        #expect(TransformCatalog.movedHighlight(4, by: 1, count: 5) == 4)
+        #expect(TransformCatalog.movedHighlight(2, by: 1, count: 5) == 3)
+        #expect(TransformCatalog.movedHighlight(2, by: -1, count: 5) == 1)
+        #expect(TransformCatalog.movedHighlight(3, by: 1, count: 0) == 0)
     }
 
     @Test("The filter covers clip verbs, and md or mark lead with the Markdown link")

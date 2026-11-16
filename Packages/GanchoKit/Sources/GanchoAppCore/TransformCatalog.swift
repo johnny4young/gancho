@@ -181,13 +181,25 @@ public struct TransformGroup: Equatable, Sendable, Identifiable {
 
 public enum TransformCatalog {
     /// The clip's verbs in panel order: the dock's actions on offer, a link's
-    /// Markdown copy, then Delete.
-    public static func clipGroup(dockIDs: [String], markdownLink: Bool) -> TransformGroup {
+    /// Markdown copy, then Delete unless an inline edit is open.
+    public static func clipGroup(
+        dockIDs: [String], markdownLink: Bool, deletes: Bool = true
+    ) -> TransformGroup {
         let verbs = ClipVerb.allCases.filter { verb in
-            if let dockID = verb.dockID { return dockIDs.contains(dockID) }
-            return verb == .delete || markdownLink
+            switch verb {
+            case .markdownLink: markdownLink
+            case .delete: deletes
+            default: verb.dockID.map(dockIDs.contains) ?? false
+            }
         }
         return TransformGroup(kind: .clip, rows: verbs.map(TransformRow.verb))
+    }
+
+    /// The highlighted row after ↑ or ↓: it stops at either end, so ↑ from the
+    /// first row never lands on the last one.
+    public static func movedHighlight(_ index: Int, by delta: Int, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        return min(max(index + delta, 0), count - 1)
     }
 
     /// What the popover offers for a clip, in order: the kind's own actions

@@ -7092,6 +7092,16 @@
         }
       }
     },
+    "All actions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todas las acciones"
+          }
+        }
+      }
+    },
     "Expires": {
       "localizations": {
         "es": {

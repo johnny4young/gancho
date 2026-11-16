@@ -148,7 +148,8 @@ extension ClipPeek {
     /// The clip's verbs first, then what it can be turned into.
     private func panelGroups(_ dock: [PeekAction]) -> [TransformGroup] {
         let clip = TransformCatalog.clipGroup(
-            dockIDs: dock.map(\.id), markdownLink: linkParts != nil && !hidesPreview)
+            dockIDs: dock.map(\.id), markdownLink: linkParts != nil && !hidesPreview,
+            deletes: !isInlineEditing)
         return [clip] + (offersTransforms ? transformGroups : [])
     }
 
@@ -257,7 +258,7 @@ extension ClipPeek {
         showsTransformPopover = false
         switch row {
         case .verb(.markdownLink): copyMarkdownLink()
-        case .verb(.delete): model.delete(item)
+        case .verb(.delete): if !isInlineEditing { model.delete(item) }
         case .verb(let verb): dock.first { $0.id == verb.dockID }?.run()
         case .recipes:
             recipeRequest = TextRecipeReviewRequest(clipID: item.id)

@@ -674,7 +674,7 @@ extension ClipPeek {
         return GanchoTokens.Syntax.highlighted(bodyText)
     }
 
-    private var isInlineEditing: Bool {
+    var isInlineEditing: Bool {
         isEditingTitle || isEditingText || isEditingOCR || isEditingTransformField
     }
 
