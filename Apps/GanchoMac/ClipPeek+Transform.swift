@@ -21,7 +21,7 @@ extension ClipPeek {
             .foregroundStyle(GanchoTokens.Palette.ink)
             .overlay(
                 shape.strokeBorder(
-                    GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
+                    GanchoTokens.Palette.hairlineStrong, lineWidth: GanchoTokens.Stroke.hairline)
             )
             .contentShape(shape)
         }

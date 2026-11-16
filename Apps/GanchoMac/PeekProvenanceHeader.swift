@@ -30,9 +30,9 @@ struct PeekProvenanceHeader: View {
     }
 
     var body: some View {
-        FlowLayout(spacing: 6) {
+        FlowLayout(spacing: 8) {
             ForEach(Array(facts.enumerated()), id: \.element.id) { index, fact in
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     if index > 0 { Text(verbatim: "·").accessibilityHidden(true) }
                     fact.text
                         .foregroundStyle(fact.ink)

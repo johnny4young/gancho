@@ -59,8 +59,12 @@ struct ClipPeek: View {
     /// The board auto-board thinks this clip belongs to (a suggestion, never
     /// auto-filed); nil until computed or once accepted/dismissed.
     @State private var suggestedBoard: Pinboard?
+    /// The room between the header and the dock, which a link's card fills.
+    @State private var stageHeight: CGFloat = 0
+    /// The header's Edit content button asks the link's editor to open.
+    @State private var contentEditRequest = 0
     /// The highlighted action while the peek owns the keyboard (focus == .peek).
-    @State private var actionIndex = 0
+    @State var actionIndex = 0
     /// User-authored titles are edited inline; drafts never mutate the store
     /// until Save succeeds.
     @State private var presentedTitle: String
@@ -183,10 +187,15 @@ struct ClipPeek: View {
                 // A gutter scroller narrows an aspect-fit image until it stops
                 // overflowing, then hides and lets it grow: a layout loop that freezes the panel.
                 .scrollIndicators(item.kind == .image ? .never : .automatic)
+                .onGeometryChange(for: CGFloat.self) {
+                    $0.size.height
+                } action: { height in
+                    stageHeight = height
+                }
             }
             dock
         }
-        .padding(GanchoTokens.Spacing.md)
+        .padding(EdgeInsets(top: 16, leading: 24, bottom: 14, trailing: 22))
         // Scroll the content independently so editing, OCR and board chips cannot
         // push the dock outside a compact panel.
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -360,7 +369,7 @@ struct ClipPeek: View {
 
     /// Provenance first, then the title on its own row.
     private var header: some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
+        VStack(alignment: .leading, spacing: 6) {
             PeekProvenanceHeader(
                 item: item,
                 // Favorites is the title row's star, so the caption skips it.
@@ -384,7 +393,8 @@ struct ClipPeek: View {
         } label: {
             Image(systemName: isFavorite ? "star.fill" : "star")
         }
-        .ganchoTextButton()
+        .buttonStyle(.borderless)
+        .foregroundStyle(isFavorite ? GanchoTokens.Palette.ink : GanchoTokens.Palette.ink3)
         .accessibilityLabel(Text("Favorites"))
         .accessibilityAddTraits(isFavorite ? .isSelected : [])
         .accessibilityIdentifier("preview-favorite")
@@ -431,15 +441,29 @@ struct ClipPeek: View {
                     .lineLimit(1)
                     .accessibilityIdentifier("preview-title")
                 Spacer(minLength: GanchoTokens.Spacing.xs)
-                Button {
-                    beginTitleEditing()
-                } label: {
-                    Image(systemName: "pencil")
+                HStack(spacing: GanchoTokens.Spacing.sm) {
+                    Button {
+                        beginTitleEditing()
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .accessibilityLabel(Text("Edit title"))
+                    .accessibilityIdentifier("preview-edit-title")
+                    if linkParts != nil, isTextEditable, !isEditingText {
+                        Button {
+                            contentEditRequest += 1
+                        } label: {
+                            Image(systemName: "square.and.pencil")
+                        }
+                        .help(Text("Edit content"))
+                        .accessibilityLabel(Text("Edit content"))
+                        .accessibilityIdentifier("preview-edit-content")
+                    }
+                    favoriteButton
                 }
-                .ganchoTextButton()
-                .accessibilityLabel(Text("Edit title"))
-                .accessibilityIdentifier("preview-edit-title")
-                favoriteButton
+                .buttonStyle(.borderless)
+                .foregroundStyle(GanchoTokens.Palette.ink3)
+                .panelFont(size: 12.5)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -454,10 +478,12 @@ extension ClipPeek {
     /// host and original URL (parsed locally, never fetched), the colour hero,
     /// or the (syntax-tinted) text. The card is neutral: only content brings colour.
     private var hero: some View {
-        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: Self.stageRadius, style: .continuous)
         let link = isEditingText ? nil : linkParts
+        let suggestionHeight = suggestedBoard == nil ? 0 : Self.suggestionHeight * typeScale
         return VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+            // A link's editor stays hidden until asked, so it adds no gap.
+            VStack(alignment: .leading, spacing: link == nil ? GanchoTokens.Spacing.xs : 0) {
                 if let link {
                     let markdown = link.markdownLink(title: presentedTitle)
                     PeekLinkHero(
@@ -471,20 +497,40 @@ extension ClipPeek {
                 }
                 heroBody
             }
-            .padding(link == nil ? GanchoTokens.Spacing.sm : GanchoTokens.Spacing.md)
+            .padding(
+                link == nil
+                    ? EdgeInsets(
+                        top: GanchoTokens.Spacing.sm, leading: GanchoTokens.Spacing.sm,
+                        bottom: GanchoTokens.Spacing.sm, trailing: GanchoTokens.Spacing.sm)
+                    : EdgeInsets(top: 22.5, leading: 24, bottom: 6, trailing: 24)
+            )
+            // A link's card is the stage: it reaches the dock, the suggestion at its foot.
+            .frame(
+                minHeight: link != nil && heroIsAlone
+                    ? max(0, stageHeight - suggestionHeight) : nil,
+                alignment: .topLeading)
             if let suggestedBoard {
                 suggestionRow(suggestedBoard)
                     .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(GanchoTokens.Palette.controlFill, in: shape)
+        .background(GanchoTokens.Palette.cardFill, in: shape)
         .overlay(
             shape.strokeBorder(
                 GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("peek-hero")
+    }
+
+    static let stageRadius: CGFloat = 13
+    static let suggestionHeight: CGFloat = 40
+
+    /// Nothing else shares the scroll with the hero card.
+    private var heroIsAlone: Bool {
+        mergedParts == nil && !ocrShowsHere && transformPipeline.isEmpty && !describeMode
+            && !translationFailed && !isThinking && (actionResult ?? "").isEmpty
     }
 
     /// Non-nil only when a link clip's text really parses as a URL with a
@@ -542,10 +588,9 @@ extension ClipPeek {
         } else if isTextEditable {
             ClipTextEditor(
                 text: $presentedText, kind: item.kind,
-                // The link hero already shows the URL; the editor keeps only
-                // its Edit affordance until editing starts.
+                // The link hero already shows the URL; the header offers Edit.
                 readViewHidden: linkParts != nil,
-                parts: mergedParts,
+                parts: mergedParts, editRequest: contentEditRequest,
                 onEditingChanged: { editing in
                     isEditingText = editing
                     focus.wrappedValue = editing ? nil : .peek
@@ -567,79 +612,15 @@ extension ClipPeek {
     }
 }
 
-// MARK: - Action dock and chips
+// MARK: - Board suggestion loading
 
 extension ClipPeek {
-    /// The action dock, one row: Return's verb is the only filled control, the
-    /// others are quiet text with their keys, and Actions closes the row. The
-    /// widest tier that fits wins; Actions lists every verb either way.
-    private var dock: some View {
-        let actions = dockActions
-        let tiers = PeekDockFold.tiers(
-            for: actions.map(\.id), primaryHasShortTitle: actions.first?.shortTitle != nil)
-        // A slot of the row's own height: in the overlay the tiers are measured
-        // once, at the final width, not for every width the peek's stacks probe.
-        return Color.clear
-            .frame(maxWidth: .infinity)
-            .frame(height: PeekActionButton.dockHeight * typeScale)
-            .overlay {
-                ViewThatFits(in: .horizontal) {
-                    ForEach(tiers, id: \.self) { tier in
-                        dockRow(actions, tier: tier)
-                    }
-                }
-            }
-            .onPreferenceChange(DockVisibleIDs.self) { [shown = $visibleDockIDs] ids in
-                shown.wrappedValue = ids
-            }
-            .sheet(item: $recipeRequest) { request in
-                TextRecipeReview(clipID: request.clipID).environment(model)
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("peek-dock")
-    }
-
-    private func dockRow(_ actions: [PeekAction], tier: PeekDockFold.Tier) -> some View {
-        let visible = tier.visible
-        let shown = actions.filter { visible.contains($0.id) }
-        return HStack(spacing: GanchoTokens.Spacing.xxs) {
-            ForEach(Array(shown.enumerated()), id: \.element.id) { index, action in
-                actionButton(
-                    action, index: index,
-                    style: .dock(isPrimary: index == 0, short: tier.shortPrimary))
-            }
-            Spacer(minLength: 0)
-            actionsButton
-        }
-        .preference(key: DockVisibleIDs.self, value: visible)
-    }
-
-    /// The dock verbs in the row right now: the keyboard moves among these.
-    var shownDockActions: [PeekAction] {
-        let actions = dockActions
-        let shown = actions.filter { visibleDockIDs.contains($0.id) }
-        return shown.isEmpty ? actions : shown
-    }
-
     /// Arrowing through rows must not compute an embedding per row.
     private func loadSuggestedBoard() async {
         try? await Task.sleep(for: .milliseconds(350))
         guard !Task.isCancelled else { return }
         suggestedBoard = await model.suggestedBoard(for: item)
     }
-
-    func actionButton(
-        _ action: PeekAction, index: Int, style: PeekActionButton.Style
-    ) -> some View {
-        PeekActionButton(
-            action: action, style: style,
-            isFocused: focus.wrappedValue == .peek && index == actionIndex
-        ) {
-            actionIndex = index
-            action.run()
-        }
-    }
-
 }
 
 // MARK: - Smart Paste & deterministic transforms
@@ -766,15 +747,6 @@ extension ClipPeek {
     }
 }
 
-/// The ids of the dock tier on screen, reported by the row that fits.
-private struct DockVisibleIDs: PreferenceKey {
-    static let defaultValue: [String] = []
-
-    static func reduce(value: inout [String], nextValue: () -> [String]) {
-        value += nextValue()
-    }
-}
-
 // MARK: - Board suggestion
 
 extension ClipPeek {
@@ -783,15 +755,17 @@ extension ClipPeek {
     private func suggestionRow(_ board: Pinboard) -> some View {
         let name = Text(verbatim: board.name).fontWeight(.semibold)
             .foregroundStyle(GanchoTokens.Palette.ink)
-        return HStack(spacing: GanchoTokens.Spacing.xs) {
+        return HStack(spacing: 10) {
             Image(systemName: "tray")
             Text("Looks like your \(name) board").lineLimit(1)
             Spacer(minLength: 0)
-            Button("Add") {
+            Button {
                 model.assign(item, toBoard: board)
                 suggestedBoard = nil
+            } label: {
+                Text("Add").fontWeight(.semibold).foregroundStyle(GanchoTokens.Palette.ink)
             }
-            .ganchoTextButton()
+            .buttonStyle(.plain)
             Button {
                 suggestedBoard = nil
             } label: {
@@ -800,15 +774,15 @@ extension ClipPeek {
             .buttonStyle(.borderless).foregroundStyle(GanchoTokens.Palette.ink3)
             .accessibilityLabel(Text("Dismiss"))
         }
-        .panelFont(.subheadline)
+        .panelFont(size: 12)
         .foregroundStyle(GanchoTokens.Palette.ink2)
-        .padding(.horizontal, GanchoTokens.Spacing.sm)
-        .frame(minHeight: 36)
+        .padding(.horizontal, GanchoTokens.Spacing.lg)
+        .frame(height: Self.suggestionHeight * typeScale)
         .background(
             GanchoTokens.Palette.controlFill,
             in: UnevenRoundedRectangle(
-                bottomLeadingRadius: GanchoTokens.Radius.lg,
-                bottomTrailingRadius: GanchoTokens.Radius.lg, style: .continuous)
+                bottomLeadingRadius: Self.stageRadius,
+                bottomTrailingRadius: Self.stageRadius, style: .continuous)
         )
         .overlay(alignment: .top) {
             Rectangle().fill(GanchoTokens.Palette.hairline)

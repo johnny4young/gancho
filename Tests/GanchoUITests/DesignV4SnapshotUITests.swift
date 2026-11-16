@@ -105,12 +105,22 @@ final class DesignV4SnapshotUITests: XCTestCase {
         try panel(appearance: "dark", color: true)
     }
 
+    /// The reference state: 1040 × 640, a query typed and a link in the peek.
+    @MainActor func testPanelHeroLight() throws {
+        try panel(appearance: "light", hero: true)
+    }
+
+    @MainActor func testPanelHeroDark() throws {
+        try panel(appearance: "dark", hero: true)
+    }
+
     @MainActor private func panel(
         appearance: String, textSize: String = "standard", ambient: Bool = false,
-        color: Bool = false
+        color: Bool = false, hero: Bool = false
     ) throws {
         let app = GanchoUITestApplication()
         app.launchArguments = [
+            "-panel-content-width", "1040", "-panel-content-height", "640",
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
             "-seed-visual-library", "-seed-peek-link", "-force-free-tier",
             // Capturing from an empty reader, with Figma named as the paste target.
@@ -124,6 +134,12 @@ final class DesignV4SnapshotUITests: XCTestCase {
             "-ui-test-snapshot-dir", renders.path, "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)"
         ]
+        if hero {
+            // A board to suggest and a waiting stack, as in the reference.
+            app.launchArguments += [
+                "-seed-visual-library-extras", "-seed-paste-stack", "-ui-test-board-suggestion"
+            ]
+        }
         app.launch()
         defer { app.terminate() }
         let row = app.descendants(matching: .any).matching(identifier: "clip-row")
@@ -137,6 +153,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
                         : NSPredicate(format: "label CONTAINS %@", "example.com")
             ).firstMatch
         XCTAssertTrue(row.appears(within: 8))
+        if hero { app.typeText("example") }
         row.click()
         XCTAssertTrue(
             app.descendants(matching: .any)["peek-dock"].firstMatch.appears(within: 5))
@@ -144,12 +161,14 @@ final class DesignV4SnapshotUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         try DesignSnapshot.save(
             DesignSnapshot.renderWindow(titled: "Gancho", named: "panel", in: renders),
-            named: color
-                ? "panel-color-peek-\(appearance)"
-                : ambient
-                    ? "panel-ambient-image-\(appearance)"
-                    : textSize == "standard"
-                        ? "panel-link-peek-\(appearance)" : "panel-link-peek-\(textSize)-text")
+            named: hero
+                ? "panel-hero-\(appearance)"
+                : color
+                    ? "panel-color-peek-\(appearance)"
+                    : ambient
+                        ? "panel-ambient-image-\(appearance)"
+                        : textSize == "standard"
+                            ? "panel-link-peek-\(appearance)" : "panel-link-peek-\(textSize)-text")
     }
 
     // MARK: Panel behaviour — Private Mode, filter tokens, no results.

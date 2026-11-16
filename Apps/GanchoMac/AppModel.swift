@@ -2091,7 +2091,13 @@ final class AppModel {
     /// sensitive-clip rule and the vote all live in the facade so iOS cannot
     /// answer this differently.
     func suggestedBoard(for item: ClipItem) async -> Pinboard? {
-        await intelligenceFacade.suggestedBoard(
+        #if DEBUG
+            // Snapshots show the suggestion row without the on-device model.
+            if CommandLine.arguments.contains("-ui-test-board-suggestion") {
+                return boards.first { !$0.isSystem }
+            }
+        #endif
+        return await intelligenceFacade.suggestedBoard(
             for: item, store: fullStore, autoBoardEnabled: intelligence.autoBoard)
     }
 

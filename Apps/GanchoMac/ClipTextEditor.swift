@@ -8,9 +8,11 @@ import SwiftUI
 struct ClipTextEditor: View {
     @Binding var text: String
     let kind: ClipContentKind
-    /// The host already shows the content (a link hero): keep only the Edit
-    /// affordance until editing starts.
+    /// The host already shows the content and offers Edit itself (a link
+    /// hero): nothing shows until editing starts.
     let readViewHidden: Bool
+    /// Bumped by the host's own Edit button.
+    let editRequest: Int
     /// A merged clip's parts, shown one per block while reading.
     let parts: [String]?
     let onEditingChanged: @MainActor (Bool) -> Void
@@ -25,7 +27,7 @@ struct ClipTextEditor: View {
 
     init(
         text: Binding<String>, kind: ClipContentKind, readViewHidden: Bool = false,
-        parts: [String]? = nil,
+        parts: [String]? = nil, editRequest: Int = 0,
         onEditingChanged: @escaping @MainActor (Bool) -> Void,
         onSave: @escaping @MainActor (String) async -> Bool
     ) {
@@ -33,6 +35,7 @@ struct ClipTextEditor: View {
         self.kind = kind
         self.readViewHidden = readViewHidden
         self.parts = parts
+        self.editRequest = editRequest
         self.onEditingChanged = onEditingChanged
         self.onSave = onSave
         _draft = State(initialValue: text.wrappedValue)
@@ -40,9 +43,9 @@ struct ClipTextEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-            HStack {
-                Spacer(minLength: 0)
-                if !isEditing {
+            if !isEditing, !readViewHidden {
+                HStack {
+                    Spacer(minLength: 0)
                     Button("Edit", systemImage: "pencil") { beginEditing() }
                         .ganchoTextButton()
                         .accessibilityLabel(Text("Edit content"))
@@ -65,6 +68,9 @@ struct ClipTextEditor: View {
                 }
                 .frame(maxHeight: 200)
             }
+        }
+        .onChange(of: editRequest) {
+            if !isEditing { beginEditing() }
         }
         .onChange(of: text) { _, newText in
             guard !isEditing else { return }

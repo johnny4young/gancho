@@ -15,7 +15,7 @@ struct PeekLinkHero: View {
     private static let parameterLimit = 8
 
     var body: some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
+        VStack(alignment: .leading, spacing: 0) {
             Text(headline)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -23,13 +23,14 @@ struct PeekLinkHero: View {
                 .help(parts.text)
                 .accessibilityIdentifier("peek-link-headline")
             if let anatomy {
-                anatomyRow(anatomy)
-                if !anatomy.parameters.isEmpty || anatomy.fragment != nil { decodedRow(anatomy) }
+                anatomyRow(anatomy).padding(.top, 21)
+                if !anatomy.parameters.isEmpty || anatomy.fragment != nil {
+                    // The anatomy row ends in its own 8 pt of wrap spacing.
+                    decodedRow(anatomy).padding(.top, 12)
+                }
             }
-            Rectangle()
-                .fill(GanchoTokens.Palette.hairline)
-                .frame(height: GanchoTokens.Stroke.hairline)
-            pastesAs
+            Hairline().padding(.top, 22)
+            pastesAs.padding(.top, 18)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("peek-link-hero")
@@ -37,10 +38,12 @@ struct PeekLinkHero: View {
 
     private var headline: AttributedString {
         var host = AttributedString(parts.host)
-        host.font = GanchoType.font(.ui, size: 30 * scale, weight: .semibold)
+        host.font = GanchoType.font(.ui, size: 31 * scale, weight: .semibold)
+        host.tracking = -0.93 * scale
         host.foregroundColor = GanchoTokens.Palette.ink
         var path = AttributedString(anatomy?.path ?? "")
-        path.font = GanchoType.font(.ui, size: 30 * scale)
+        path.font = GanchoType.font(.ui, size: 31 * scale, weight: .light)
+        path.tracking = -0.93 * scale
         path.foregroundColor = GanchoTokens.Palette.ink3
         return host + path
     }
@@ -50,7 +53,7 @@ struct PeekLinkHero: View {
     private func anatomyRow(_ anatomy: LinkAnatomy) -> some View {
         FlowLayout(spacing: 0) {
             ForEach(anatomy.segments) { segment in
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(verbatim: segment.text)
                         .panelFont(
                             size: 12.5, segment.part == .host ? .semibold : .regular,
@@ -67,7 +70,7 @@ struct PeekLinkHero: View {
                         .overlay(alignment: .bottom) {
                             PartBracket()
                                 .stroke(
-                                    GanchoTokens.Palette.hairline,
+                                    GanchoTokens.Palette.hairlineStrong,
                                     lineWidth: GanchoTokens.Stroke.hairline
                                 )
                                 .frame(height: 5)
@@ -102,8 +105,8 @@ struct PeekLinkHero: View {
 
     private func decodedRow(_ anatomy: LinkAnatomy) -> some View {
         let hidden = anatomy.parameters.count - Self.parameterLimit
-        return FlowLayout(spacing: 6) {
-            Text("DECODED").peekCaps().frame(minHeight: 24)
+        return FlowLayout(spacing: 8) {
+            Text("DECODED").peekCaps().frame(minHeight: 24).padding(.trailing, 6)
             ForEach(
                 Array(anatomy.parameters.prefix(Self.parameterLimit).enumerated()), id: \.offset
             ) {
@@ -143,8 +146,8 @@ struct PeekLinkHero: View {
     // MARK: Pastes as
 
     private var pastesAs: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("PASTES AS").peekCaps()
+        VStack(alignment: .leading, spacing: 11) {
+            Text("PASTES AS").peekCaps().padding(.bottom, 1)
             // Return and ⌥Return write the same text for a link: plain paste
             // only strips rich representations, and a link has none.
             pasteRow(text: parts.text, note: "link", textID: "peek-link-url") { ReturnKeyCap() }
@@ -158,10 +161,12 @@ struct PeekLinkHero: View {
             .accessibilityElement(children: .contain)
             .accessibilityHint(Text("Pastes with Option-Return"))
             .accessibilityIdentifier("peek-pastes-as-plain")
-            // No key of its own: the row copies it, as does "md" in the action panel.
+            // ⌘K opens the action panel, whose "Copy as Markdown link" this row runs too.
             Button(action: copyMarkdown) {
-                pasteRow(text: markdown, note: "Markdown link", textID: "") { EmptyView() }
-                    .contentShape(Rectangle())
+                pasteRow(text: markdown, note: "Markdown link", textID: "") {
+                    KeyCap("⌘K").accessibilityHidden(true)
+                }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .focusable(false)
@@ -177,8 +182,8 @@ struct PeekLinkHero: View {
         text: String, note: LocalizedStringKey, textID: String,
         @ViewBuilder key: () -> some View
     ) -> some View {
-        HStack(spacing: GanchoTokens.Spacing.sm) {
-            key().frame(width: 34 * scale, alignment: .leading)
+        HStack(spacing: 0) {
+            key().frame(width: 44 * scale, alignment: .leading)
             Text(verbatim: text)
                 .panelFont(size: 11.5, design: .monospaced)
                 .foregroundStyle(GanchoTokens.Palette.ink2)
@@ -190,6 +195,7 @@ struct PeekLinkHero: View {
             Text(note)
                 .panelFont(size: 11)
                 .foregroundStyle(GanchoTokens.Palette.ink3)
+                .padding(.leading, GanchoTokens.Spacing.sm)
         }
     }
 }
