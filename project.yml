@@ -242,6 +242,7 @@ targets:
       - path: Apps/GanchoMac/MenuBarKeyEquivalent.swift
       - path: Packages/GanchoKit/Sources/GanchoKit/MenuBarBadge.swift
       - path: Packages/GanchoKit/Sources/GanchoDesign/MenuBarGlyph.swift
+      - path: Packages/GanchoKit/Sources/GanchoDesign/MenuBarStatusBytes.swift
 
   GanchoiOS:
     type: application
@@ -354,6 +355,7 @@ targets:
       - path: Apps/GanchoMac/MenuBarKeyEquivalent.swift
       - path: Packages/GanchoKit/Sources/GanchoKit/MenuBarBadge.swift
       - path: Packages/GanchoKit/Sources/GanchoDesign/MenuBarGlyph.swift
+      - path: Packages/GanchoKit/Sources/GanchoDesign/MenuBarStatusBytes.swift
     dependencies:
       - target: Gancho
 

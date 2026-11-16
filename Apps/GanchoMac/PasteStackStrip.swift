@@ -126,7 +126,7 @@ struct PasteStackStrip: View {
         .frame(width: 440)
     }
 
-    /// A pasted row is checked and dimmed; the next one takes the accent wash
+    /// A pasted row is checked and dimmed; the next one takes the selection wash
     /// and a `next` pill.
     private func queueRow(_ entry: PasteStack.Entry, index: Int) -> some View {
         let pasted = index < stack.cursor
@@ -152,10 +152,9 @@ struct PasteStackStrip: View {
             if isNext {
                 Text("next")
                     .panelFont(.caption2, .semibold)
-                    .foregroundStyle(GanchoTokens.Palette.brandInk)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 1)
-                    .background(GanchoTokens.Palette.accent, in: .capsule)
+                    .ganchoInverseBadge()
             }
             Button {
                 model.removeFromStack(entryID: entry.id)
@@ -168,7 +167,7 @@ struct PasteStackStrip: View {
         }
         .listRowBackground(
             Rectangle().fill(
-                isNext ? AnyShapeStyle(GanchoTokens.Palette.accentTint) : AnyShapeStyle(.clear))
+                isNext ? AnyShapeStyle(GanchoTokens.Palette.selectionWash) : AnyShapeStyle(.clear))
         )
         .accessibilityElement(children: .combine)
         .accessibilityValue(pasted ? Text("Pasted") : isNext ? Text("Next") : Text(verbatim: ""))

@@ -40,9 +40,9 @@ struct IOSPrivacyCenterView: View {
                         .font(.footnote)
                         .opacity(0.9)
                 }
-                .foregroundStyle(GanchoTokens.Palette.brandInk)
+                .foregroundStyle(GanchoTokens.Palette.inverseText)
                 .padding(.vertical, GanchoTokens.Spacing.xs)
-                .listRowBackground(Rectangle().fill(GanchoTokens.Palette.success.gradient))
+                .listRowBackground(Rectangle().fill(GanchoTokens.Palette.inverseFill))
             }
 
             verifySection

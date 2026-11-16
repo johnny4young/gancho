@@ -63,7 +63,7 @@ extension ClipDetailView {
         } label: {
             chipLabel("Transform", systemImage: "chevron.down", trailingSymbol: true)
         }
-        // A menu tints its label with the accent; this chip is a neutral one.
+        // A menu tints its label; this chip is a neutral one.
         .tint(.primary)
         .accessibilityIdentifier("transform-menu")
     }
@@ -135,7 +135,7 @@ extension ClipDetailView {
             .buttonStyle(.plain)
     }
 
-    /// A neutral chip for deterministic actions; a green one for intelligence.
+    /// A quiet chip for deterministic actions; the selection wash for intelligence.
     private func chipLabel(
         _ title: LocalizedStringKey, systemImage: String?, trailingSymbol: Bool = false,
         intelligent: Bool = false
@@ -153,11 +153,11 @@ extension ClipDetailView {
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .frame(minHeight: 30)
         .foregroundStyle(
-            intelligent ? AnyShapeStyle(GanchoTokens.Palette.accentInk) : AnyShapeStyle(.primary)
+            intelligent ? AnyShapeStyle(GanchoTokens.Palette.ink) : AnyShapeStyle(.primary)
         )
         .background(
             intelligent
-                ? AnyShapeStyle(GanchoTokens.Palette.accentTint) : AnyShapeStyle(.quaternary),
+                ? AnyShapeStyle(GanchoTokens.Palette.selectionWash) : AnyShapeStyle(.quaternary),
             in: Capsule()
         )
         .contentShape(Capsule())

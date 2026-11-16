@@ -30,7 +30,7 @@ struct PeekDescribeChange: View {
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
             HStack(spacing: GanchoTokens.Spacing.xxs) {
-                Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.accentInk)
+                Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.ink2)
                 TextField("Describe the change", text: $prompt)
                     .textFieldStyle(.roundedBorder)
                     .focused($promptFocused)
@@ -110,8 +110,8 @@ struct PeekDescribeChange: View {
                 part.strikethroughStyle = .single
                 part.foregroundColor = GanchoTokens.Palette.danger
             } else if segment.kind == .added {
-                part.foregroundColor = GanchoTokens.Palette.brandText
-                part.backgroundColor = GanchoTokens.Palette.brandTint
+                part.foregroundColor = GanchoTokens.Palette.ink
+                part.backgroundColor = GanchoTokens.Palette.controlFill
             }
             text.append(part)
         }
@@ -126,7 +126,7 @@ struct PeekDescribeChange: View {
                 .panelFont(.caption2, .bold)
                 .foregroundStyle(
                     isResult
-                        ? AnyShapeStyle(GanchoTokens.Palette.brandText) : AnyShapeStyle(.secondary))
+                        ? AnyShapeStyle(GanchoTokens.Palette.ink) : AnyShapeStyle(.secondary))
             ScrollView {
                 Text(text)
                     .panelFont(.caption)

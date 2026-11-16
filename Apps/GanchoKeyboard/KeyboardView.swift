@@ -20,9 +20,8 @@ struct KeyboardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.regularMaterial)
-        // The keyboard runs outside the app, so it doesn't inherit the app's
-        // accent — pin it to Gancho green (active chips, the Save button).
-        .tint(GanchoTokens.Palette.accent)
+        // The keyboard runs outside the app, so it doesn't inherit the app's tint.
+        .tint(GanchoTokens.Palette.controlTint)
         .task { await model.load() }
     }
 
@@ -36,7 +35,7 @@ struct KeyboardView: View {
                     Image(systemName: "checkmark.circle.fill")
                 }
                 .font(.caption2)
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .transition(.opacity)
             }
@@ -93,10 +92,7 @@ struct KeyboardView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(
-                isActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.tertiary), in: .capsule
-            )
-            .foregroundStyle(isActive ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .ganchoChip(selected: isActive)
             .contentShape(.capsule)
         }
         .buttonStyle(PressableScale())
@@ -146,7 +142,7 @@ struct KeyboardView: View {
             .contentShape(.rect)
         }
         .buttonStyle(PressableScale())
-        .foregroundStyle(GanchoTokens.Palette.accentInk)
+        .foregroundStyle(GanchoTokens.Palette.ink2)
         .accessibilityLabel("Save clipboard")
     }
 
@@ -253,7 +249,7 @@ struct KeyboardView: View {
                 Text("Up next")
                     .font(.caption2.weight(.heavy))
                     .textCase(.uppercase)
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
                 Text(entry.displayText)
                     .lineLimit(1)
                     .font(.callout)
@@ -264,7 +260,10 @@ struct KeyboardView: View {
             .padding(.horizontal, 10)
             .frame(minHeight: 44)
             .background(rowFill(isInserted, idle: .fill.quaternary), in: shape)
-            .overlay(shape.strokeBorder(GanchoTokens.Palette.brandGreen, lineWidth: 2))
+            .overlay(
+                shape.strokeBorder(
+                    GanchoTokens.Palette.ink2, lineWidth: GanchoTokens.Stroke.hairline)
+            )
             .contentShape(shape)
         }
         .buttonStyle(PressableScale())
@@ -333,16 +332,15 @@ struct KeyboardView: View {
             Text("Inserted").textCase(.lowercase)
         }
         .font(.caption2.weight(.semibold))
-        .foregroundStyle(GanchoTokens.Palette.brandInk)
         .padding(.horizontal, 7)
         .frame(minHeight: 18)
-        .background(GanchoTokens.Palette.brandGreen, in: .capsule)
+        .ganchoInverseBadge()
         .accessibilityHidden(true)
     }
 
     private func rowFill(_ isInserted: Bool, idle: some ShapeStyle) -> AnyShapeStyle {
         isInserted
-            ? AnyShapeStyle(GanchoTokens.Palette.brandGreen.opacity(0.14)) : AnyShapeStyle(idle)
+            ? AnyShapeStyle(GanchoTokens.Palette.selectionWash) : AnyShapeStyle(idle)
     }
 
     private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {
@@ -436,7 +434,7 @@ private struct FullAccessPrompt: View {
         VStack(spacing: 8) {
             Image(systemName: "lock.shield")
                 .font(.largeTitle)
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
             Text("Full Access needed")
                 .font(.headline)
             Text(

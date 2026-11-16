@@ -67,7 +67,7 @@ struct SettingsView: View {
 }
 
 /// The Settings sections. Each one is a sidebar row with a symbol; the
-/// selected row takes the accent (brand green unless the OS accent is set).
+/// selected row takes the selection wash.
 private enum SettingsTab: String, CaseIterable, Identifiable {
     case general, capture, retention, privacy, integrations, pro, about
 
@@ -133,7 +133,7 @@ private struct SettingsSidebar: View {
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 Image(systemName: "lock.shield.fill")
                     .font(.title3)
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Privacy Center").font(.callout.weight(.semibold))
                     Text("No content analytics · receipt · agents")
@@ -143,7 +143,7 @@ private struct SettingsSidebar: View {
             }
             .padding(10)
             .background(
-                GanchoTokens.Palette.accent.opacity(0.12),
+                GanchoTokens.Palette.controlFill,
                 in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
             )
             .contentShape(RoundedRectangle(cornerRadius: GanchoTokens.Radius.md))
@@ -174,13 +174,8 @@ private struct SettingsSidebar: View {
             .padding(.horizontal, GanchoTokens.Spacing.sm)
             .padding(.vertical, GanchoTokens.Spacing.xs)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .foregroundStyle(
-                isActive
-                    ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
-                    : AnyShapeStyle(.primary)
-            )
-            .background(
-                isActive ? GanchoTokens.Palette.accent : Color.clear,
+            .ganchoTab(
+                selected: isActive, idle: .primary,
                 in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
             )
             .contentShape(

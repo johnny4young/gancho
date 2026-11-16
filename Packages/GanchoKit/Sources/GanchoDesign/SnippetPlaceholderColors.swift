@@ -21,13 +21,13 @@ extension GanchoTokens.Syntax {
 
     public static func color(for placeholder: SnippetTemplate.Placeholder) -> Color {
         let t = triples(for: placeholder)
-        return syntaxDynamicColor(light: t.light, dark: t.dark)
+        return GanchoTokens.ColorPair(light: t.light, dark: t.dark).color
     }
 
     #if canImport(AppKit)
         public static func nsColor(for placeholder: SnippetTemplate.Placeholder) -> NSColor {
             let t = triples(for: placeholder)
-            return syntaxDynamicNSColor(light: t.light, dark: t.dark)
+            return GanchoTokens.ColorPair(light: t.light, dark: t.dark).nsColor
         }
     #endif
 }

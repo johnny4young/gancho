@@ -12,7 +12,7 @@ extension IOSSettingsView {
                 subtitle.font(.footnote).foregroundStyle(.secondary)
             }
         } icon: {
-            Image(systemName: systemImage).foregroundStyle(GanchoTokens.Palette.accentInk)
+            Image(systemName: systemImage).foregroundStyle(GanchoTokens.Palette.ink2)
         }
     }
 
@@ -118,7 +118,7 @@ extension IOSSettingsView {
                     Text(detail).font(.footnote).foregroundStyle(.secondary)
                 }
             } icon: {
-                Image(systemName: systemImage).foregroundStyle(GanchoTokens.Palette.accentInk)
+                Image(systemName: systemImage).foregroundStyle(GanchoTokens.Palette.ink2)
             }
             Spacer(minLength: 0)
             trailing()

@@ -83,7 +83,7 @@ struct PasteboardStatusRow: View {
         } else if alreadyCaptured {
             Label("Saved", systemImage: "checkmark.circle.fill")
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
         } else {
             Text("Sensed, not read")
                 .font(.caption)
@@ -105,13 +105,13 @@ struct PasteboardStatusRow: View {
         .padding(.vertical, 10)
         .padding(.leading, GanchoTokens.Spacing.sm)
         .background(
-            GanchoTokens.Palette.accentTint,
+            GanchoTokens.Palette.selectionWash,
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
         )
         .overlay(
             RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
                 .strokeBorder(
-                    GanchoTokens.Palette.accent.opacity(0.25),
+                    GanchoTokens.Palette.hairline,
                     lineWidth: GanchoTokens.Stroke.hairline)
         )
         .accessibilityElement(children: .contain)
@@ -146,7 +146,7 @@ struct PasteboardStatusRow: View {
         } else if alreadyCaptured {
             Label("Saved", systemImage: "checkmark.circle.fill")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
         } else {
             // The glyph flows with the text, so a wrapped line never strands it.
             Text(
@@ -169,7 +169,7 @@ struct PasteboardStatusRow: View {
                 Image(systemName: "arrow.down").font(.callout.weight(.semibold))
                 Text("Paste").font(.caption2.weight(.bold))
             }
-            .foregroundStyle(GanchoTokens.Palette.accentInk)
+            .foregroundStyle(GanchoTokens.Palette.ink2)
             .accessibilityHidden(true)
         }
     }
@@ -272,7 +272,7 @@ struct PasteboardStatusRow: View {
                 .fixedSize(horizontal: false, vertical: true)
             } icon: {
                 Image(systemName: "checkmark.shield.fill")
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
             }
             .padding(GanchoTokens.Spacing.md)
             .frame(width: 300)

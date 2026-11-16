@@ -77,16 +77,7 @@ struct RecentClipsLargeView: View {
             .font(.system(size: 10.5, weight: .semibold))
             .padding(.horizontal, 7)
             .frame(height: 18)
-            .background(
-                selected
-                    ? AnyShapeStyle(GanchoTokens.Palette.accent)
-                    : AnyShapeStyle(.primary.opacity(0.07)),
-                in: Capsule()
-            )
-            .foregroundStyle(
-                selected
-                    ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
-                    : AnyShapeStyle(.primary))
+            .ganchoChip(selected: selected)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -152,10 +143,7 @@ struct RecentClipsLargeView: View {
                 Label("Save clipboard", systemImage: "arrow.down")
                     .font(.caption.weight(.bold))
                     .frame(maxWidth: .infinity, minHeight: 30)
-                    .background(
-                        GanchoTokens.Palette.accent, in: RoundedRectangle(cornerRadius: 10)
-                    )
-                    .foregroundStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                    .ganchoPrimaryVerb(in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
             Link(destination: URL(string: "gancho://")!) {

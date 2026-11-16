@@ -104,7 +104,7 @@ struct CaptureView: View {
                 askRow
                     .listRowBackground(
                         answer == nil
-                            ? nil : Rectangle().fill(GanchoTokens.Palette.accentTint))
+                            ? nil : Rectangle().fill(GanchoTokens.Palette.selectionWash))
             }
         }
 
@@ -158,7 +158,7 @@ struct CaptureView: View {
             } label: {
                 Label("Ask gancho", systemImage: "sparkles")
                     .font(.callout.weight(.medium))
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
             }
             .accessibilityIdentifier("ask-clipboard")
         }
@@ -169,7 +169,7 @@ struct CaptureView: View {
             HStack {
                 Label("Answer", systemImage: "sparkles")
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
                 Spacer()
                 Button {
                     self.answer = nil
@@ -243,7 +243,7 @@ struct CaptureView: View {
 
     /// Boards axis (above the type filter), as a horizontal rail of chips: All
     /// clips · Favorites · user boards · New board. The active chip takes the
-    /// system accent; long-press a user board to rename or delete it.
+    /// inverse fill; long-press a user board to rename or delete it.
     private var boardRail: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: GanchoTokens.Spacing.xs) {
@@ -325,14 +325,7 @@ struct CaptureView: View {
             }
             .padding(.horizontal, GanchoTokens.Spacing.sm)
             .padding(.vertical, GanchoTokens.Spacing.xs)
-            .background(
-                isActive ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
-                in: Capsule()
-            )
-            .foregroundStyle(
-                isActive
-                    ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
-                    : AnyShapeStyle(.primary))
+            .ganchoChip(selected: isActive)
         }
         .buttonStyle(.plain)
     }
@@ -424,13 +417,13 @@ struct PasteControlView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> UIPasteControl {
-        // The design's green Paste button, drawn by the system: it grants
-        // one-time access on tap, with no "pasted from" banner.
+        // The primary verb, drawn by the system: it grants one-time access on
+        // tap, with no "pasted from" banner.
         let config = UIPasteControl.Configuration()
         config.cornerStyle = cornerStyle
         config.displayMode = .iconAndLabel
-        config.baseBackgroundColor = UIColor(GanchoTokens.Palette.accent)
-        config.baseForegroundColor = UIColor(GanchoTokens.Palette.brandInk)
+        config.baseBackgroundColor = GanchoTokens.PrimaryVerb.uiFill
+        config.baseForegroundColor = GanchoTokens.PrimaryVerb.uiInk
         let control = UIPasteControl(configuration: config)
         control.target = context.coordinator.target
         // The identifier and label assistive tech sees come from the SwiftUI

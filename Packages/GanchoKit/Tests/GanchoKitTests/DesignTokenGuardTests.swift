@@ -3,7 +3,7 @@ import Testing
 
 /// App views take colour, elevation and motion from `GanchoDesign`, so the
 /// contrast rule, the dark-mode elevation and Reduce Motion hold in one place.
-@Suite("Design tokens — no literal curves, shadows, green text or accent bars in the apps")
+@Suite("Design tokens — no literal curves, shadows, raw hues, stray accent or accent bars")
 struct DesignTokenGuardTests {
     static let curves = "snappy|easeIn|easeOut|easeInOut|linear|spring|bouncy|smooth"
 
@@ -30,16 +30,72 @@ struct DesignTokenGuardTests {
         #expect(offenders.isEmpty, "use ganchoElevation: \(offenders)")
     }
 
-    /// The accent, success and warning hues fail 4.5:1 as text on light
+    /// The warning hue and the system tints fail 4.5:1 as text on light
     /// surfaces, also inside a ternary. Widgets are skipped: the system renders
     /// their tint.
-    @Test func appsUseReadableGreenInk() throws {
+    @Test func appsUseReadableInk() throws {
         let pattern =
             #"foreground(Style|Color)\((?![^)]*?(ReadableInk|ContrastingForeground)\()"#
-            + #"[^)]*?(GanchoTokens\.Palette\.(accent|success|warning)\b"#
+            + #"[^)]*?(GanchoTokens\.Palette\.warning\b"#
             + #"|(?<![\w)])\.(accentColor|tint|green)\b)"#
         let offenders = try Self.matches(of: pattern, excluding: ["GanchoWidgets"])
-        #expect(offenders.isEmpty, "use accentInk, brandText or ReadableInk: \(offenders)")
+        #expect(offenders.isEmpty, "use an ink token, warningInk or ReadableInk: \(offenders)")
+    }
+
+    /// Where each accent-bearing component may appear. The accent means
+    /// "Return does this", so a new entry is a design decision, not a fix.
+    static let accentBudget: [(pattern: String, files: Set<String>)] = [
+        (#"\bLiveDot\("#, ["Apps/GanchoMac/PanelStatusFooter.swift"]),
+        (#"\bReturnKeyCap\("#, []),
+        (
+            #"ganchoPrimaryVerb\(|PrimaryVerb\.ui"#,
+            [
+                "Apps/GanchoMac/PeekActionButton.swift", "Apps/GanchoiOS/CaptureView.swift",
+                "Apps/GanchoiOS/ClipDetailView+Sections.swift",
+                "Apps/GanchoShare/ShareSheetView.swift",
+                "Apps/GanchoWidgets/RecentClipsLargeView.swift",
+                "Apps/GanchoWidgets/ClipLiveActivity.swift"
+            ]
+        ),
+        (#"Palette\.brandGreen\b"#, ["Apps/GanchoMac/WrappedView.swift"])
+    ]
+
+    /// The apps cannot name the accent, its hex values or the system accent;
+    /// they get it from the primary verb, the Return cap and the live dot.
+    @Test func appsSpendTheAccentOnlyOnItsBudget() throws {
+        let raw =
+            #"Palette\.accent\w*|\bAccentText\b|ColorPair\b|controlAccentColor"#
+            + #"|(?i:C8F53C|C3F22E|47750A|161C00)"#
+        let offenders = try Self.matches(of: raw)
+        #expect(offenders.isEmpty, "the accent stays inside GanchoDesign: \(offenders)")
+
+        let widgets = try Self.matches(
+            of: #"(?<![\w)])\.accentColor\b"#, excluding: ["GanchoWidgets"])
+        #expect(widgets.isEmpty, "use the neutral tokens, not the system accent: \(widgets)")
+
+        for entry in Self.accentBudget {
+            let outside = try Self.matches(of: entry.pattern, relativePaths: true).filter {
+                !entry.files.contains(String($0.prefix { $0 != ":" }))
+            }
+            #expect(outside.isEmpty, "outside the accent budget: \(outside)")
+        }
+    }
+
+    /// The budget cannot be bypassed from inside the module either: beside the
+    /// tokens and the ink rule, only the primary verb, the caps and dot, and the
+    /// search caret name the accent.
+    @Test func designModuleSpendsTheAccentInFourPlaces() throws {
+        let design = LocalizationTests.repoRoot
+            .appendingPathComponent("Packages/GanchoKit/Sources/GanchoDesign")
+        let offenders = try Self.matches(
+            of: #"Palette\.accent(Text)?\b|ColorPair\.(accent|accentText)\b"#
+                + #"|\b(AccentFill|OnAccentInk|AccentText)\("#,
+            in: design,
+            excluding: [
+                "GanchoColors.swift", "ContrastingForeground.swift", "GanchoButtonStyle.swift",
+                "KeyCap.swift", "SearchField.swift"
+            ])
+        #expect(offenders.isEmpty, "the accent has four places: \(offenders)")
     }
 
     /// A hand-built pill keeps the raw hue as text, below 4.5:1 on its own wash.
@@ -73,8 +129,9 @@ struct DesignTokenGuardTests {
     static func matches(
         of pattern: String,
         in root: URL = LocalizationTests.repoRoot.appendingPathComponent("Apps"),
-        excluding skipped: [String] = []
+        excluding skipped: [String] = [], relativePaths: Bool = false
     ) throws -> [String] {
+        let prefix = LocalizationTests.repoRoot.standardizedFileURL.path + "/"
         let regex = try NSRegularExpression(pattern: pattern)
         let files = try #require(
             FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil))
@@ -87,7 +144,11 @@ struct DesignTokenGuardTests {
                 guard let bound = Range(match.range, in: text)?.lowerBound else { continue }
                 let line = text[..<bound]
                     .split(separator: "\n", omittingEmptySubsequences: false).count
-                offenders.append("\(url.lastPathComponent):\(line)")
+                let path = url.standardizedFileURL.path
+                let name =
+                    relativePaths && path.hasPrefix(prefix)
+                    ? String(path.dropFirst(prefix.count)) : url.lastPathComponent
+                offenders.append("\(name):\(line)")
             }
         }
         return offenders

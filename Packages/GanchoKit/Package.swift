@@ -74,7 +74,10 @@ let package = Package(
                 .product(name: "Sauce", package: "Sauce", condition: .when(platforms: [.macOS]))
             ]),
         .target(name: "GanchoAI", dependencies: ["GanchoKit"]),
-        .target(name: "GanchoDesign", dependencies: ["GanchoKit"]),
+        .target(
+            name: "GanchoDesign", dependencies: ["GanchoKit"],
+            // The bundled typefaces (OFL 1.1), registered at launch.
+            resources: [.process("Resources")]),
         .target(
             name: "GanchoTelemetry",
             dependencies: [

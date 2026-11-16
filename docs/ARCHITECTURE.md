@@ -242,13 +242,33 @@ gallery switching; seed readiness is a separate boundary.
 `GanchoDesign` owns colour, type, spacing, elevation and motion; app views
 never write a hex value, a shadow or an animation curve of their own.
 
-- **Contrast is computed, not picked.** `Contrast` holds the WCAG maths.
-  Green text uses `accentInk` (the brand text pair, or the user's accent
-  darkened or lightened until it reaches 4.5:1 on the darkest surface it sits
-  on); text on a green fill uses `ContrastingForeground`, which picks the dark
-  brand ink on brand green and black or white elsewhere. Controls that paint
-  their own label in the tint (borderless menus, button toggles) take
-  `ganchoInkTint()`.
+- **One accent, and it means "Return does this".** The interface is neutral
+  graphite: `ink`, `ink2` and `ink3` for text, `hairline` for strokes,
+  `ganchoTab(selected:)` (ink on `selectionWash`) for tabs and rows with no
+  resting fill, `ganchoChip(selected:)` (`controlFill` at rest, inverse when
+  selected) for chips that have one, and `ganchoInverseBadge()` for a label
+  that must stand out. `controlFill` is a translucent fill for any surface;
+  `surface(.control)` is the opaque level controls sit on. The lime accent is internal to the module and appears in four
+  places only: the search caret, `ReturnKeyCap`, the primary verb
+  (`GanchoButtonStyle(.primary)`, or `ganchoPrimaryVerb(in:)` on a custom
+  label; both draw `AccentFill` with `OnAccentInk`) and `LiveDot`. It still follows the OS theme colour when the user
+  picked one. System controls take `controlTint` through `ganchoTinted()`.
+  `DesignTokenGuardTests` lists, by path, the app files allowed to use each
+  accent-bearing component; adding one is a design decision. Keys are drawn
+  with `KeyCap`.
+- **Type has three roles** (`GanchoType`): Instrument Serif for titles, Geist
+  for interface text, Geist Mono for data, keys and captions. The faces are
+  bundled and registered per process by `GanchoFonts`, off the main thread at
+  launch and on first use otherwise; a role falls back to the system serif,
+  sans or mono face if registration fails. `panelFont`
+  routes its `design:` through the roles, keeping Dynamic Type on iOS and the
+  panel text-size scale on the Mac. Native forms keep the system font.
+- **Contrast is computed, not picked.** `Contrast` holds the WCAG maths and
+  `ContrastTokenTests` proves every ink on every surface it sits on. Text on
+  an accent fill uses `ContrastingForeground`, which picks the accent's own
+  dark ink on lime and black or white elsewhere. A status hue used as text
+  goes through `ReadableInk`. Controls that paint their own label in the tint
+  (borderless menus, button toggles) take `ganchoInkTint()`.
 - **Fixed brand colours are byte pairs** (`GanchoTokens.ColorPair`), resolved
   per colour scheme without AppKit. Resolving a dynamic `NSColor` inside
   `ShapeStyle.resolve` off the main thread blocks on the main actor and hangs
@@ -256,7 +276,7 @@ never write a hex value, a shadow or an animation curve of their own.
 - **Buttons have roles** (`GanchoButtonStyle`: primary, secondary, tertiary,
   neutral, destructive). Hover and pressed step the fill's lightness by 8 % and
   16 % (`ButtonStates`, `Contrast.stepped`); keyboard focus draws a 2 pt ring in
-  the accent ink outside the control.
+  ink outside the control.
 - **Surfaces and elevation**: `ganchoSurface(level:)` gives the panel, card
   and control levels (hex dark surfaces only on the opaque panel; the
   translucent panel keeps its glass). `ganchoElevation` draws a shadow in light
@@ -266,7 +286,8 @@ never write a hex value, a shadow or an animation curve of their own.
   Under Reduce Motion, settle animations are instant, arrive and leave become a
   100 ms fade and presses do not scale. `DesignTokenGuardTests` fails the build
   on a literal curve, a raw token that skips its `reduceMotion:` function, a
-  literal shadow, or the accent or success green used as a foreground.
+  literal shadow, a raw status hue used as a foreground, or the accent outside
+  its budget.
 
 ## Platform contracts
 

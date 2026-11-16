@@ -186,7 +186,7 @@ struct PaywallView: View {
         VStack(spacing: GanchoTokens.Spacing.md) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 52))
-                .foregroundStyle(GanchoTokens.Palette.brandText)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
                 .accessibilityHidden(true)
             Text("Welcome to Pro")
                 .font(.title2.bold())

@@ -119,7 +119,7 @@ struct PanelView: View {
     @AppStorage private var panelTextSizeRaw: String
     /// One selection highlight shared by every row (see `ClipCard`).
     @Namespace private var selectionNamespace
-    /// One accent capsule per rail that glides to the chip you activate.
+    /// One selection capsule per rail that glides to the chip you activate.
     @Namespace private var boardRailNamespace
     @Namespace private var filterRailNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -546,13 +546,13 @@ struct PanelView: View {
                     )
                     .panelFont(.caption, .semibold)
                 }
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
                 .frame(width: 180, height: 76)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
                 .overlay {
                     RoundedRectangle(cornerRadius: 14)
                         .stroke(
-                            GanchoTokens.Palette.accent,
+                            GanchoTokens.Palette.ink2,
                             style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
                 }
                 .padding(GanchoTokens.Spacing.lg)
@@ -1041,7 +1041,7 @@ struct PanelView: View {
     }
 
     /// A toolbar chip: glyph only at rest, checkmark + name when active, so the
-    /// active one reads without relying on the accent colour alone (WCAG 1.4.1).
+    /// active one reads without relying on the wash alone (WCAG 1.4.1).
     private func railChip<Icon: View>(
         _ title: Text, isActive: Bool, isFocused: Bool, identifier: String,
         namespace: Namespace.ID? = nil,
@@ -1067,7 +1067,7 @@ struct PanelView: View {
         .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
-    /// With a namespace the accent fill is ONE capsule per rail that glides
+    /// With a namespace the selection wash is ONE capsule per rail that glides
     /// to the active chip; without one (New board, the app menu) it is static.
     private func railChipLabel<Icon: View>(
         _ title: Text, isActive: Bool, isFocused: Bool, showsTitle: Bool,
@@ -1087,15 +1087,14 @@ struct PanelView: View {
         .padding(.horizontal, showsTitle ? GanchoTokens.Spacing.xs : 6)
         .padding(.vertical, 4)
         .background {
-            Capsule().fill(.quaternary)
             if isActive {
-                Capsule().fill(GanchoTokens.Palette.accent)
+                Capsule().fill(GanchoTokens.Palette.selectionWash)
                     .modifier(RailGlide(namespace: namespace))
             }
         }
         .foregroundStyle(
             isActive
-                ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                ? AnyShapeStyle(GanchoTokens.Palette.ink)
                 : AnyShapeStyle(.secondary)
         )
         .overlay(railRing(isFocused))
@@ -1103,11 +1102,11 @@ struct PanelView: View {
     }
 
     /// The keyboard-focus ring for a rail chip (filters + boards): 2 pt in the
-    /// accent ink, 2 pt outside the chip, so it never reads as the active fill.
+    /// ink, 2 pt outside the chip, so it never reads as the active fill.
     private func railRing(_ focused: Bool) -> some View {
         Capsule()
             .stroke(
-                focused ? AnyShapeStyle(GanchoTokens.Palette.accentInk) : AnyShapeStyle(.clear),
+                focused ? AnyShapeStyle(GanchoTokens.Palette.ink2) : AnyShapeStyle(.clear),
                 lineWidth: GanchoTokens.Stroke.focus
             )
             .padding(-GanchoTokens.Stroke.focus * 1.5)
@@ -1281,7 +1280,7 @@ struct PanelView: View {
                     .padding(.vertical, 5)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
-                        GanchoTokens.Palette.accent.opacity(0.12),
+                        GanchoTokens.Palette.controlFill,
                         in: RoundedRectangle(
                             cornerRadius: GanchoTokens.Radius.md, style: .continuous))
             }
@@ -1330,7 +1329,7 @@ struct PanelView: View {
         }
         .padding(GanchoTokens.Spacing.sm)
         .background(
-            GanchoTokens.Palette.accent.opacity(0.1),
+            GanchoTokens.Palette.controlFill,
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         )
         .padding(.horizontal, GanchoTokens.Spacing.xxs)
@@ -1869,8 +1868,7 @@ struct PanelView: View {
     }
 
     /// The keyword-match banner above the list: ⏎ inserts the snippet (a
-    /// template opens the fill sheet first). Tinted with the accent to read as
-    /// the primary action when present.
+    /// template opens the fill sheet first).
     private func snippetBanner(_ snippet: ClipItem) -> some View {
         Button {
             pasteSelected(
@@ -1889,7 +1887,7 @@ struct PanelView: View {
             .padding(.horizontal, GanchoTokens.Spacing.sm)
             .padding(.vertical, GanchoTokens.Spacing.xs)
             .background(
-                GanchoTokens.Palette.accent.opacity(0.14),
+                GanchoTokens.Palette.controlFill,
                 in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)

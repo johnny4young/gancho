@@ -30,15 +30,7 @@ struct SearchModeControl: View {
                         .panelFont(size: 10.5, .bold)
                         .padding(.horizontal, 7)
                         .frame(height: 20)
-                        .foregroundStyle(
-                            isSelected
-                                ? AnyShapeStyle(
-                                    ContrastingForeground(on: GanchoTokens.Palette.accent))
-                                : AnyShapeStyle(.secondary)
-                        )
-                        .background {
-                            if isSelected { Capsule().fill(GanchoTokens.Palette.accent) }
-                        }
+                        .ganchoTab(selected: isSelected)
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -130,7 +122,7 @@ struct SearchTokenPopover: View {
                 .background {
                     if index == 0 {
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(GanchoTokens.Palette.accentTint)
+                            .fill(GanchoTokens.Palette.selectionWash)
                     }
                 }
                 .accessibilityElement(children: .combine)

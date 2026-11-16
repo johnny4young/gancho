@@ -19,7 +19,7 @@ struct PanelSelectionContextBar: View {
             Label("\(selectionCount) clips", systemImage: "checkmark.circle.fill")
                 .panelFont(.caption, .semibold)
                 .monospacedDigit()
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
             Spacer(minLength: 0)
             IconActionButton(
                 "Copy combined…", systemImage: "doc.on.doc",
@@ -48,7 +48,7 @@ struct PanelSelectionContextBar: View {
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .padding(.vertical, GanchoTokens.Spacing.xxs)
         .background(
-            GanchoTokens.Palette.accent.opacity(0.08),
+            GanchoTokens.Palette.controlFill,
             in: RoundedRectangle(
                 cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         )

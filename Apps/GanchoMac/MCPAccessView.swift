@@ -138,7 +138,7 @@ struct MCPAccessView: View {
                     .font(.footnote)
             } icon: {
                 Image(systemName: "bolt.shield.fill")
-                    .foregroundStyle(GanchoTokens.Palette.brandText)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
             }
         } header: {
             Text("Privacy boundary")
@@ -271,12 +271,12 @@ struct MCPAccessView: View {
     private var statusBadge: some View {
         HStack(spacing: 6) {
             Circle()
-                .fill(enabled ? GanchoTokens.Palette.success : Color.secondary)
+                .fill(enabled ? GanchoTokens.Palette.ink : Color.secondary)
                 .frame(width: 7, height: 7)
             Text(enabled ? "On" : "Off")
         }
         .font(.caption.weight(.semibold))
-        .foregroundStyle(enabled ? GanchoTokens.Palette.brandText : Color.secondary)
+        .foregroundStyle(enabled ? GanchoTokens.Palette.ink : Color.secondary)
     }
 
     private var activeGrantCount: Int {

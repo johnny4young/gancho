@@ -23,7 +23,7 @@ struct PasteboardPermissionView: View {
             switch verdict {
             case .allowed:
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 44)).foregroundStyle(GanchoTokens.Palette.brandText)
+                    .font(.system(size: 44)).foregroundStyle(GanchoTokens.Palette.ink2)
                 Text("Clipboard access is active")
                     .font(.title2.bold())
                 Text(

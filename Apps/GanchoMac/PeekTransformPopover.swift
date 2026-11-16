@@ -115,7 +115,7 @@ struct PeekTransformPopover: View {
             .padding(.vertical, 5)
             .background(
                 isHighlighted
-                    ? AnyShapeStyle(GanchoTokens.Palette.accentTint) : AnyShapeStyle(.clear),
+                    ? AnyShapeStyle(GanchoTokens.Palette.selectionWash) : AnyShapeStyle(.clear),
                 in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.card, style: .continuous)
             )
             .contentShape(.rect)

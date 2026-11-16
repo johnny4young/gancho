@@ -254,7 +254,7 @@ private struct RetentionTimelineCard: View {
         case .secrets: AnyShapeStyle(GanchoTokens.Palette.danger)
         case .images: AnyShapeStyle(GanchoTokens.Palette.warningInk)
         case .text: AnyShapeStyle(.secondary)
-        case .everything: AnyShapeStyle(GanchoTokens.Palette.accentInk)
+        case .everything: AnyShapeStyle(GanchoTokens.Palette.ink2)
         case .keptForever, nil: AnyShapeStyle(.primary)
         }
     }

@@ -1,4 +1,5 @@
 import ActivityKit
+import GanchoDesign
 import GanchoKit
 import SwiftUI
 import WidgetKit
@@ -94,8 +95,7 @@ private struct ClipActivityActions: View {
                         Label("Copy again", systemImage: "doc.on.doc")
                             .font(.footnote.weight(.bold))
                             .frame(maxWidth: .infinity, minHeight: 32)
-                            .background(GanchoMark.green, in: RoundedRectangle(cornerRadius: 10))
-                            .foregroundStyle(Color(red: 0.016, green: 0.129, blue: 0.051))
+                            .ganchoPrimaryVerb(in: RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.plain)
                 }
@@ -152,7 +152,7 @@ private func displayPreview(_ state: ClipActivityAttributes.ContentState) -> Str
 
 private func syncColor(_ emphasis: ClipSyncBadge.Emphasis) -> Color {
     switch emphasis {
-    case .success: .green
+    case .success: .primary
     case .warning: .orange
     case .neutral: .secondary
     }

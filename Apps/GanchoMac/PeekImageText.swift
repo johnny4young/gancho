@@ -18,7 +18,7 @@ enum PeekImageText {
     }
 
     static func tint(masked: Bool) -> Color {
-        masked ? GanchoTokens.Palette.danger : GanchoTokens.Palette.accent
+        masked ? GanchoTokens.Palette.danger : GanchoTokens.Palette.imageOverlay
     }
 
     /// A click on a region or a row: reveal first when masked, otherwise copy
@@ -227,7 +227,7 @@ struct PeekImageTextSection: View {
             .ready where copiedAll:
             Label("Copied to clipboard", systemImage: "checkmark.circle.fill")
                 .panelFont(.caption)
-                .foregroundStyle(GanchoTokens.Palette.brandText)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
                 // ONE element whose label is the text: an id on the Label alone
                 // propagates to the icon child, and a test's firstMatch lands there.
                 .accessibilityElement(children: .ignore)
@@ -281,7 +281,7 @@ struct PeekImageTextSection: View {
                     if copiedLine == index {
                         Label("Line copied", systemImage: "checkmark")
                             .panelFont(.caption)
-                            .foregroundStyle(GanchoTokens.Palette.brandText)
+                            .foregroundStyle(GanchoTokens.Palette.ink2)
                             .transition(.opacity)
                     }
                 }
@@ -478,7 +478,7 @@ extension PeekImageTextSection {
                     if translationCopied {
                         Label("Copied to clipboard", systemImage: "checkmark.circle.fill")
                             .panelFont(.caption)
-                            .foregroundStyle(GanchoTokens.Palette.brandText)
+                            .foregroundStyle(GanchoTokens.Palette.ink2)
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel(Text("Copied to clipboard"))
                             .accessibilityIdentifier("peek-ocr-translation-status")
@@ -540,7 +540,7 @@ extension PeekImageTextSection {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(
-                GanchoTokens.Palette.accent.opacity(0.1),
+                GanchoTokens.Palette.controlFill,
                 in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)

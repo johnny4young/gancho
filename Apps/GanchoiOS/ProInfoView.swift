@@ -28,7 +28,7 @@ struct ProInfoView: View {
                     )
                     .foregroundStyle(
                         model.tier == .pro
-                            ? AnyShapeStyle(GanchoTokens.Palette.brandText)
+                            ? AnyShapeStyle(GanchoTokens.Palette.ink2)
                             : AnyShapeStyle(.secondary))
                     Text(
                         model.tier == .pro

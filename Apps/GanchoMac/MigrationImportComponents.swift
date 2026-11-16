@@ -7,10 +7,10 @@ struct MigrationImportHeader: View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
             Image(systemName: "arrow.down.doc.fill")
                 .font(.title2)
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
                 .frame(width: 38, height: 38)
                 .background(
-                    GanchoTokens.Palette.accent.opacity(0.12),
+                    GanchoTokens.Palette.controlFill,
                     in: RoundedRectangle(cornerRadius: 10)
                 )
                 .accessibilityHidden(true)
@@ -74,7 +74,7 @@ struct MigrationImportSourceChoice: View {
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
                 Image(systemName: symbol)
                     .font(.title2)
-                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
                     .accessibilityHidden(true)
                 Text(title)
                     .font(.headline)
@@ -134,15 +134,15 @@ struct MigrationImportReview: View {
                 Spacer()
                 Text("Dry run complete")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(GanchoTokens.Palette.brandText)
+                    .foregroundStyle(GanchoTokens.Palette.ink2)
                     .padding(.horizontal, GanchoTokens.Spacing.sm)
                     .padding(.vertical, GanchoTokens.Spacing.xxs)
-                    .background(GanchoTokens.Palette.brandTint, in: Capsule())
+                    .background(GanchoTokens.Palette.controlFill, in: Capsule())
             }
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 statistic(
                     preview.readyCount, label: "Ready", symbol: "checkmark.circle.fill",
-                    tint: .green, identifier: "migration-ready-count")
+                    tint: GanchoTokens.Palette.success, identifier: "migration-ready-count")
                 statistic(
                     preview.duplicateCount, label: "Duplicates", symbol: "equal.circle.fill",
                     tint: .blue, identifier: "migration-duplicate-count")
@@ -198,7 +198,7 @@ struct MigrationImportCompletion: View {
         VStack(spacing: GanchoTokens.Spacing.md) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(GanchoTokens.Palette.brandText)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
                 .accessibilityHidden(true)
             Text("Memory ready")
                 .font(.title2.bold())

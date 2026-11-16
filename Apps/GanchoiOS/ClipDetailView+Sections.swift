@@ -113,17 +113,14 @@ extension ClipDetailView {
                             Label("Copy", systemImage: "doc.on.clipboard")
                         }
                         if showsCopyShortcut {
-                            KeyChip(keys: "⌘⏎", onFill: true).accessibilityHidden(true)
+                            KeyCap("⌘⏎", role: .onAccent).accessibilityHidden(true)
                         }
                     }
                     .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 50)
-                    .background(
-                        GanchoTokens.Palette.accent,
+                    .ganchoPrimaryVerb(
                         in: RoundedRectangle(
-                            cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
-                    )
-                    .foregroundStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                            cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("detail-copy")
@@ -208,7 +205,7 @@ extension ClipDetailView {
                         .padding(.horizontal, GanchoTokens.Spacing.sm)
                         .frame(minHeight: 30)
                         .background(.quaternary, in: Capsule())
-                        .foregroundStyle(GanchoTokens.Palette.accentInk)
+                        .foregroundStyle(GanchoTokens.Palette.ink2)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("Add to board"))
@@ -246,10 +243,10 @@ extension ClipDetailView {
             .accessibilityLabel(Text("Dismiss"))
         }
         .font(.subheadline)
-        .foregroundStyle(GanchoTokens.Palette.accentInk)
+        .foregroundStyle(GanchoTokens.Palette.ink2)
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .frame(minHeight: 30)
-        .background(GanchoTokens.Palette.accentTint, in: Capsule())
+        .background(GanchoTokens.Palette.selectionWash, in: Capsule())
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("board-suggestion")
     }

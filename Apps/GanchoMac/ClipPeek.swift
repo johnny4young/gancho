@@ -346,7 +346,7 @@ struct ClipPeek: View {
     /// the ✕ dismisses it. Auto-board never files silently.
     private func suggestionChip(_ board: Pinboard) -> some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.accentInk)
+            Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.ink2)
             Text("Add to \(board.name)?").panelFont(.subheadline, .medium).lineLimit(1)
             Spacer(minLength: 0)
             Button("Add") {
@@ -365,7 +365,7 @@ struct ClipPeek: View {
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .padding(.vertical, 6)
         .background(
-            GanchoTokens.Palette.accent.opacity(0.1),
+            GanchoTokens.Palette.controlFill,
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         )
         .accessibilityIdentifier("board-suggestion")

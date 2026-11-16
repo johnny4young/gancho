@@ -12366,12 +12366,12 @@
         }
       }
     },
-    "Not granted yet · turns green when you come back": {
+    "Not granted yet · updates when you come back": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aún no concedido · se pone verde cuando vuelvas"
+            "value": "Aún no concedido · se actualiza cuando vuelvas"
           }
         }
       }

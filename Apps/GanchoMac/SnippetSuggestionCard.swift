@@ -38,10 +38,10 @@ struct SnippetSuggestionCard: View {
         }
         .padding(GanchoTokens.Spacing.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(GanchoTokens.Palette.brandTint, in: shape)
+        .background(GanchoTokens.Palette.controlFill, in: shape)
         .overlay(
             shape.strokeBorder(
-                GanchoTokens.Palette.brandGreen.opacity(0.35),
+                GanchoTokens.Palette.hairline,
                 lineWidth: GanchoTokens.Stroke.hairline)
         )
         .accessibilityElement(children: .contain)

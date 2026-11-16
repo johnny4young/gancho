@@ -344,11 +344,8 @@ struct PrivacyCenterView: View {
             }
             Spacer(minLength: 0)
         }
-        // Dark ink on the green: white on it was 1.9:1.
-        .foregroundStyle(GanchoTokens.Palette.brandInk)
         .padding(GanchoTokens.Spacing.md)
-        .background(
-            GanchoTokens.Palette.success.gradient,
+        .ganchoInverseBadge(
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
     }
 

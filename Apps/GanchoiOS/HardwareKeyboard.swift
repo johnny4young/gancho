@@ -52,26 +52,9 @@ struct KeyboardLegend: View {
 
     private func entry(_ keys: String, _ action: Text) -> some View {
         HStack(spacing: 4) {
-            KeyChip(keys: keys)
+            KeyCap(keys)
             action
         }
         .fixedSize()
-    }
-}
-
-/// A key combination drawn as a keycap.
-struct KeyChip: View {
-    let keys: String
-    /// On a coloured fill the chip darkens it instead of washing it.
-    var onFill = false
-
-    var body: some View {
-        Text(verbatim: keys)
-            .font(.caption2.weight(.bold))
-            .padding(.horizontal, 5)
-            .frame(minWidth: 18, minHeight: 18)
-            .background(
-                onFill ? Color.black.opacity(0.14) : Color.primary.opacity(0.08),
-                in: RoundedRectangle(cornerRadius: 5))
     }
 }

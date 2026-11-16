@@ -452,22 +452,14 @@ public struct ClipCard: View {
             ? nil : GanchoMotion.quick(reduceMotion: reduceMotion)
     }
 
-    /// Accent wash inside a full accent outline, never a leading bar. With a
-    /// namespace it is ONE view shared by every row, so a selection change
-    /// moves it rather than swapping it.
+    /// A neutral wash, never a leading bar or a ring. With a namespace it is
+    /// ONE view shared by every row, so a selection change moves it rather
+    /// than swapping it.
     @ViewBuilder private var selectionBackground: some View {
         if isSelected {
             let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
             shape
-                .fill(
-                    GanchoTokens.Palette.accent.opacity(
-                        GanchoTokens.Palette.selectionWashOpacity(colorScheme))
-                )
-                .overlay(
-                    shape.strokeBorder(
-                        GanchoTokens.Palette.accent.opacity(0.55),
-                        lineWidth: GanchoTokens.Stroke.hairline)
-                )
+                .fill(GanchoTokens.Palette.selectionWash)
                 .modifier(
                     SharedSelectionGeometry(
                         namespace: selectionNamespace, rowID: isSelectionAnchor ? nil : item.id))
@@ -522,16 +514,7 @@ public struct ClipShortcutBadge: View {
 
     public var body: some View {
         if (1...9).contains(number) {
-            Text(verbatim: "⌘\(number)")
-                .panelFont(.caption2, .medium, design: .monospaced)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, GanchoTokens.Spacing.xxs)
-                .padding(.vertical, 1)
-                .background(
-                    .quaternary,
-                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
-                )
-                .accessibilityHidden(true)
+            KeyCap("⌘\(number)").accessibilityHidden(true)
         }
     }
 }
@@ -651,89 +634,5 @@ public struct ActionButton: View {
         .buttonStyle(.plain)
         .ganchoSurface(radius: GanchoTokens.Radius.md)
         .accessibilityIdentifier(identifier)
-    }
-}
-
-/// Search field with the panel's type-to-search contract: focused state is
-/// owned by the caller; every keystroke updates the binding immediately.
-public struct SearchField<Leading: View, Trailing: View>: View {
-    /// `.card` sits on its own glass surface (a standalone control); `.bare`
-    /// is the panel header — larger type, no surface of its own, because a
-    /// glass control inside a glass panel reads as nested material.
-    public enum Style: Sendable {
-        case card, bare
-    }
-
-    let promptKey: LocalizedStringKey
-    let style: Style
-    @Binding var text: String
-    /// Sits between the magnifier and the text: filter chips.
-    let leading: Leading
-    /// Sits after the clear button: a mode control.
-    let trailing: Trailing
-
-    public init(
-        _ promptKey: LocalizedStringKey, text: Binding<String>, style: Style = .card,
-        @ViewBuilder leading: () -> Leading, @ViewBuilder trailing: () -> Trailing
-    ) {
-        self.promptKey = promptKey
-        self._text = text
-        self.style = style
-        self.leading = leading()
-        self.trailing = trailing()
-    }
-
-    public var body: some View {
-        switch style {
-        case .card:
-            field
-                .padding(GanchoTokens.Spacing.xs)
-                .ganchoSurface(radius: GanchoTokens.Radius.md)
-        case .bare:
-            field
-                .panelFont(.title3)
-                .padding(.horizontal, GanchoTokens.Spacing.md)
-                .padding(.vertical, GanchoTokens.Spacing.sm)
-        }
-    }
-
-    private var field: some View {
-        HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-                .frame(width: 16, alignment: .center)
-                .accessibilityHidden(true)
-            leading
-            TextField(promptKey, text: $text)
-                .textFieldStyle(.plain)
-                .autocorrectionDisabled()
-                #if os(macOS)
-                    .textContentType(nil)
-                    .textInputSuggestions { EmptyView() }
-                #endif
-                // Take the row and left-align: a bare `.plain` TextField on macOS
-                // lets the field's intrinsic width shrink to the value, which with
-                // the tight spacing clipped the first characters of the prompt
-                // ("Se" of "Search…") behind the icon.
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityIdentifier("search-field")
-            if !text.isEmpty {
-                IconActionButton(
-                    "Clear search", systemImage: "xmark.circle.fill", identifier: "search-clear"
-                ) {
-                    text = ""
-                }
-                .foregroundStyle(.secondary)
-            }
-            trailing
-        }
-    }
-}
-
-extension SearchField where Leading == EmptyView, Trailing == EmptyView {
-    public init(_ promptKey: LocalizedStringKey, text: Binding<String>, style: Style = .card) {
-        self.init(
-            promptKey, text: text, style: style, leading: { EmptyView() },
-            trailing: { EmptyView() })
     }
 }

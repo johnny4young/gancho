@@ -86,13 +86,13 @@ private struct CopyHUDView: View {
                     danger
                         ? AnyShapeStyle(
                             ReadableInk(base: GanchoTokens.Palette.danger, onWash: 0.15))
-                        : AnyShapeStyle(GanchoTokens.Palette.brandText)
+                        : AnyShapeStyle(GanchoTokens.Palette.ink2)
                 )
                 .frame(width: 34, height: 34)
                 .background(
                     danger
                         ? AnyShapeStyle(GanchoTokens.Palette.danger.opacity(0.15))
-                        : AnyShapeStyle(GanchoTokens.Palette.brandTint),
+                        : AnyShapeStyle(GanchoTokens.Palette.controlFill),
                     in: shape
                 )
                 .accessibilityHidden(true)

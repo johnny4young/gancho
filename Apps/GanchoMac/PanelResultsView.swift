@@ -272,12 +272,9 @@ private struct PanelResultsEmptyState: View {
         Group {
             Image(systemName: "doc.on.clipboard.fill")
                 .panelFont(size: 28, .medium)
-                .foregroundStyle(GanchoTokens.Palette.brandInk)
                 .frame(width: 64, height: 64)
-                .background(
-                    GanchoTokens.Palette.success.gradient,
-                    in: RoundedRectangle(
-                        cornerRadius: GanchoTokens.Radius.xl, style: .continuous)
+                .ganchoInverseBadge(
+                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.xl, style: .continuous)
                 )
                 .padding(.bottom, GanchoTokens.Spacing.xs)
             Text("Your history starts here")

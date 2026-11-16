@@ -4,7 +4,7 @@ import GanchoKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// How a board looks under a dragged clip: a green ring and a 1.04 lift while
+/// How a board looks under a dragged clip: an ink ring and a 1.04 lift while
 /// it hovers, a pulse once the clip is filed. Under Reduce Motion the ring
 /// stays and nothing scales.
 struct BoardDropFeedback<Ring: InsettableShape>: ViewModifier {
@@ -16,7 +16,7 @@ struct BoardDropFeedback<Ring: InsettableShape>: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay {
-                ring.strokeBorder(GanchoTokens.Palette.accent, lineWidth: 2)
+                ring.strokeBorder(GanchoTokens.Palette.ink, lineWidth: 2)
                     .opacity(isTargeted ? 1 : 0)
                     .allowsHitTesting(false)
             }

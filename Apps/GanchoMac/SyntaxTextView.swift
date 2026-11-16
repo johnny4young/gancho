@@ -91,7 +91,7 @@ struct SyntaxTextView: NSViewRepresentable {
         textView.allowsUndo = true
         textView.font = Self.editorFont
         textView.backgroundColor = GanchoTokens.Syntax.editorSurface
-        textView.insertionPointColor = .controlAccentColor
+        textView.insertionPointColor = .labelColor
         textView.textContainerInset = NSSize(width: 8, height: 12)
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false

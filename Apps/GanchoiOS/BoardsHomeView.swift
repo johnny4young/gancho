@@ -10,8 +10,7 @@ import UniformTypeIdentifiers
 import WidgetKit
 
 /// A board's identity color as a small filled dot — the quiet per-board accent
-/// the design asks for (green stays the app accent; Favorites wears the warm
-/// favorite hue). Shared by every board row.
+/// the design asks for (Favorites wears the warm favorite hue). Shared by every board row.
 struct BoardDot: View {
     let board: Pinboard
     var size: CGFloat = 12
@@ -48,7 +47,7 @@ struct MoveToBoardSheet: View {
                                 Spacer()
                                 if memberIDs.contains(board.id) {
                                     Image(systemName: "checkmark")
-                                        .foregroundStyle(GanchoTokens.Palette.accentInk)
+                                        .foregroundStyle(GanchoTokens.Palette.ink2)
                                         .fontWeight(.semibold)
                                 }
                             }

@@ -182,7 +182,7 @@ struct PeekTransformPipeline: View {
                 .panelFont(.caption2, .bold)
                 .foregroundStyle(
                     isResult
-                        ? AnyShapeStyle(GanchoTokens.Palette.brandText) : AnyShapeStyle(.secondary))
+                        ? AnyShapeStyle(GanchoTokens.Palette.ink) : AnyShapeStyle(.secondary))
             ScrollView {
                 Text(verbatim: ClipTextPreview.truncated(text, limit: 8_000))
                     .panelFont(.caption, design: .monospaced)
@@ -193,7 +193,7 @@ struct PeekTransformPipeline: View {
         .padding(GanchoTokens.Spacing.xs)
         .frame(maxWidth: .infinity, minHeight: 90, maxHeight: 160, alignment: .topLeading)
         .background(
-            isResult ? AnyShapeStyle(GanchoTokens.Palette.brandTint) : AnyShapeStyle(.background),
+            isResult ? AnyShapeStyle(GanchoTokens.Palette.controlFill) : AnyShapeStyle(.background),
             in: shape
         )
         .overlay(shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))

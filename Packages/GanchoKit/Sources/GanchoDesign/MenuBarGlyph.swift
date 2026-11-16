@@ -69,20 +69,22 @@
                 width: badgeSide, height: badgeSide)
         }
 
-        /// The design's state colours, kept in step with `GanchoTokens` by a test.
+        /// The panel's state colours, from the bytes the palette is built on.
         public static func fill(for badge: MenuBarBadge) -> NSColor {
             switch badge {
-            case .denied: NSColor(srgbRed: 0xD7 / 255, green: 0, blue: 0x15 / 255, alpha: 1)
-            case .paused:
-                NSColor(srgbRed: 1, green: 0x9F / 255, blue: 0x0A / 255, alpha: 1)
-            case .privateMode:
-                NSColor(srgbRed: 0x5E / 255, green: 0x5C / 255, blue: 0xE6 / 255, alpha: 1)
-            case .ignoreNext:
-                NSColor(srgbRed: 0x8E / 255, green: 0x8E / 255, blue: 0x93 / 255, alpha: 1)
-            case .agentRead:
-                NSColor(srgbRed: 0x5A / 255, green: 0xC8 / 255, blue: 0xFA / 255, alpha: 1)
+            case .denied: color(StatusBytes.dangerLight)
+            case .paused: color(StatusBytes.warning)
+            case .privateMode: color(StatusBytes.indigo)
+            case .ignoreNext: color((0x8E, 0x8E, 0x93))
+            case .agentRead: color(StatusBytes.agentDark)
             case .stack: ink
             }
+        }
+
+        private static func color(_ bytes: (Int, Int, Int)) -> NSColor {
+            NSColor(
+                srgbRed: CGFloat(bytes.0) / 255, green: CGFloat(bytes.1) / 255,
+                blue: CGFloat(bytes.2) / 255, alpha: 1)
         }
 
         /// Dark on the light fills (amber, grey), white on the rest: 4.5:1 or more.

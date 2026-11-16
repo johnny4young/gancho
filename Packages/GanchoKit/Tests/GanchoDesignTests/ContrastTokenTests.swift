@@ -21,10 +21,19 @@ struct ContrastTokenTests {
         ).resolve(in: environment)
     }
 
-    @Test("Brand ink stays AA on the green fill at rest, hover and pressed", arguments: appearances)
-    func brandInkOnEveryFillState(scheme: ColorScheme) {
-        let fill = GanchoTokens.ColorPair.brand.resolved(scheme)
-        let ink = GanchoTokens.ColorPair.ink.resolved(scheme)
+    /// A translucent token as it lands on the panel, or on a card on the panel.
+    private func surfaces(_ scheme: ColorScheme) -> [Color.Resolved] {
+        let panel = GanchoTokens.ColorPair.panel.resolved(scheme)
+        let card = Contrast.composited(GanchoTokens.ColorPair.card.resolved(scheme), over: panel)
+        return [panel, card]
+    }
+
+    @Test(
+        "On-accent ink stays AA on the lime fill at rest, hover and pressed",
+        arguments: appearances)
+    func onAccentInkOnEveryFillState(scheme: ColorScheme) {
+        let fill = GanchoTokens.ColorPair.accent.resolved(scheme)
+        let ink = GanchoTokens.onAccentInk
         let lighter = scheme == .dark
         for fraction in [0, ButtonStates.hoverStep, ButtonStates.pressedStep] {
             let state = Contrast.stepped(fill, by: fraction, lighter: lighter)
@@ -32,36 +41,102 @@ struct ContrastTokenTests {
         }
     }
 
-    @Test("Green fills, also stepped, take the brand ink instead of black", arguments: appearances)
-    func greenFillUsesBrandInk(scheme: ColorScheme) {
-        let brand = GanchoTokens.ColorPair.brand.resolved(scheme)
+    @Test(
+        "Lime fills, also stepped, take the accent's ink instead of black", arguments: appearances)
+    func limeFillUsesOnAccentInk(scheme: ColorScheme) {
+        let lime = GanchoTokens.ColorPair.accent.resolved(scheme)
         for fraction in [0, ButtonStates.hoverStep, ButtonStates.pressedStep] {
-            let fill = Contrast.stepped(brand, by: fraction, lighter: scheme == .dark)
+            let fill = Contrast.stepped(lime, by: fraction, lighter: scheme == .dark)
             let ink = ContrastingForeground.ink(on: fill, scheme: scheme)
-            #expect(ink == GanchoTokens.ColorPair.ink.resolved(scheme), "step \(fraction)")
+            #expect(ink == GanchoTokens.onAccentInk, "step \(fraction)")
         }
     }
 
-    @Test("Brand text green reads on white, the grey card and its tint")
-    func brandTextOnLightSurfaces() {
-        let environment = environment(.light)
-        let text = GanchoTokens.ColorPair.text.resolved(.light)
-        for surface in [0xFFFFFF, 0xF5F5F7, 0xF2F2F3] {
-            #expect(Contrast.ratio(text, resolved(surface, environment)) >= Contrast.text)
+    // On the main actor: a system accent is an AppKit colour.
+    @MainActor
+    @Test(
+        "The stepped accent fill and its ink come from one rule, in every state",
+        arguments: appearances)
+    func accentFillAndInkShareTheStep(scheme: ColorScheme) {
+        let environment = environment(scheme)
+        for fraction in [0, ButtonStates.hoverStep, ButtonStates.pressedStep] {
+            let fill = AccentFill(step: fraction).resolve(in: environment)
+            let ink = OnAccentInk(step: fraction).resolve(in: environment)
+            #expect(Contrast.ratio(ink, fill) >= Contrast.text, "step \(fraction)")
         }
-        let tint = GanchoTokens.ColorPair.tint.resolved(.light)
-        #expect(Contrast.ratio(text, tint) >= Contrast.text)
     }
 
-    @Test("Brand text and tint read in dark")
-    func brandTextOnDarkSurfaces() {
-        let environment = environment(.dark)
-        let text = GanchoTokens.ColorPair.text.resolved(.dark)
-        for surface in [0x1C1C1E, 0x2C2C2E] {
-            #expect(Contrast.ratio(text, resolved(surface, environment)) >= Contrast.text)
+    @Test("Lime as text or a stroke reads on the panel and the card", arguments: appearances)
+    func accentTextOnSurfaces(scheme: ColorScheme) {
+        let text = GanchoTokens.ColorPair.accentText.resolved(scheme)
+        for surface in surfaces(scheme) {
+            #expect(Contrast.ratio(text, surface) >= Contrast.text)
         }
-        #expect(
-            Contrast.ratio(text, GanchoTokens.ColorPair.tint.resolved(.dark)) >= Contrast.text)
+    }
+
+    @Test("Ink, ink2, ink3 and red read on the panel and the card", arguments: appearances)
+    func neutralInksOnSurfaces(scheme: ColorScheme) {
+        let pairs: [GanchoTokens.ColorPair] = [.ink, .ink2, .ink3, .danger]
+        for (index, pair) in pairs.enumerated() {
+            for surface in surfaces(scheme) {
+                #expect(
+                    Contrast.ratio(pair.resolved(scheme), surface) >= Contrast.text,
+                    "pair \(index) \(scheme)")
+            }
+        }
+    }
+
+    @Test("Ink and ink2 read on the selection and control washes", arguments: appearances)
+    func inksOnWashes(scheme: ColorScheme) {
+        let washes: [GanchoTokens.ColorPair] = [.selection, .controlFill]
+        for surface in surfaces(scheme) {
+            for wash in washes {
+                let backdrop = Contrast.composited(wash.resolved(scheme), over: surface)
+                for ink in [GanchoTokens.ColorPair.ink, .ink2] {
+                    #expect(Contrast.ratio(ink.resolved(scheme), backdrop) >= Contrast.text)
+                }
+            }
+        }
+    }
+
+    @Test("The neutral inks still read on the system surfaces", arguments: appearances)
+    func neutralInksOnSystemSurfaces(scheme: ColorScheme) {
+        let environment = environment(scheme)
+        let hexes = scheme == .dark ? [0x1C1C1E, 0x2C2C2E] : [0xFFFFFF, 0xF5F5F7, 0xE6E6E8]
+        for hex in hexes {
+            let surface = resolved(hex, environment)
+            for pair in [GanchoTokens.ColorPair.ink, .ink2, .ink3] {
+                #expect(Contrast.ratio(pair.resolved(scheme), surface) >= Contrast.text)
+            }
+        }
+    }
+
+    @Test("An inverse surface keeps its text AA", arguments: appearances)
+    func inverseSurface(scheme: ColorScheme) {
+        let fill = GanchoTokens.ColorPair.ink.resolved(scheme)
+        let text = GanchoTokens.ColorPair.panel.resolved(scheme)
+        #expect(Contrast.ratio(text, fill) >= Contrast.text)
+    }
+
+    @Test(
+        "The control tint reads as a label and keeps a white knob visible", arguments: appearances)
+    func controlTint(scheme: ColorScheme) {
+        let environment = environment(scheme)
+        let tint = GanchoTokens.ColorPair.controlTint.resolved(scheme)
+        let hexes = scheme == .dark ? [0x1C1C1E, 0x2C2C2E] : [0xFFFFFF, 0xE6E6E8]
+        for surface in surfaces(scheme) + hexes.map({ resolved($0, environment) }) {
+            #expect(Contrast.ratio(tint, surface) >= Contrast.text)
+        }
+        #expect(Contrast.ratio(tint, resolved(0xFFFFFF, environment)) >= Contrast.largeText)
+    }
+
+    @Test("Image overlays stay visible on black and on white images", arguments: appearances)
+    func imageOverlay(scheme: ColorScheme) {
+        let environment = environment(scheme)
+        let overlay = GanchoTokens.ColorPair.imageOverlay.resolved(scheme)
+        for image in [0x000000, 0xFFFFFF] {
+            #expect(Contrast.ratio(overlay, resolved(image, environment)) >= Contrast.largeText)
+        }
     }
 
     @MainActor @Test("Danger reads as text on its surfaces", arguments: appearances)
@@ -174,11 +249,13 @@ struct ContrastTokenTests {
         #expect(Contrast.adjusted(black, against: resolved(0xFFFFFF, environment)) == black)
     }
 
-    @Test("Non-green fills keep black or white ink", arguments: [0x007AFF, 0xFFCC00, 0x1D1D1F])
+    @Test(
+        "Fills other than the lime keep black or white ink",
+        arguments: [0x007AFF, 0xFFCC00, 0x1D1D1F])
     func otherFillsUseBlackOrWhite(hex: Int) {
         let fill = resolved(hex, environment(.light))
         let ink = ContrastingForeground.ink(on: fill, scheme: .light)
-        #expect(ink != GanchoTokens.ColorPair.ink.resolved(.light))
+        #expect(ink != GanchoTokens.onAccentInk)
         #expect(Contrast.ratio(ink, fill) >= Contrast.text)
     }
 

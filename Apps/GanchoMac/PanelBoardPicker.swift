@@ -131,7 +131,7 @@ struct PanelBoardPicker: View {
                 Image(systemName: isMember ? "checkmark.circle.fill" : board.sfSymbol)
                     .foregroundStyle(
                         isMember
-                            ? AnyShapeStyle(GanchoTokens.Palette.accentInk)
+                            ? AnyShapeStyle(GanchoTokens.Palette.ink)
                             : AnyShapeStyle(.secondary))
                 board.displayTitle
                 Spacer(minLength: 0)
@@ -141,7 +141,7 @@ struct PanelBoardPicker: View {
             .padding(.vertical, 5)
             .background(
                 index == selection
-                    ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.14))
+                    ? AnyShapeStyle(GanchoTokens.Palette.selectionWash)
                     : AnyShapeStyle(.clear),
                 in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
             )
@@ -160,7 +160,7 @@ struct PanelBoardPicker: View {
         } label: {
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 Image(systemName: "plus.circle.fill").foregroundStyle(
-                    GanchoTokens.Palette.accentInk)
+                    GanchoTokens.Palette.ink2)
                 Text(isCreating ? "Creating board…" : "New board")
                 Text(verbatim: "“\(trimmedFilter)”").foregroundStyle(.secondary)
                 Spacer(minLength: 0)
@@ -170,7 +170,7 @@ struct PanelBoardPicker: View {
             .padding(.vertical, 5)
             .background(
                 index == selection
-                    ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.14))
+                    ? AnyShapeStyle(GanchoTokens.Palette.selectionWash)
                     : AnyShapeStyle(.clear),
                 in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
             )

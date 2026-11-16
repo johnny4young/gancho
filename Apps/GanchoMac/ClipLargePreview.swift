@@ -34,10 +34,10 @@ struct ClipLargePreview: View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
             Image(systemName: item.kind.symbolName)
                 .font(.title2)
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
                 .frame(width: 36, height: 36)
                 .background(
-                    GanchoTokens.Palette.accent.opacity(0.12),
+                    GanchoTokens.Palette.controlFill,
                     in: RoundedRectangle(
                         cornerRadius: GanchoTokens.Radius.md, style: .continuous)
                 )
@@ -152,7 +152,7 @@ struct ClipLargePreview: View {
                 ForEach(Array(paths.enumerated()), id: \.offset) { _, path in
                     HStack(spacing: GanchoTokens.Spacing.sm) {
                         Image(systemName: "doc")
-                            .foregroundStyle(GanchoTokens.Palette.accentInk)
+                            .foregroundStyle(GanchoTokens.Palette.ink2)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(verbatim: URL(fileURLWithPath: path).lastPathComponent)
                                 .font(.body.weight(.medium))

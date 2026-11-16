@@ -43,7 +43,7 @@ struct PanelContextRow<Card: View>: View {
                         .panelFont(.caption2, .semibold)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .ganchoTintedPill(GanchoTokens.Palette.brandGreen, wash: 0.18)
+                        .ganchoTintedPill(GanchoTokens.Palette.success, wash: 0.18)
                         .accessibilityIdentifier("context-match")
                 }
             }

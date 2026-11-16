@@ -115,8 +115,8 @@ extension PeekActionButton.Style {
     }
 }
 
-/// The dock and chip fill under the shared state rule: the primary steps its
-/// green for hover and pressed with dark ink; the others take a neutral wash;
+/// The dock and chip fill under the shared state rule: the primary steps the
+/// accent for hover and pressed with its ink; the others take a neutral wash;
 /// arrow-key focus draws the 2 pt ring 2 pt outside.
 private struct PeekActionFill: ButtonStyle {
     let shape: AnyShape
@@ -136,23 +136,15 @@ private struct PeekActionFillBody<Label: View>: View {
     let style: PeekActionFill
     let isPressed: Bool
     @ViewBuilder let label: Label
-    @Environment(\.self) private var environment
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let fill = fillColor
-        label
-            .background(fill, in: style.shape)
-            .foregroundStyle(
-                style.isPrimary
-                    ? AnyShapeStyle(ContrastingForeground(on: fill)) : AnyShapeStyle(.primary)
-            )
+        filled
             .padding(style.isFocused ? GanchoTokens.Stroke.focus * 1.5 : 0)
             .overlay {
                 if style.isFocused {
                     style.shape.stroke(
-                        GanchoTokens.Palette.accentInk, lineWidth: GanchoTokens.Stroke.focus)
+                        GanchoTokens.Palette.ink, lineWidth: GanchoTokens.Stroke.focus)
                 }
             }
             .padding(style.isFocused ? -GanchoTokens.Stroke.focus * 1.5 : 0)
@@ -167,15 +159,15 @@ private struct PeekActionFillBody<Label: View>: View {
         isPressed ? ButtonStates.pressedStep : style.isHovered ? ButtonStates.hoverStep : 0
     }
 
-    private var fillColor: Color {
+    @ViewBuilder private var filled: some View {
         if style.isPrimary {
-            return Color(
-                Contrast.stepped(
-                    GanchoTokens.Palette.accent.resolve(in: environment), by: step,
-                    lighter: colorScheme == .dark))
+            label.ganchoPrimaryVerb(in: style.shape, step: step)
+        } else {
+            let rest = style.isChip ? 0.05 : 0
+            let wash = isPressed ? 0.09 : style.isHovered ? 0.05 + rest : rest
+            label
+                .background(Color.primary.opacity(wash), in: style.shape)
+                .foregroundStyle(.primary)
         }
-        let rest = style.isChip ? 0.05 : 0
-        let wash = isPressed ? 0.09 : style.isHovered ? 0.05 + rest : rest
-        return Color.primary.opacity(wash)
     }
 }
