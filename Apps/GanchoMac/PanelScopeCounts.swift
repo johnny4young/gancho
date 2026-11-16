@@ -12,7 +12,7 @@ struct PanelScopeCounts: Equatable {
 
     /// Each kind's clips in the scope the list shows: one board, or all clips.
     func kinds(in boardID: UUID?) -> [ClipContentKind: Int]? {
-        guard let boardID, let kinds else { return kinds }
+        guard let boardID, kinds != nil else { return kinds }
         return kindsByBoard[boardID] ?? [:]
     }
 }
