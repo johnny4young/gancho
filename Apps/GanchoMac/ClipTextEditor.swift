@@ -24,6 +24,7 @@ struct ClipTextEditor: View {
     @State private var saveFailed = false
     @State private var isActive = false
     @FocusState private var isEditorFocused: Bool
+    static let actionsID = "preview-content-actions"
 
     init(
         text: Binding<String>, kind: ClipContentKind, readViewHidden: Bool = false,
@@ -115,6 +116,7 @@ struct ClipTextEditor: View {
                     .disabled(isSaving || isBlank)
                     .accessibilityIdentifier("preview-save-content")
             }
+            .id(Self.actionsID)
         }
     }
 

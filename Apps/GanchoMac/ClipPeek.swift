@@ -148,49 +148,59 @@ struct ClipPeek: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .accessibilityIdentifier("peek-masked")
             } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-                        hero
-                        if let mergedParts, let parts = item.parts, !isEditingText {
-                            PeekPartsControls(
-                                separator: parts.separator, partCount: mergedParts.count,
-                                isBusy: isRewritingParts, choose: rejoinParts,
-                                split: splitParts)
+                ScrollViewReader { scroller in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
+                            hero
+                            if let mergedParts, let parts = item.parts, !isEditingText {
+                                PeekPartsControls(
+                                    separator: parts.separator, partCount: mergedParts.count,
+                                    isBusy: isRewritingParts, choose: rejoinParts,
+                                    split: splitParts)
+                            }
+                            if ocrShowsHere {
+                                PeekImageTextSection(
+                                    item: item, hoveredLine: $ocrHoveredLine,
+                                    copiedLine: $ocrCopiedLine,
+                                    revealSecret: $ocrRevealSecret, isEditing: $isEditingOCR)
+                            }
+                            if !transformPipeline.isEmpty { pipelineSection }
+                            if describeMode { describeSection }
+                            if translationFailed { translationUnavailableMessage }
+                            if isThinking {
+                                Label("Thinking…", systemImage: "sparkles")
+                                    .panelFont(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .symbolEffect(.pulse, options: .repeating)
+                                    .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
+                            } else if let actionResult, !actionResult.isEmpty {
+                                resultBox(actionResult)
+                                    .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
+                            }
                         }
-                        if ocrShowsHere {
-                            PeekImageTextSection(
-                                item: item, hoveredLine: $ocrHoveredLine,
-                                copiedLine: $ocrCopiedLine,
-                                revealSecret: $ocrRevealSecret, isEditing: $isEditingOCR)
-                        }
-                        if !transformPipeline.isEmpty { pipelineSection }
-                        if describeMode { describeSection }
-                        if translationFailed { translationUnavailableMessage }
-                        if isThinking {
-                            Label("Thinking…", systemImage: "sparkles")
-                                .panelFont(.caption)
-                                .foregroundStyle(.secondary)
-                                .symbolEffect(.pulse, options: .repeating)
-                                .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
-                        } else if let actionResult, !actionResult.isEmpty {
-                            resultBox(actionResult)
-                                .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
+                        // Scoped to the three things that come and go inside
+                        // the peek; a global transaction would also move the
+                        // editor and the scroll position.
+                        .animation(peekContentAnimation, value: suggestedBoard?.id)
+                        .animation(peekContentAnimation, value: isThinking)
+                        .animation(peekContentAnimation, value: actionResult)
+                    }
+                    // A gutter scroller narrows an aspect-fit image until it stops
+                    // overflowing, then hides and lets it grow: a layout loop that freezes the panel.
+                    .scrollIndicators(item.kind == .image ? .never : .automatic)
+                    .onGeometryChange(for: CGFloat.self) {
+                        $0.size.height
+                    } action: { height in
+                        stageHeight = height
+                    }
+                    // A compact peek can open the editor below the fold: bring Save into view.
+                    .onChange(of: isEditingText) { _, editing in
+                        guard editing else { return }
+                        Task { @MainActor in
+                            await Task.yield()
+                            scroller.scrollTo(ClipTextEditor.actionsID, anchor: .bottom)
                         }
                     }
-                    // Scoped to the three things that come and go inside
-                    // the peek; a global transaction would also move the
-                    // editor and the scroll position.
-                    .animation(peekContentAnimation, value: suggestedBoard?.id)
-                    .animation(peekContentAnimation, value: isThinking)
-                    .animation(peekContentAnimation, value: actionResult)
-                }
-                // A gutter scroller narrows an aspect-fit image until it stops
-                // overflowing, then hides and lets it grow: a layout loop that freezes the panel.
-                .scrollIndicators(item.kind == .image ? .never : .automatic)
-                .onGeometryChange(for: CGFloat.self) {
-                    $0.size.height
-                } action: { height in
-                    stageHeight = height
                 }
             }
             dock
