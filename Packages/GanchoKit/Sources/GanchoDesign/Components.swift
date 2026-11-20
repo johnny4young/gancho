@@ -410,9 +410,9 @@ public struct ClipCard: View {
         }
     }
 
-    /// Source · time on top, then the state markers and the ⌘N badge. The pin
-    /// marker's scale-in is scoped here so a pin toggle never animates the
-    /// row's reflow into the Pinned section.
+    /// Source · time on top unless the host hides it, then the state markers
+    /// and the ⌘N badge. The pin marker's scale-in is scoped here so a pin
+    /// toggle never animates the row's reflow into the Pinned section.
     private var trailingMeta: some View {
         VStack(alignment: .trailing, spacing: 3) {
             sourceTimeLine

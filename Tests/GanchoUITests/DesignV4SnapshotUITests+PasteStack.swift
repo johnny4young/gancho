@@ -26,6 +26,7 @@ extension DesignV4SnapshotUITests {
         defer { app.terminate() }
         let strip = app.buttons["paste-stack-strip"].firstMatch
         XCTAssertTrue(strip.appears(within: 15))
+        try SynthesizedInput.requireForeground(app)
         strip.click()
         XCTAssertTrue(
             app.descendants(matching: .any)["peek-paste-stack"].firstMatch.appears(within: 5))
