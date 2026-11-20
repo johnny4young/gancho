@@ -338,8 +338,10 @@ extension LibraryView {
             .padding(.bottom, GanchoTokens.Spacing.sm)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(Text(verbatim: "gancho Pro"))
-            .accessibilityValue(Text(verbatim: "\(Int((meter.fraction * 100).rounded()))%"))
-            .accessibilityHint(Text(caption))
+            // The ceilings live only here, so VoiceOver reads them as the value, not a hint.
+            .accessibilityValue(
+                Text(verbatim: "\(Int((meter.fraction * 100).rounded()))%, \(caption)")
+            )
             .accessibilityIdentifier("library-pro")
         }
     }

@@ -26,7 +26,7 @@ final class LibraryWindowController {
             created.titlebarAppearsTransparent = true
             created.isReleasedWhenClosed = false
             // Open roomy and never let it shrink below the two-pane layout's needs.
-            created.setContentSize(NSSize(width: 900, height: 640))
+            created.setContentSize(NSSize(width: 960, height: 640))
             created.contentMinSize = LibraryView.minimumSize
             created.center()
             #if DEBUG

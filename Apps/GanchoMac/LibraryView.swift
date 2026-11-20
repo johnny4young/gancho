@@ -67,22 +67,24 @@ struct LibraryView: View {
 
     enum EditorField { case title, keyword }
 
-    /// Both panes at their minimum widths, plus the split's divider.
-    static let minimumSize = CGSize(width: 840, height: 560)
+    /// The detail's minimum fits the toolbar in one row without truncating it.
+    static let sidebarMinWidth: CGFloat = 232
+    static let detailMinWidth: CGFloat = 680
+    /// Both panes at their minimums plus the split's divider, rounded up.
+    static let minimumSize = CGSize(width: 920, height: 560)
 
     /// The panes plus the browse controls' observers, split from `body` so it type-checks.
     private var browser: some View {
         HSplitView {
             sidebar
-                .frame(minWidth: 232, idealWidth: 252, maxWidth: 320)
+                .frame(minWidth: Self.sidebarMinWidth, idealWidth: 252, maxWidth: 320)
             VStack(spacing: 0) {
                 toolbar
                 detail
             }
             // A split pane has its own safe area; the toolbar sits beside the traffic lights.
             .ignoresSafeArea(.container, edges: .top)
-            // The toolbar's narrowest fit.
-            .frame(minWidth: 600, maxWidth: .infinity)
+            .frame(minWidth: Self.detailMinWidth, maxWidth: .infinity)
         }
         .frame(minWidth: Self.minimumSize.width, minHeight: Self.minimumSize.height)
         .onAppear { layout = model.libraryLayout }

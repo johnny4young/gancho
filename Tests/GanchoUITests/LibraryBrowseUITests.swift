@@ -195,13 +195,19 @@ final class LibraryBrowseUITests: XCTestCase {
         defer { app.terminate() }
         let pro = library.descendants(matching: .any)["library-pro"].firstMatch
         XCTAssertTrue(pro.appears(within: 5))
-        XCTAssertEqual(pro.value as? String, "33%")
+        let value = try XCTUnwrap(pro.value as? String)
+        XCTAssertTrue(value.hasPrefix("33%"), value)
+        XCTAssertTrue(value.contains("1 of 3 boards"), "VoiceOver reads the ceilings: \(value)")
         XCTAssertEqual(pro.label, "gancho Pro")
         XCTAssertFalse(library.staticTexts["1/3"].exists, "the header repeats the meter")
+        let allClips = library.descendants(matching: .any)["library-all-clips"].firstMatch
         let pinned = library.descendants(matching: .any)["library-pinned"].firstMatch
         let newBoard = library.buttons["board-new"].firstMatch
-        XCTAssertTrue(pinned.exists && newBoard.exists)
+        let close = library.buttons[XCUIIdentifierCloseWindow].firstMatch
+        XCTAssertTrue(allClips.exists && pinned.exists && newBoard.exists && close.exists)
         XCTAssertLessThan(pinned.frame.maxY, newBoard.frame.minY, "scopes sit above Boards")
+        XCTAssertGreaterThan(
+            allClips.frame.minY, close.frame.maxY, "the first row clears the traffic lights")
         let keyword = library.descendants(matching: .any)
             .matching(identifier: "snippet-keyword").firstMatch
         XCTAssertTrue(keyword.appears(within: 5))
