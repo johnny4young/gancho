@@ -10,6 +10,17 @@ struct SearchFieldTests {
     func glyph() {
         #expect(SearchField("Search", text: .constant("")).glyph == "magnifyingglass")
         #expect(
-            SearchField("Search", text: .constant(""), hidesPreviews: true).glyph == "eye.slash")
+            SearchField("Search", text: .constant(""), hidesPreviews: true).glyph
+                == "eye.slash")
+    }
+
+    @Test("The panel field draws the hook mark, and still the eye-slash while previews are hidden")
+    func panelMark() {
+        #expect(
+            SearchField("Search", text: .constant(""), style: .bare, glyph: .mark).glyph == nil)
+        #expect(
+            SearchField(
+                "Search", text: .constant(""), style: .bare, glyph: .mark, hidesPreviews: true
+            ).glyph == "eye.slash")
     }
 }

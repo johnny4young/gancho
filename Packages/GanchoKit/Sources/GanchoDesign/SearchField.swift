@@ -10,22 +10,29 @@ public struct SearchField<Leading: View, Trailing: View>: View {
         case card, bare
     }
 
+    /// The leading glyph: the panel's search field carries the brand mark.
+    public enum Glyph: Sendable {
+        case magnifier, mark
+    }
+
     let promptKey: LocalizedStringKey
     let style: Style
-    /// While previews are hidden the magnifier becomes an eye-slash.
+    let leadingGlyph: Glyph
+    /// While previews are hidden the leading glyph becomes an eye-slash.
     let hidesPreviews: Bool
     @Binding var text: String
-    /// Sits between the magnifier and the text: filter chips.
+    /// Sits between the glyph and the text: filter chips.
     let leading: Leading
     /// Sits after the clear button: a mode control.
     let trailing: Trailing
 
     public init(
         _ promptKey: LocalizedStringKey, text: Binding<String>, style: Style = .card,
-        hidesPreviews: Bool = false,
+        glyph: Glyph = .magnifier, hidesPreviews: Bool = false,
         @ViewBuilder leading: () -> Leading, @ViewBuilder trailing: () -> Trailing
     ) {
         self.promptKey = promptKey
+        self.leadingGlyph = glyph
         self.hidesPreviews = hidesPreviews
         self._text = text
         self.style = style
@@ -47,16 +54,23 @@ public struct SearchField<Leading: View, Trailing: View>: View {
         }
     }
 
-    var glyph: String {
-        hidesPreviews ? "eye.slash" : "magnifyingglass"
+    /// The SF Symbol to draw, or nil when the field draws the mark.
+    var glyph: String? {
+        if hidesPreviews { return "eye.slash" }
+        return leadingGlyph == .mark ? nil : "magnifyingglass"
     }
 
     private var field: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: glyph)
-                .foregroundStyle(.secondary)
-                .frame(width: 16, alignment: .center)
-                .accessibilityHidden(true)
+            Group {
+                if let glyph {
+                    Image(systemName: glyph).foregroundStyle(.secondary)
+                } else {
+                    HookMark().fill(GanchoTokens.Palette.ink2).frame(height: 16)
+                }
+            }
+            .frame(width: 16, alignment: .center)
+            .accessibilityHidden(true)
             leading
             TextField(promptKey, text: $text)
                 .textFieldStyle(.plain)
@@ -95,10 +109,10 @@ extension View {
 extension SearchField where Leading == EmptyView, Trailing == EmptyView {
     public init(
         _ promptKey: LocalizedStringKey, text: Binding<String>, style: Style = .card,
-        hidesPreviews: Bool = false
+        glyph: Glyph = .magnifier, hidesPreviews: Bool = false
     ) {
         self.init(
-            promptKey, text: text, style: style, hidesPreviews: hidesPreviews,
+            promptKey, text: text, style: style, glyph: glyph, hidesPreviews: hidesPreviews,
             leading: { EmptyView() }, trailing: { EmptyView() })
     }
 }
