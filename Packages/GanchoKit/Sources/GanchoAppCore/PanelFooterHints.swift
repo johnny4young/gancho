@@ -37,7 +37,8 @@ public enum PanelFooterHint: String, Sendable {
         privateModeOff: Bool = false
     ) -> [Self] {
         var hints: [Self] = []
-        if hasAlternative, state == .noMatches { hints.append(.alternative) }
+        // An alternative exists only over an empty list, and ↓ takes it.
+        if hasAlternative { hints.append(.alternative) }
         if offersEyedropper, state == .list { hints.append(.eyedropper) }
         if privateModeOff { hints.append(.privateModeOff) }
         switch state {

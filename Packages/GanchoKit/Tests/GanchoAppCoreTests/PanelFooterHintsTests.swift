@@ -53,6 +53,10 @@ struct PanelFooterHintsTests {
         #expect(
             PanelFooterHint.hints(for: .stack, offersEyedropper: true, privateModeOff: true)
                 == [.privateModeOff, .addToStack, .navigate, .keys])
+        // ↓ still takes the alternative while the stack covers the peek.
+        #expect(
+            PanelFooterHint.hints(for: .stack, hasAlternative: true)
+                == [.alternative, .addToStack, .navigate, .keys])
         #expect(
             PanelFooterHint.hints(
                 for: .actionPanel, hasAlternative: true, offersEyedropper: true,
