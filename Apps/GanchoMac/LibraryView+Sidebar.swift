@@ -13,7 +13,9 @@ extension LibraryView {
             sidebarRows
             proFooter
         }
-        .frame(minWidth: 232)
+        // The title bar's safe area clears the traffic lights; the fill runs under them.
+        .padding(.top, GanchoTokens.Spacing.sm)
+        .background(GanchoTokens.Palette.controlFill.ignoresSafeArea())
     }
 
     /// A plain stack, not a `List`: the system would paint its own selection
@@ -22,6 +24,7 @@ extension LibraryView {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 1) {
+                    scopeRows
                     boardRows
                     savedFilterRows
                     snippetRows
@@ -52,16 +55,18 @@ extension LibraryView {
         return .handled
     }
 
+    @ViewBuilder private var scopeRows: some View {
+        navRow(.allClips, Text("All clips"), systemImage: "tray.full", count: allCount)
+            .accessibilityIdentifier("library-all-clips")
+        navRow(.pinned, Text("Pinned"), systemImage: "pin", count: pinnedCount)
+            .accessibilityIdentifier("library-pinned")
+    }
+
     @ViewBuilder private var boardRows: some View {
-        sectionHeader(
-            Text("Boards"), identifier: "board-new", addLabel: "New board",
-            badge: boardLimitBadge
-        ) {
+        sectionHeader(Text("Boards"), identifier: "board-new", addLabel: "New board") {
             boardNameField = ""
             boardSheet = .new
         }
-        navRow(.allClips, Text("All clips"), systemImage: "tray.full", count: allCount)
-        navRow(.pinned, Text("Pinned"), systemImage: "pin", count: pinnedCount)
         ForEach(boards) { board in
             navRow(
                 .board(board.id),
@@ -132,8 +137,7 @@ extension LibraryView {
 
     @ViewBuilder private var snippetRows: some View {
         sectionHeader(
-            Text("Library · Snippets"), identifier: "snippet-new",
-            addLabel: "New snippet", badge: snippetLimitBadge
+            Text("Library · Snippets"), identifier: "snippet-new", addLabel: "New snippet"
         ) {
             createSnippet()
         }
@@ -275,14 +279,13 @@ extension LibraryView {
     }
 
     private func sectionHeader(
-        _ label: Text, identifier: String, addLabel: LocalizedStringKey, badge: Text? = nil,
+        _ label: Text, identifier: String, addLabel: LocalizedStringKey,
         add: @escaping () -> Void
     )
         -> some View
     {
         HStack {
             label.sidebarCaps()
-            if let badge { badge.sidebarCaps() }
             Spacer()
             IconActionButton(addLabel, systemImage: "plus", identifier: identifier, action: add)
                 .foregroundStyle(GanchoTokens.Palette.ink2)
@@ -292,19 +295,7 @@ extension LibraryView {
         .padding(.top, GanchoTokens.Spacing.sm)
     }
 
-    /// Free users see a live `used/limit` count by each section so the ceiling
-    /// is visible BEFORE they hit it (Pro browses without a counter).
     private var userBoardCount: Int { boards.filter { !$0.isSystem }.count }
-
-    private var boardLimitBadge: Text? {
-        guard model.tier != .pro else { return nil }
-        return Text(verbatim: "\(userBoardCount)/\(PinLimits.freeMaxPinboards)")
-    }
-
-    private var snippetLimitBadge: Text? {
-        guard model.tier != .pro else { return nil }
-        return Text(verbatim: "\(snippets.count)/\(SnippetLimits.freeMaxSnippets)")
-    }
 
     private var proMeter: LibraryProMeter {
         // Pins in the in-memory fallback can't be managed or kept, so they don't meter.
@@ -313,45 +304,42 @@ extension LibraryView {
             snippets: snippets.count)
     }
 
-    /// The Pro card on Free: every ceiling's count, a bar filled to the fullest
-    /// one, and a tail that warns as it fills. Opens the paywall.
+    /// The Free ceilings' only home: a bar filled to the fullest one and every
+    /// ceiling's count, with a tail that warns as it fills. Opens the paywall.
     @ViewBuilder private var proFooter: some View {
         if model.tier != .pro {
             let meter = proMeter
+            let caption = meterCaption(meter)
+            let filled = meter.filledSegments()
+            let fill = meterColor(meter.pressure)
             Button {
                 model.paywallWindow.show(trigger: .freeLimitReached, model: model)
             } label: {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: GanchoTokens.Spacing.xs) {
-                        Image(systemName: "star.fill")
-                            .foregroundStyle(GanchoTokens.Palette.ink2)
-                        Text(verbatim: "gancho Pro").panelFont(.caption, .medium)
-                            .foregroundStyle(GanchoTokens.Palette.ink)
-                    }
+                VStack(alignment: .leading, spacing: 9) {
                     HStack(spacing: 3) {
                         ForEach(0..<5, id: \.self) { segment in
                             Capsule().fill(
-                                segment < meter.filledSegments()
-                                    ? meterColor(meter.pressure) : GanchoTokens.Palette.hairline)
+                                segment < filled ? fill : GanchoTokens.Palette.hairline2)
                         }
                     }
-                    .frame(height: 3)
-                    .accessibilityHidden(true)
-                    Text(meterCaption(meter))
-                        .panelFont(.caption2).foregroundStyle(GanchoTokens.Palette.ink3)
+                    .frame(height: 4)
+                    Text(caption)
+                        .panelFont(.caption2).foregroundStyle(GanchoTokens.Palette.ink2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.horizontal, GanchoTokens.Spacing.sm)
-                .padding(.vertical, 10)
+                .padding(.horizontal, GanchoTokens.Spacing.xs)
+                .padding(.top, GanchoTokens.Spacing.sm)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    GanchoTokens.Palette.controlFill,
-                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .padding(GanchoTokens.Spacing.xs)
+            .overlay(alignment: .top) { PanelHairline() }
+            .padding(.horizontal, GanchoTokens.Spacing.xs)
+            .padding(.bottom, GanchoTokens.Spacing.sm)
             .accessibilityElement(children: .combine)
+            .accessibilityLabel(Text(verbatim: "gancho Pro"))
             .accessibilityValue(Text(verbatim: "\(Int((meter.fraction * 100).rounded()))%"))
+            .accessibilityHint(Text(caption))
             .accessibilityIdentifier("library-pro")
         }
     }

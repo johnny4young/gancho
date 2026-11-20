@@ -7,8 +7,8 @@ import GanchoKit
 import SwiftUI
 
 /// The unified Library (the design's "Library + Pro"): a sidebar that navigates
-/// two worlds — BOARDS (All clips · Pinned · Favorites · your boards, each with
-/// a live count) and LIBRARY · SNIPPETS (keyword-triggered `{placeholder}`
+/// two worlds — All clips, Pinned and BOARDS (Favorites · your boards), each
+/// with a live count, and LIBRARY · SNIPPETS (keyword-triggered `{placeholder}`
 /// templates). Selecting a board shows its clips as a card grid; selecting a
 /// snippet opens the editor. Everything is local; the free ceiling gates
 /// creation, not browsing.
@@ -67,19 +67,24 @@ struct LibraryView: View {
 
     enum EditorField { case title, keyword }
 
+    /// Both panes at their minimum widths, plus the split's divider.
+    static let minimumSize = CGSize(width: 840, height: 560)
+
     /// The panes plus the browse controls' observers, split from `body` so it type-checks.
     private var browser: some View {
-        VStack(spacing: 0) {
-            toolbar
-            Divider()
-            HSplitView {
-                sidebar
-                    .frame(minWidth: 232, idealWidth: 252, maxWidth: 320)
+        HSplitView {
+            sidebar
+                .frame(minWidth: 232, idealWidth: 252, maxWidth: 320)
+            VStack(spacing: 0) {
+                toolbar
                 detail
-                    .frame(minWidth: 460, maxWidth: .infinity)
             }
+            // A split pane has its own safe area; the toolbar sits beside the traffic lights.
+            .ignoresSafeArea(.container, edges: .top)
+            // The toolbar's narrowest fit.
+            .frame(minWidth: 600, maxWidth: .infinity)
         }
-        .frame(minWidth: 800, minHeight: 560)
+        .frame(minWidth: Self.minimumSize.width, minHeight: Self.minimumSize.height)
         .onAppear { layout = model.libraryLayout }
         .task {
             // AppKit hands the window's first responder to the search field; take it back.

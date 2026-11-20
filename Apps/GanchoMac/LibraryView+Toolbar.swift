@@ -19,10 +19,10 @@ enum LibraryLayout: String, CaseIterable, Identifiable {
 }
 
 extension LibraryView {
-    /// Search (⌘F), the kind rail, the sort, Grid / List and New board, above both panes.
+    /// Search (⌘F), the kind rail, the sort, Grid / List and New board, above the detail.
     var toolbar: some View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
-            searchField.frame(minWidth: 180, maxWidth: .infinity)
+            searchField.frame(minWidth: 120, maxWidth: .infinity)
             kindRail
             Picker("Sort", selection: $oldestFirst) {
                 Text("Newest").tag(false)

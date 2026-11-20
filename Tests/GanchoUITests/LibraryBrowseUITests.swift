@@ -186,8 +186,9 @@ final class LibraryBrowseUITests: XCTestCase {
         XCTAssertTrue(library.radioButtons["List"].firstMatch.waitForSelection(true))
     }
 
-    /// The Pro meter reads the fullest ceiling (1 of 3 boards); snippets show
-    /// their keyword and a new saved filter shows its count.
+    /// The Pro meter reads the fullest ceiling (1 of 3 boards) and is the only
+    /// place for the ceilings; All clips and Pinned sit above Boards; snippets
+    /// show their keyword and a new saved filter shows its count.
     @MainActor
     func testSidebarShowsTheMeterKeywordsAndFilterCounts() throws {
         let (app, library) = try openLibrary(extra: ["-seed-snippets"], cards: 8)
@@ -195,6 +196,12 @@ final class LibraryBrowseUITests: XCTestCase {
         let pro = library.descendants(matching: .any)["library-pro"].firstMatch
         XCTAssertTrue(pro.appears(within: 5))
         XCTAssertEqual(pro.value as? String, "33%")
+        XCTAssertEqual(pro.label, "gancho Pro")
+        XCTAssertFalse(library.staticTexts["1/3"].exists, "the header repeats the meter")
+        let pinned = library.descendants(matching: .any)["library-pinned"].firstMatch
+        let newBoard = library.buttons["board-new"].firstMatch
+        XCTAssertTrue(pinned.exists && newBoard.exists)
+        XCTAssertLessThan(pinned.frame.maxY, newBoard.frame.minY, "scopes sit above Boards")
         let keyword = library.descendants(matching: .any)
             .matching(identifier: "snippet-keyword").firstMatch
         XCTAssertTrue(keyword.appears(within: 5))
