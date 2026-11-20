@@ -6,6 +6,14 @@ public enum PanelSearchAlternative: Hashable, Sendable {
     case mode(PanelSearchMode)
     /// The same query outside the selected board.
     case allBoards
+
+    /// The mode it searches in: its own, or the current one outside the board.
+    public func mode(in current: PanelSearchMode) -> PanelSearchMode {
+        switch self {
+        case .mode(let mode): mode
+        case .allBoards: current
+        }
+    }
 }
 
 /// What one alternative would show: its count and the first rows.
@@ -99,13 +107,8 @@ extension PanelSearchModel {
 
     private func items(for alternative: PanelSearchAlternative, limit: Int) async -> [ClipItem]? {
         var rule = savedRule(named: "")
-        let mode: PanelSearchMode
-        switch alternative {
-        case .mode(let alternativeMode): mode = alternativeMode
-        case .allBoards:
-            rule.boardID = nil
-            mode = searchMode
-        }
+        if alternative == .allBoards { rule.boardID = nil }
+        let mode = alternative.mode(in: searchMode)
         guard mode == .meaning else {
             rule.searchMode = mode.conventional
             switch await source.searchOutcome(rule.query, limit: limit) {

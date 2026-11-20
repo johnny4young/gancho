@@ -25,10 +25,9 @@ struct PanelFirstRunStageView: View {
                     title: "Open the panel from anywhere",
                     detail: "or click the hook in the menu bar", spokenKeys: Self.spoken(caps)
                 ) {
-                    ForEach(
-                        Array(caps.enumerated()),
-                        id: \.offset
-                    ) { _, key in KeyCap(key) }
+                    ForEach(Array(caps.enumerated()), id: \.offset) { _, key in
+                        KeyCap(key, size: .tile)
+                    }
                 }
             } else {
                 keyRow(title: "Click the hook in the menu bar", detail: nil) { EmptyView() }
@@ -38,8 +37,8 @@ struct PanelFirstRunStageView: View {
                 detail: "⌘1–9 jumps straight to a row",
                 spokenKeys: String(localized: "Up and Down Arrows")
             ) {
-                KeyCap("↑")
-                KeyCap("↓")
+                KeyCap("↑", size: .tile)
+                KeyCap("↓", size: .tile)
             }
             // The one accent on this screen: what Return does.
             keyRow(
@@ -47,7 +46,7 @@ struct PanelFirstRunStageView: View {
                 detailKey: "⌥↩", spokenDetail: "Option-Return pastes plain text",
                 spokenKeys: String(localized: "Return")
             ) {
-                ReturnKeyCap()
+                ReturnKeyCap(size: .tile)
             }
             Spacer(minLength: 0)
         }
@@ -67,9 +66,9 @@ struct PanelFirstRunStageView: View {
         @ViewBuilder keys: () -> some View
     ) -> some View {
         VStack(spacing: 0) {
-            HStack(spacing: GanchoTokens.Spacing.sm) {
-                HStack(spacing: 4) { keys() }
-                    .frame(minWidth: 88, alignment: .leading)
+            HStack(spacing: GanchoTokens.Spacing.md) {
+                HStack(spacing: 5) { keys() }
+                    .frame(minWidth: 117, alignment: .leading)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text(verbatim: spokenKeys ?? ""))
                     .accessibilityHidden(spokenKeys == nil)
@@ -88,7 +87,7 @@ struct PanelFirstRunStageView: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.vertical, GanchoTokens.Spacing.sm)
+            .padding(.vertical, GanchoTokens.Spacing.md)
             PanelHairline()
         }
         .accessibilityElement(children: .combine)

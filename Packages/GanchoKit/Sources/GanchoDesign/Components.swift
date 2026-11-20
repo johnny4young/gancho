@@ -179,8 +179,8 @@ public struct ClipCard: View {
     let sensitiveLifetime: TimeInterval?
     /// A clip copied on another device names that device; nil leaves rows as they were.
     let foreignDevice: String?
-    /// The search words to mark in the row's text; nil for a masked row.
-    let matchQuery: String?
+    /// What to mark in the row's text; nil for a masked row.
+    let match: ClipMatch?
     /// Off while Return acts elsewhere: the selected row keeps its ⌘N.
     let marksReturn: Bool
     /// Off where the host shows the clip's state instead, e.g. a paste-stack row.
@@ -198,7 +198,7 @@ public struct ClipCard: View {
         shortcutNumber: Int? = nil, thumbnail: Image? = nil,
         selectionNamespace: Namespace.ID? = nil, isSelectionAnchor: Bool = true,
         currentDeviceName: String? = nil, sensitiveLifetime: TimeInterval? = nil,
-        matchQuery: String? = nil, marksReturn: Bool = true,
+        match: ClipMatch? = nil, marksReturn: Bool = true,
         showsSourceAndTime: Bool = true
     ) {
         let protected = ClipSafePresentation.requiresMasking(item)
@@ -219,19 +219,17 @@ public struct ClipCard: View {
         self.foreignDevice =
             previewsHidden
             ? nil : currentDeviceName.flatMap { Self.foreignDeviceName(of: item, current: $0) }
-        self.matchQuery = Self.matchQuery(matchQuery, masking: masking)
+        self.match = Self.match(match, masking: masking)
         self.marksReturn = marksReturn
         self.showsSourceAndTime = showsSourceAndTime
     }
 
     /// A masked row never marks a match: the mark would say what it hides.
-    nonisolated static func matchQuery(
-        _ query: String?, masking: ClipRowContent.Masking
-    ) -> String? {
-        guard masking == .none, let query,
-            !query.trimmingCharacters(in: .whitespaces).isEmpty
-        else { return nil }
-        return query
+    nonisolated static func match(
+        _ match: ClipMatch?, masking: ClipRowContent.Masking
+    ) -> ClipMatch? {
+        guard masking == .none, let match, !match.isBlank else { return nil }
+        return match
     }
 
     /// The device a clip came from, when that is not this one. Nil for a clip
@@ -341,7 +339,7 @@ public struct ClipCard: View {
             marked(value).panelFont(.callout, design: .monospaced)
         case .code(let line):
             let tonal = GanchoTokens.Syntax.tonal(String(line.prefix(Self.syntaxPreviewLimit)))
-            Text(matchQuery.map { ClipMatchHighlight.marked(tonal, query: $0) } ?? tonal)
+            Text(match.map { ClipMatchHighlight.marked(tonal, match: $0) } ?? tonal)
                 .panelFont(.callout, design: .monospaced)
         case .link(let host, let path):
             linkHeadline(host: host, path: path ?? "")
@@ -351,7 +349,7 @@ public struct ClipCard: View {
     }
 
     private func linkHeadline(host: String, path: String) -> Text {
-        guard let matchQuery else {
+        guard let match else {
             let rest = Text(verbatim: path).foregroundStyle(GanchoTokens.Palette.ink3)
             return Text("\(Text(verbatim: host).fontWeight(.semibold))\(rest)")
         }
@@ -359,13 +357,13 @@ public struct ClipCard: View {
         link.inlinePresentationIntent = .stronglyEmphasized
         var rest = AttributedString(path)
         rest.foregroundColor = GanchoTokens.Palette.ink3
-        return Text(ClipMatchHighlight.marked(link + rest, query: matchQuery))
+        return Text(ClipMatchHighlight.marked(link + rest, match: match))
     }
 
-    /// `text` with the search words marked, or as it is outside a search.
+    /// `text` with the search matches marked, or as it is outside a search.
     private func marked(_ text: String) -> Text {
-        guard let matchQuery else { return Text(verbatim: text) }
-        return Text(ClipMatchHighlight.marked(AttributedString(text), query: matchQuery))
+        guard let match else { return Text(verbatim: text) }
+        return Text(ClipMatchHighlight.marked(AttributedString(text), match: match))
     }
 
     /// Line 2: what the clip is, and for a protected clip the time it has left.

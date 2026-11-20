@@ -158,6 +158,15 @@ public enum PanelSearchMode: String, CaseIterable, Sendable {
         }
     }
 
+    /// What a row marks for `query`; a meaning has no words to mark.
+    public func match(for query: String) -> ClipMatch? {
+        switch self {
+        case .exact, .fuzzy: .words(query)
+        case .regex: .pattern(query)
+        case .meaning: nil
+        }
+    }
+
     /// The store mode behind it; Meaning has none.
     public var conventional: ClipSearchQuery.Mode? {
         switch self {

@@ -124,4 +124,13 @@ struct PanelSearchAlternativesTests {
         model.query = "   "
         #expect(await model.probeAlternatives(meaningAvailable: true).isEmpty)
     }
+
+    @Test func eachAlternativeMarksTheQueryAsItsModeReadsIt() {
+        #expect(PanelSearchMode.fuzzy.match(for: "sour.e") == .words("sour.e"))
+        #expect(PanelSearchMode.exact.match(for: "sour.e") == .words("sour.e"))
+        #expect(PanelSearchMode.regex.match(for: "sour.e") == .pattern("sour.e"))
+        #expect(PanelSearchMode.meaning.match(for: "sour.e") == nil)
+        #expect(PanelSearchAlternative.mode(.regex).mode(in: .fuzzy) == .regex)
+        #expect(PanelSearchAlternative.allBoards.mode(in: .exact) == .exact)
+    }
 }

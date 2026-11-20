@@ -315,7 +315,10 @@ struct PanelView: View {
                 } else if let best = bestAlternative {
                     Divider()
                     PanelAlternativeStage(
-                        result: best, previewsHidden: model.previewsHidden
+                        result: best,
+                        match: best.alternative.mode(in: search.searchMode).match(
+                            for: search.query),
+                        previewsHidden: model.previewsHidden
                     )
                     .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
                 }
@@ -1608,11 +1611,8 @@ struct PanelView: View {
             selectionNamespace: selectionNamespace,
             isSelectionAnchor: search.selectedItem?.id == item.id,
             sensitiveLifetime: model.retentionPolicy.sensitiveLifetime,
-            // A pattern and a meaning are not words to find in the row, and
-            // context rows are picked by time, not by the query.
-            matchQuery: !search.isShowingContext
-                && (search.searchMode == .exact || search.searchMode == .fuzzy)
-                ? search.query : nil,
+            // Context rows are picked by time, not by the query.
+            match: search.isShowingContext ? nil : search.searchMode.match(for: search.query),
             marksReturn: !stackIsShown)
     }
 
