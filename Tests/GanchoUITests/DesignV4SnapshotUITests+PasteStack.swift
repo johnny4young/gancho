@@ -20,7 +20,9 @@ extension DesignV4SnapshotUITests {
                 "-seed-paste-stack", "-force-free-tier", "-opaque-panel-for-ui-test",
                 "-place-panel-for-ui-test", "-suppress-storage-notice-for-ui-test",
                 "-suppress-paused-notice-for-ui-test", "-ui-test-paste-target", "Xcode",
-                "-ui-test-paste-sink", "pasted", "-AppleLanguages", "(en)"
+                "-ui-test-paste-sink", "pasted", "-AppleLanguages", "(en)",
+                // Unpinned, the window alternates between two heights.
+                "-panel-content-width", "864", "-panel-content-height", "480"
             ]
         app.launch()
         defer { app.terminate() }

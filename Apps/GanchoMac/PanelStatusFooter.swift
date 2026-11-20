@@ -19,8 +19,8 @@ struct PanelStatusFooter: View {
     var alternativeHint: LocalizedStringKey?
     /// "I eyedropper" while the selected clip is a visible image.
     var offersEyedropper = false
-    /// The peek's action panel owns the keys while it is open.
-    var actionPanelIsOpen = false
+    /// Picks the trailing key hints.
+    var state: PanelFooterState = .list
     /// The stack is showing in the peek.
     @Binding var stackIsOpen: Bool
     let showKeyboardShortcuts: () -> Void
@@ -32,13 +32,7 @@ struct PanelStatusFooter: View {
             SyncStatusView(status: syncStatus, isQuiet: true)
             PasteStackStrip(isOpen: $stackIsOpen)
             Spacer(minLength: 0)
-            if actionPanelIsOpen {
-                keyboardHint("pick", keys: ["↑", "↓"])
-                keyboardHint("run", keys: ["↩"])
-                keyboardHint("close", keys: ["esc"])
-            } else {
-                panelHints
-            }
+            ForEach(hints, id: \.self, content: hintView)
         }
         .panelFont(.caption2)
         .foregroundStyle(GanchoTokens.Palette.ink3)
@@ -46,26 +40,47 @@ struct PanelStatusFooter: View {
         .padding(.horizontal, GanchoTokens.Spacing.xxs)
     }
 
-    @ViewBuilder private var panelHints: some View {
-        if let alternativeHint {
-            keyboardHint(alternativeHint, keys: ["↓"])
+    private var showsPrivateModeOff: Bool {
+        guard case .privateMode = chip else { return false }
+        return privateModeShortcut != nil
+    }
+
+    private var hints: [PanelFooterHint] {
+        PanelFooterHint.hints(
+            for: state, hasAlternative: alternativeHint != nil,
+            offersEyedropper: offersEyedropper, privateModeOff: showsPrivateModeOff)
+    }
+
+    @ViewBuilder private func hintView(_ hint: PanelFooterHint) -> some View {
+        let (label, keys) = spec(hint)
+        if hint == .keys {
+            Button(action: showKeyboardShortcuts) {
+                keyboardHint(label, keys: keys).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Keyboard shortcuts (⌘/)")
+            .accessibilityLabel(Text("Keyboard shortcuts"))
+            .accessibilityIdentifier("panel-shortcuts-button")
+        } else {
+            keyboardHint(label, keys: keys).accessibilityIdentifier("panel-hint-\(hint.rawValue)")
         }
-        if offersEyedropper {
-            keyboardHint("eyedropper", keys: ["I"])
+    }
+
+    private func spec(_ hint: PanelFooterHint) -> (LocalizedStringKey, [String]) {
+        switch hint {
+        case .alternative: (alternativeHint ?? "", ["↓"])
+        case .eyedropper: ("eyedropper", ["I"])
+        case .privateModeOff:
+            ("off", PanelFirstRunStage.keycaps(for: privateModeShortcut ?? ""))
+        case .pick: ("pick", ["↑", "↓"])
+        case .run: ("run", ["↩"])
+        case .close: ("close", ["esc"])
+        case .addToStack: ("add to stack", ["⌥⌘↩"])
+        case .navigate: ("navigate", ["↑", "↓"])
+        case .pasteNth: ("paste nth", ["⌘", "1–9"])
+        case .settings: ("settings", ["⌘,"])
+        case .keys: ("keys", ["⌘/"])
         }
-        if case .privateMode = chip, let privateModeShortcut {
-            keyboardHint("off", keys: PanelFirstRunStage.keycaps(for: privateModeShortcut))
-        }
-        // The dock shows the key of each of its verbs, so none repeats here.
-        keyboardHint("navigate", keys: ["↑", "↓"])
-        keyboardHint("paste nth", keys: ["⌘", "1–9"])
-        Button(action: showKeyboardShortcuts) {
-            keyboardHint("keys", keys: ["⌘/"]).contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help("Keyboard shortcuts (⌘/)")
-        .accessibilityLabel(Text("Keyboard shortcuts"))
-        .accessibilityIdentifier("panel-shortcuts-button")
     }
 
     private func keyboardHint(_ label: LocalizedStringKey, keys: [String]) -> some View {

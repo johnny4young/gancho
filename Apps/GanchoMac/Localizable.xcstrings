@@ -709,6 +709,26 @@
         }
       }
     },
+    "add to stack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "añadir a la pila"
+          }
+        }
+      }
+    },
+    "settings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ajustes"
+          }
+        }
+      }
+    },
     "navigate": {
       "localizations": {
         "es": {
