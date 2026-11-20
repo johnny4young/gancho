@@ -76,7 +76,7 @@ struct GeneralSettingsTab: View {
                     Text("Standard").tag(PanelTextSize.standard)
                     Text("Large").tag(PanelTextSize.large)
                 }
-                .pickerStyle(.segmented)
+                .ganchoSegmented()
                 .accessibilityIdentifier("panel-text-size")
 
                 Picker("Panel size", selection: panelSizeSelection) {
@@ -84,7 +84,7 @@ struct GeneralSettingsTab: View {
                     Text("Standard").tag(PanelSizePreset?.some(.standard))
                     Text("Large").tag(PanelSizePreset?.some(.large))
                 }
-                .pickerStyle(.segmented)
+                .ganchoSegmented()
                 .onAppear { panelSize = PanelSizePreset.matching(model.panel.preferredContentSize) }
                 .onReceive(
                     NotificationCenter.default.publisher(for: NSWindow.didEndLiveResizeNotification)
@@ -121,7 +121,7 @@ struct GeneralSettingsTab: View {
                 Text("Light").tag(AppearancePreference.light)
                 Text("Dark").tag(AppearancePreference.dark)
             }
-            .pickerStyle(.segmented)
+            .ganchoSegmented()
 
             Picker("Language", selection: $appLanguage) {
                 ForEach(AppLanguage.allCases) { language in

@@ -252,7 +252,9 @@ never write a hex value, a shadow or an animation curve of their own.
   places only: the search caret, `ReturnKeyCap`, the primary verb
   (`GanchoButtonStyle(.primary)`, or `ganchoPrimaryVerb(in:)` on a custom
   label; both draw `AccentFill` with `OnAccentInk`) and `LiveDot`. It still follows the OS theme colour when the user
-  picked one. System controls take `controlTint` through `ganchoTinted()`.
+  picked one. System controls take `controlTint` through `ganchoTinted()`;
+  segmented pickers use `ganchoSegmented()`, whose selected segment is the
+  inverse fill (white on the control tint is 2.4:1 in dark).
   `DesignTokenGuardTests` lists, by path, the app files allowed to use each
   accent-bearing component; adding one is a design decision. Keys are drawn
   with `KeyCap`.
@@ -290,8 +292,10 @@ never write a hex value, a shadow or an animation curve of their own.
   16 % (`ButtonStates`, `Contrast.stepped`); keyboard focus draws a 2 pt ring in
   ink outside the control.
 - **Surfaces and elevation**: `ganchoSurface(level:)` gives the panel, card
-  and control levels (hex dark surfaces only on the opaque panel; the
-  translucent panel keeps its glass). `ganchoElevation` draws a shadow in light
+  and control levels. On the Mac the opaque panel and card are the graphite
+  pairs `ContrastTokenTests` checks (`ColorPair.panel`, and `ColorPair.card`
+  composited over it), in light and dark; iOS keeps the system backgrounds.
+  The translucent panel keeps its glass. `ganchoElevation` draws a shadow in light
   mode and a top highlight in dark mode, where shadows do not read.
 - **Motion** goes through `GanchoMotion` (`quick`, `smooth`, `leave`, `press`,
   and `travel` for content that moves in and leaves on the `leave` curve).

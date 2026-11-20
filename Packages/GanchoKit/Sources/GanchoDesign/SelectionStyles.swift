@@ -22,6 +22,13 @@ extension View {
         .background(selected ? GanchoTokens.Palette.selectionWash : Color.clear, in: shape)
     }
 
+    /// A segmented picker whose selected segment is the inverse fill, like a
+    /// selected chip. AppKit inks the label for that fill: the control tint
+    /// under its white label is 2.4:1 in dark.
+    public func ganchoSegmented() -> some View {
+        pickerStyle(.segmented).tint(GanchoTokens.Palette.inverseFill)
+    }
+
     /// A small label or tile that must stand out without the accent: inverse
     /// text on an inverse fill.
     public func ganchoInverseBadge(in shape: some Shape = Capsule()) -> some View {

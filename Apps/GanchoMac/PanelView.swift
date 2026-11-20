@@ -336,7 +336,7 @@ struct PanelView: View {
         .background {
             #if DEBUG
                 if CommandLine.arguments.contains("-opaque-panel-for-ui-test") {
-                    Color(nsColor: .windowBackgroundColor)
+                    GanchoTokens.Palette.surface(.panel)
                 }
             #endif
         }

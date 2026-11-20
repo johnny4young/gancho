@@ -34,7 +34,7 @@ extension LibraryView {
             Picker("View", selection: $layout) {
                 ForEach(LibraryLayout.allCases) { Text($0.title).tag($0) }
             }
-            .pickerStyle(.segmented)
+            .ganchoSegmented()
             .labelsHidden()
             .fixedSize()
             .accessibilityIdentifier("library-layout")

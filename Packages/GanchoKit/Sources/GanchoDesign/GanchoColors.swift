@@ -103,15 +103,13 @@ extension GanchoTokens {
 
         // MARK: Surfaces
 
-        /// Opaque surface of a level. Dark uses fixed greys so text contrast
-        /// is predictable on the Mac; light keeps the system backgrounds.
+        /// Opaque surface of a level. The Mac panel and card are the graphite
+        /// pairs the contrast tests check; iOS keeps the system backgrounds.
         public static func surface(_ level: GanchoTokens.SurfaceLevel) -> Color {
             #if os(macOS)
                 switch level {
-                case .panel:
-                    return dynamic(system: .windowBackgroundColor, dark: (0x1C, 0x1C, 0x1E))
-                case .card:
-                    return dynamic(system: .controlBackgroundColor, dark: (0x2C, 0x2C, 0x2E))
+                case .panel: return ColorPair.panel.color
+                case .card: return ColorPair.cardOnPanel.color
                 case .control:
                     return dynamic(system: .controlColor, dark: (0x3A, 0x3A, 0x3C))
                 }
@@ -306,7 +304,8 @@ public struct ReadableInk: ShapeStyle {
 
     public func resolve(in environment: EnvironmentValues) -> Color.Resolved {
         let dark = environment.colorScheme == .dark
-        // The darkest light surface and lightest dark surface text sits on.
+        // The darkest light and lightest dark surface text sits on, iOS system
+        // backgrounds included; the Mac's graphite panel and card fall inside.
         let surface = Color.Resolved(
             colorSpace: .sRGB, red: dark ? 0x2C / 255 : 0xE6 / 255,
             green: dark ? 0x2C / 255 : 0xE6 / 255, blue: dark ? 0x2E / 255 : 0xE8 / 255)
@@ -351,6 +350,8 @@ extension GanchoTokens {
 
         static let panel = ColorPair(light: (0xF6, 0xF7, 0xF6), dark: (0x17, 0x17, 0x16))
         static let card = ColorPair(light: white, dark: white, darkAlpha: 0.045)
+        /// The card as an opaque surface: its wash over the panel.
+        static let cardOnPanel = card.composited(over: panel)
         static let controlFill = ColorPair(
             light: graphite, dark: white, lightAlpha: 0.055, darkAlpha: 0.075)
         static let selection = ColorPair(
@@ -366,6 +367,16 @@ extension GanchoTokens {
         static let danger = ColorPair(
             light: StatusBytes.dangerLight, dark: StatusBytes.dangerDark)
         static let warning = ColorPair(light: StatusBytes.warning, dark: StatusBytes.warning)
+
+        /// This pair drawn over an opaque `base`, as an opaque pair.
+        func composited(over base: ColorPair) -> ColorPair {
+            func bytes(_ scheme: ColorScheme) -> (Int, Int, Int) {
+                let c = Contrast.composited(resolved(scheme), over: base.resolved(scheme))
+                let byte = { (value: Float) in Int((value * 255).rounded()) }
+                return (byte(c.red), byte(c.green), byte(c.blue))
+            }
+            return ColorPair(light: bytes(.light), dark: bytes(.dark))
+        }
 
         #if canImport(AppKit)
             /// Appearance-dynamic, with the design's exact sRGB values.
