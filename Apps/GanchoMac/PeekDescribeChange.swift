@@ -62,7 +62,11 @@ struct PeekDescribeChange: View {
                 }
             }
         }
-        .onAppear { promptFocused = true }
+        // A field inserted this frame drops an immediate focus request.
+        .task {
+            await Task.yield()
+            promptFocused = true
+        }
         .onChange(of: promptFocused, initial: true) { _, focused in isEditing = focused }
         .onDisappear { isEditing = false }
         .accessibilityElement(children: .contain)

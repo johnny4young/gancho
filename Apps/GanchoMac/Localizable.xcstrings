@@ -729,6 +729,36 @@
         }
       }
     },
+    "pick": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "elegir"
+          }
+        }
+      }
+    },
+    "run": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ejecutar"
+          }
+        }
+      }
+    },
+    "close": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cerrar"
+          }
+        }
+      }
+    },
     "keys": {
       "localizations": {
         "es": {

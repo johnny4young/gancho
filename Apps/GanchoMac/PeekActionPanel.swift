@@ -3,9 +3,9 @@ import GanchoDesign
 import SwiftUI
 
 /// The action panel behind the dock's Actions button and ⌘K: one filter over
-/// the clip's verbs, its transforms, recipes and on-device Smart paste.
-/// ↑↓ pick, ⏎ runs, esc closes.
-struct PeekTransformPopover: View {
+/// the clip's verbs, its transforms, recipes and on-device Smart paste,
+/// floating over the peek. ↑↓ pick, ⏎ runs, esc closes.
+struct PeekActionPanel: View {
     let groups: [TransformGroup]
     let title: (TransformRow) -> String
     let groupTitle: (TransformGroup) -> Text
@@ -14,43 +14,52 @@ struct PeekTransformPopover: View {
     let key: (TransformRow) -> String?
     /// What the footer names beside "Runs on your Mac"; empty for verbs only.
     let footnote: String
+    /// False for a row that has to wait, such as a new transform while one runs.
+    let isEnabled: (TransformRow) -> Bool
     let onSelect: (TransformRow) -> Void
+    let onClose: () -> Void
 
     @State private var query = ""
     @State private var highlighted = 0
     @FocusState private var filterFocused: Bool
-    @Environment(\.panelTypeScale) private var typeScale
 
     private var filtered: [TransformGroup] {
         TransformCatalog.matching(groups, query: query, title: title)
     }
 
-    private var rows: [TransformRow] { filtered.flatMap(\.rows) }
-
-    /// Sized to the unfiltered list, so typing never resizes the panel.
-    private var listHeight: CGFloat {
-        let content = CGFloat(groups.flatMap(\.rows).count) * 28 + CGFloat(groups.count) * 24 + 8
-        return min(content * typeScale, 330)
-    }
-
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
+        let filtered = self.filtered
+        let rows = filtered.flatMap(\.rows)
         VStack(spacing: 0) {
-            filter
+            filter(rows)
             Divider()
-            list.frame(height: listHeight)
+            list(filtered, rows: rows).frame(maxHeight: .infinity, alignment: .top)
             Divider()
             footer
         }
-        .frame(width: 330)
+        .frame(maxWidth: 336, maxHeight: .infinity)
+        // Opaque, not ganchoSurface: no glass inside the glass panel.
+        .background(GanchoTokens.Palette.surface(.card), in: shape)
+        .overlay {
+            shape.strokeBorder(
+                GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
+        }
+        .clipShape(shape)
+        .ganchoElevation(.overlay, cornerRadius: GanchoTokens.Radius.lg)
         .onChange(of: query) { _, _ in highlighted = 0 }
-        .onAppear { filterFocused = true }
+        // A field inserted this frame drops an immediate focus request.
+        .task {
+            await Task.yield()
+            filterFocused = true
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Actions"))
         .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier("transform-popover")
     }
 
-    private var filter: some View {
+    private func filter(_ rows: [TransformRow]) -> some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(GanchoTokens.Palette.ink3)
@@ -60,18 +69,27 @@ struct PeekTransformPopover: View {
                 .ganchoCaret()
                 .focused($filterFocused)
                 .accessibilityIdentifier("transform-filter")
-                .onKeyPress(.downArrow) { move(1) }
-                .onKeyPress(.upArrow) { move(-1) }
+                .onKeyPress(.downArrow) { move(1, in: rows) }
+                .onKeyPress(.upArrow) { move(-1, in: rows) }
                 .onKeyPress(.return) {
-                    guard rows.indices.contains(highlighted) else { return .handled }
+                    guard rows.indices.contains(highlighted), isEnabled(rows[highlighted])
+                    else { return .handled }
                     onSelect(rows[highlighted])
+                    return .handled
+                }
+                .onKeyPress(.escape) {
+                    // Closed next turn, so this esc never reaches the panel behind and hides it.
+                    Task { @MainActor in
+                        await Task.yield()
+                        onClose()
+                    }
                     return .handled
                 }
             KeyCap("esc").accessibilityHidden(true)
         }
         .panelFont(.callout)
         .padding(.horizontal, GanchoTokens.Spacing.sm)
-        .padding(.vertical, GanchoTokens.Spacing.xs)
+        .padding(.vertical, GanchoTokens.Spacing.sm)
     }
 
     private var footer: some View {
@@ -88,8 +106,9 @@ struct PeekTransformPopover: View {
         .accessibilityIdentifier("action-panel-footer")
     }
 
-    private var list: some View {
-        ScrollViewReader { proxy in
+    private func list(_ filtered: [TransformGroup], rows: [TransformRow]) -> some View {
+        let current = rows.indices.contains(highlighted) ? rows[highlighted] : nil
+        return ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(filtered) { group in
@@ -100,7 +119,7 @@ struct PeekTransformPopover: View {
                             .padding(.top, GanchoTokens.Spacing.xs)
                             .padding(.bottom, 2)
                         ForEach(group.rows) { row in
-                            rowButton(row, isHighlighted: rows.firstIndex(of: row) == highlighted)
+                            rowButton(row, isHighlighted: row == current)
                                 .id(row.id)
                         }
                     }
@@ -125,6 +144,7 @@ struct PeekTransformPopover: View {
         let isDelete = row == .verb(.delete)
         let ink = isDelete ? GanchoTokens.Palette.danger : GanchoTokens.Palette.ink
         let rowKey = key(row)
+        let showsReturn = isHighlighted && isEnabled(row)
         return Button {
             onSelect(row)
         } label: {
@@ -138,10 +158,10 @@ struct PeekTransformPopover: View {
                     .lineLimit(1)
                 Spacer(minLength: 0)
                 // Return runs the highlighted row: the panel's one accent.
-                if let rowKey, !(isHighlighted && rowKey == "↩") {
+                if let rowKey, !(showsReturn && rowKey == "↩") {
                     KeyCap(rowKey).accessibilityHidden(true)
                 }
-                if isHighlighted { ReturnKeyCap() }
+                if showsReturn { ReturnKeyCap() }
             }
             .panelFont(.callout)
             .padding(.horizontal, GanchoTokens.Spacing.xs)
@@ -154,13 +174,14 @@ struct PeekTransformPopover: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .disabled(!isEnabled(row))
         .accessibilityLabel(Text(verbatim: title(row)))
         .accessibilityValue(Text(verbatim: rowKey ?? ""))
         .accessibilityAddTraits(isHighlighted ? .isSelected : [])
         .accessibilityIdentifier(row.panelIdentifier)
     }
 
-    private func move(_ delta: Int) -> KeyPress.Result {
+    private func move(_ delta: Int, in rows: [TransformRow]) -> KeyPress.Result {
         highlighted = TransformCatalog.movedHighlight(highlighted, by: delta, count: rows.count)
         return .handled
     }

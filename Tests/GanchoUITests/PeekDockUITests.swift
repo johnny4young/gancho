@@ -101,6 +101,75 @@ final class PeekDockUITests: XCTestCase {
         XCTAssertTrue(app.buttons["preview-paste"].firstMatch.isHittable, "Paste stays first")
     }
 
+    /// ⌘K and ⌘T open the action panel over the peek while a transform runs:
+    /// clip verbs still run, new transforms wait, esc closes it.
+    @MainActor
+    func testActionPanelOpensWhileATransformRuns() throws {
+        continueAfterFailure = false
+        let app = GanchoUITestApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
+            "-seed-clip-editing", "-force-free-tier", "-start-capture-paused",
+            "-AppleLanguages", "(en)", "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
+            "-suppress-storage-notice-for-ui-test",
+            "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.peek.\(UUID().uuidString)",
+            "-ui-test-installed-translation", "-ui-test-stalled-translation",
+            "-ui-test-paste-sink", "copy-only"
+        ]
+        app.launch()
+        defer { app.terminate() }
+        app.activate()
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        XCTAssertTrue(row.appears(within: 10))
+        try SynthesizedInput.requireForeground(app)
+        row.click()
+        let panel = app.descendants(matching: .any)["transform-popover"].firstMatch
+        let transform = app.buttons["transform-button"].firstMatch
+        XCTAssertTrue(transform.appears(within: 5))
+        transform.click()
+        XCTAssertTrue(panel.appears(within: 5))
+        let spanish = app.buttons["transform-row-translate-es"].firstMatch
+        XCTAssertTrue(spanish.appears(within: 5))
+        spanish.click()
+        XCTAssertTrue(panel.waitForNonexistence(timeout: 5), "running a row closes the panel")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["peek-thinking"].firstMatch.appears(within: 5))
+
+        app.typeKey("k", modifierFlags: .command)
+        XCTAssertTrue(panel.appears(within: 5), "⌘K opens the panel while a transform runs")
+        XCTAssertTrue(
+            SynthesizedInput.waitForKeyboardFocus(
+                app.textFields["transform-filter"].firstMatch, timeout: 3),
+            "typing filters the panel at once")
+        let pin = app.buttons["action-row-pin"].firstMatch
+        XCTAssertTrue(pin.exists)
+        XCTAssertTrue(pin.isEnabled, "clip verbs stay runnable")
+        XCTAssertFalse(spanish.isEnabled, "a new transform waits for the running one")
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(panel.waitForNonexistence(timeout: 5), "esc closes the panel")
+        XCTAssertTrue(
+            app.buttons["panel-shortcuts-button"].firstMatch.appears(within: 3),
+            "the footer's own keys come back")
+        let search = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(search.waitForHittable(timeout: 3), "esc closes only the action panel")
+        XCTAssertTrue(
+            SynthesizedInput.waitForKeyboardFocus(search, timeout: 3),
+            "the keyboard goes back to the search field")
+        // The panel is modal, so the peek behind it reads only once it closes.
+        XCTAssertTrue(
+            app.descendants(matching: .any)["peek-thinking"].firstMatch.exists,
+            "opening the panel leaves the transform running")
+
+        app.typeKey("t", modifierFlags: .command)
+        XCTAssertTrue(panel.appears(within: 5), "⌘T stays an alias")
+        XCTAssertEqual(pin.label, "Pin")
+        pin.click()
+        XCTAssertTrue(panel.waitForNonexistence(timeout: 5))
+        app.typeKey("k", modifierFlags: .command)
+        XCTAssertTrue(panel.appears(within: 5))
+        XCTAssertEqual(pin.label, "Unpin", "the verb ran while the transform was thinking")
+    }
+
     @MainActor
     func testPeekShortcutsRefreshBoardMembershipWithoutChangingSelection() throws {
         let app = launchPanel()
