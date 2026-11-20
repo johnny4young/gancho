@@ -55,22 +55,14 @@ public struct SearchField<Leading: View, Trailing: View>: View {
     }
 
     /// The SF Symbol to draw, or nil when the field draws the mark.
-    var glyph: String? {
+    var symbolName: String? {
         if hidesPreviews { return "eye.slash" }
         return leadingGlyph == .mark ? nil : "magnifyingglass"
     }
 
     private var field: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Group {
-                if let glyph {
-                    Image(systemName: glyph).foregroundStyle(.secondary)
-                } else {
-                    HookMark().fill(GanchoTokens.Palette.ink2).frame(height: 16)
-                }
-            }
-            .frame(width: 16, alignment: .center)
-            .accessibilityHidden(true)
+            SearchFieldGlyph(symbolName: symbolName)
             leading
             TextField(promptKey, text: $text)
                 .textFieldStyle(.plain)
@@ -96,6 +88,26 @@ public struct SearchField<Leading: View, Trailing: View>: View {
             }
             trailing
         }
+    }
+}
+
+/// The leading glyph in one ink2 slot that follows the panel text size.
+struct SearchFieldGlyph: View {
+    let symbolName: String?
+    @Environment(\.panelTypeScale) private var scale
+
+    var body: some View {
+        let side = 16 * scale
+        Group {
+            if let symbolName {
+                Image(systemName: symbolName)
+            } else {
+                HookMark().frame(height: side)
+            }
+        }
+        .foregroundStyle(GanchoTokens.Palette.ink2)
+        .frame(width: side, alignment: .center)
+        .accessibilityHidden(true)
     }
 }
 
