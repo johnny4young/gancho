@@ -47,7 +47,10 @@ struct PeekActionPanel: View {
         }
         .clipShape(shape)
         .ganchoElevation(.overlay, cornerRadius: GanchoTokens.Radius.lg)
-        .onChange(of: query) { _, _ in highlighted = 0 }
+        // Return runs the highlight, so it starts on a row that can run.
+        .onChange(of: query, initial: true) { _, _ in
+            highlighted = rows.firstIndex(where: isEnabled) ?? 0
+        }
         // A field inserted this frame drops an immediate focus request.
         .task {
             await Task.yield()
@@ -182,7 +185,9 @@ struct PeekActionPanel: View {
     }
 
     private func move(_ delta: Int, in rows: [TransformRow]) -> KeyPress.Result {
-        highlighted = TransformCatalog.movedHighlight(highlighted, by: delta, count: rows.count)
+        highlighted = TransformCatalog.movedHighlight(
+            highlighted, by: delta, count: rows.count
+        ) { isEnabled(rows[$0]) }
         return .handled
     }
 }

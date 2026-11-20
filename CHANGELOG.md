@@ -15,7 +15,7 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   iPhone and iPad.
 - ⌘K opens one action panel for the selected clip in the Mac history panel:
   its verbs with their keys, its transforms, recipes and Smart paste behind
-  one filter (⌘T still opens it). It floats over the preview's corner, and it
+  one filter (⌘T still opens it). It floats over the preview, and it
   opens while a transform runs too: the clip's verbs work, and new transforms
   wait until the running one finishes. While it is open, the footer shows its
   keys.

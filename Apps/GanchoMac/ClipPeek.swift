@@ -332,7 +332,10 @@ struct ClipPeek: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidHide)) { _ in
             endSecretReveal()
+            // Cleared now: the panel's show handlers read these before the next render.
             showsActionPanel = false
+            actionPanelIsOpen = false
+            isEditingInline = isInlineEditing
             if describeMode { closeTransform() }
         }
         // Sharing or private mode: a revealed secret masks at once.

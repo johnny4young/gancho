@@ -33,7 +33,7 @@ extension ClipPeek {
         .accessibilityIdentifier("transform-button")
     }
 
-    /// The action panel over the peek's top-trailing corner; a click beside it closes it.
+    /// The action panel, anchored to the peek's top-trailing corner; a click beside it closes it.
     @ViewBuilder var actionPanelLayer: some View {
         if showsActionPanel {
             let actions = dockActions
@@ -385,10 +385,10 @@ extension TransformRow {
         return false
     }
 
-    /// The board picker and a change request take the keyboard for their own field.
+    /// The board picker, a change request and the recipes sheet take the keyboard.
     fileprivate var focusesOwnField: Bool {
         switch self {
-        case .verb(.board), .describeChange, .savedPrompt: true
+        case .verb(.board), .describeChange, .savedPrompt, .recipes: true
         default: false
         }
     }
