@@ -78,6 +78,63 @@ public struct Countdown: Equatable, Sendable {
     }
 }
 
+/// A dial's minute marks: 60 radial strokes inside the ring, every fifth longer.
+enum MinuteTicks {
+    static let count = 60
+
+    struct Tick: Equatable {
+        let start: CGPoint
+        let end: CGPoint
+        let isLong: Bool
+    }
+
+    // Radii as shares of the ring's centreline radius, measured on a 66 pt ring.
+    static let outer = 57.0 / 66
+    static let longInner = 52.0 / 66
+    static let shortInner = 54.5 / 66
+
+    /// Clockwise from twelve o'clock, each from its outer end inwards.
+    static func ticks(center: CGPoint, ringRadius: CGFloat) -> [Tick] {
+        (0..<count).map { index in
+            let angle = Double(index) / Double(count) * 2 * .pi
+            let isLong = index.isMultiple(of: 5)
+            func point(_ share: Double) -> CGPoint {
+                CGPoint(
+                    x: center.x + ringRadius * share * sin(angle),
+                    y: center.y - ringRadius * share * cos(angle))
+            }
+            return Tick(
+                start: point(outer), end: point(isLong ? longInner : shortInner), isLong: isLong)
+        }
+    }
+}
+
+/// Minute marks for a `TimeRing` of the same frame and `lineWidth`, stacked
+/// behind it. Time never moves them, so they draw once.
+public struct MinuteTickMarks: View {
+    let lineWidth: CGFloat
+
+    public init(lineWidth: CGFloat) {
+        self.lineWidth = lineWidth
+    }
+
+    public var body: some View {
+        Canvas { [lineWidth] context, size in
+            let center = CGPoint(x: size.width / 2, y: size.height / 2)
+            let radius = min(size.width, size.height) / 2 - lineWidth / 2
+            var path = Path()
+            for tick in MinuteTicks.ticks(center: center, ringRadius: radius) {
+                path.move(to: tick.start)
+                path.addLine(to: tick.end)
+            }
+            context.stroke(
+                path, with: .color(GanchoTokens.Palette.hairline2),
+                lineWidth: GanchoTokens.Stroke.hairline)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 /// Time left as a ring that empties: hairline track, ink progress, red only in
 /// the last minute. Ticks every `tickInterval`; under Reduce Motion it steps.
 public struct TimeRing<Center: View>: View {

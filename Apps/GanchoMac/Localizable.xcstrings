@@ -14484,6 +14484,16 @@
         }
       }
     },
+    "Kind only": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo el tipo"
+          }
+        }
+      }
+    },
     "Self-destructs": {
       "localizations": {
         "es": {

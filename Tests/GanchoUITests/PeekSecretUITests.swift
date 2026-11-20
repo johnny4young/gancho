@@ -45,9 +45,14 @@ final class PeekSecretUITests: XCTestCase {
         XCTAssertTrue(
             app.descendants(matching: .any)["peek-private-mode"].firstMatch
                 .appears(within: 5))
+        let kindOnly = app.descendants(matching: .any)["peek-kind-only"].firstMatch
+        XCTAssertEqual(
+            text(of: kindOnly).lowercased(), "kind only",
+            "the caption says the kind is all it shows")
         GanchoUITestCommands.post("togglePrivateMode", token: nonce)
         XCTAssertTrue(app.staticTexts["peek-masked"].firstMatch.appears(within: 5))
         XCTAssertFalse(revealed.exists)
+        XCTAssertFalse(kindOnly.exists)
 
         app.buttons["peek-delete-now"].firstMatch.click()
         XCTAssertTrue(row.waitForNonexistence(timeout: 5), "Delete now removes the secret")

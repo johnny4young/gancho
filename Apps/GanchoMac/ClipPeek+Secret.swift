@@ -18,9 +18,9 @@ extension ClipPeek {
                     item: item, lifetime: model.retentionPolicy.sensitiveLifetime),
                 revealedText: secretText, reveal: secretReveal
             ) {
-                FlowLayout(spacing: GanchoTokens.Spacing.xs) {
+                FlowLayout(spacing: 6) {
                     ForEach(Array(secretActions.enumerated()), id: \.element.id) { offset, action in
-                        actionButton(action, index: secretStartIndex + offset, style: .chip)
+                        actionButton(action, index: secretStartIndex + offset, style: .inline)
                     }
                 }
             }

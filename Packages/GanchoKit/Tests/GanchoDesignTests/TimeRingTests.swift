@@ -111,4 +111,32 @@ struct TimeRingTests {
         #expect(!mode.strokeIsUrgent(at: lastMinute))
         #expect(ModeRing(nil).ring == nil, "no deadline: a plain ring")
     }
+
+    @Test("A dial has 60 minute marks inside its ring, every fifth twice as long")
+    func minuteTicks() throws {
+        let center = CGPoint(x: 75, y: 75)
+        let ticks = MinuteTicks.ticks(center: center, ringRadius: 66)
+        #expect(ticks.count == 60)
+        #expect(ticks.indices.filter { ticks[$0].isLong } == Array(stride(from: 0, to: 60, by: 5)))
+
+        func length(_ tick: MinuteTicks.Tick) -> Double {
+            hypot(tick.end.x - tick.start.x, tick.end.y - tick.start.y)
+        }
+        for tick in ticks {
+            let outer = hypot(tick.start.x - center.x, tick.start.y - center.y)
+            #expect(abs(outer - 57) < 0.001, "inside the ring's 64.5 pt inner edge")
+            #expect(abs(length(tick) - (tick.isLong ? 5 : 2.5)) < 0.001)
+        }
+
+        // Clockwise from twelve: the first mark points down from the top, the 15th is at three.
+        let top = ticks[0]
+        #expect(abs(top.start.x - 75) < 0.001 && abs(top.start.y - 18) < 0.001)
+        #expect(abs(top.end.y - 23) < 0.001)
+        let three = ticks[15]
+        #expect(abs(three.start.x - 132) < 0.001 && abs(three.start.y - 75) < 0.001)
+
+        // The marks scale with the ring.
+        let small = MinuteTicks.ticks(center: .zero, ringRadius: 33)
+        #expect(abs(length(small[0]) - 2.5) < 0.001)
+    }
 }

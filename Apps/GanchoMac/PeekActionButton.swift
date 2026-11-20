@@ -9,21 +9,23 @@ struct PeekAction: Identifiable {
     let symbol: String
     /// A shorter label for the dock's quiet verbs; nil uses `title`.
     var shortTitle: LocalizedStringKey?
-    /// The key drawn beside a verb. Dock actions have one; of the chips,
-    /// only a secret's reveal does.
+    /// The key drawn beside a verb. Dock actions have one; of a secret's
+    /// verbs, only the reveal does.
     var shortcut: String?
-    /// Draws the chip's label in the danger ink (Delete now).
+    /// Draws the verb in the danger ink, with no border (Delete now).
     var isDestructive = false
     let run: () -> Void
 }
 
-/// A semantic button shared by the peek's dock and developer-action chips.
+/// A semantic button shared by the peek's dock and a secret's verbs.
 /// The enclosing peek owns arrow navigation; buttons keep native accessibility activation.
 struct PeekActionButton: View {
     enum Style {
         /// `short` lets the primary verb drop its target when the dock is tight.
         case dock(isPrimary: Bool, short: Bool = false)
-        case chip
+        /// A secret's verb under its token: hairline-bordered, or plain danger
+        /// text when destructive.
+        case inline
     }
 
     /// A dock control's height before the panel's type scale; the dock row is this tall.
@@ -45,14 +47,13 @@ struct PeekActionButton: View {
         Button(action: run) {
             switch style {
             case .dock: dockLabel
-            case .chip: chipLabel
+            case .inline: inlineLabel
             }
         }
         .buttonStyle(
             PeekActionFill(
-                shape: style.isDock ? AnyShape(dockShape) : AnyShape(Capsule()),
-                isPrimary: style.isPrimary, isFocused: isFocused, isHovered: isHovered,
-                isChip: !style.isDock)
+                shape: AnyShape(verbShape), treatment: treatment, isFocused: isFocused,
+                isHovered: isHovered)
         )
         .onHover { isHovered = $0 }
         // The focus ring and the hover wash settle rather than snap.
@@ -67,7 +68,14 @@ struct PeekActionButton: View {
         .id(action.id)
     }
 
-    private var dockShape: RoundedRectangle {
+    private var treatment: PeekActionFill.Treatment {
+        switch style {
+        case .dock(let isPrimary, _): isPrimary ? .primary : .quiet
+        case .inline: action.isDestructive ? .danger : .bordered
+        }
+    }
+
+    private var verbShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: 9, style: .continuous)
     }
 
@@ -90,30 +98,21 @@ struct PeekActionButton: View {
         .contentShape(Rectangle())
     }
 
-    private var chipLabel: some View {
-        HStack(spacing: 4) {
-            Image(systemName: action.symbol).panelFont(.caption)
-            Text(action.title).panelFont(.subheadline, .medium).lineLimit(1)
+    private var inlineLabel: some View {
+        HStack(spacing: 6) {
+            Image(systemName: action.symbol).panelFont(size: 12)
+            Text(action.title).panelFont(size: 12.5, .medium).lineLimit(1)
             if let shortcut = action.shortcut {
                 KeyCap(shortcut).accessibilityHidden(true)
             }
         }
-        .foregroundStyle(
-            action.isDestructive
-                ? AnyShapeStyle(GanchoTokens.Palette.danger) : AnyShapeStyle(.primary)
-        )
-        .padding(.horizontal, GanchoTokens.Spacing.xs)
-        .padding(.vertical, 4)
-        .contentShape(Capsule())
+        .padding(.horizontal, 7)
+        .frame(height: GanchoTokens.HitTarget.control * typeScale)
+        .contentShape(Rectangle())
     }
 }
 
 extension PeekActionButton.Style {
-    fileprivate var isDock: Bool {
-        if case .dock = self { return true }
-        return false
-    }
-
     fileprivate var isPrimary: Bool {
         if case .dock(let isPrimary, _) = self { return isPrimary }
         return false
@@ -125,15 +124,25 @@ extension PeekActionButton.Style {
     }
 }
 
-/// The dock and chip fill under the shared state rule: the primary steps the
-/// accent for hover and pressed with its ink; the others take a neutral wash;
+/// The verbs' fill under the shared state rule: the primary steps the accent
+/// for hover and pressed with its ink; the others take a neutral wash;
 /// arrow-key focus draws the 2 pt ring 2 pt outside.
 private struct PeekActionFill: ButtonStyle {
+    enum Treatment {
+        /// The lime Return verb.
+        case primary
+        /// A dock verb: ink2 until hovered or focused.
+        case quiet
+        /// A secret's reveal: ink inside a hairline.
+        case bordered
+        /// Delete now: danger text, no border.
+        case danger
+    }
+
     let shape: AnyShape
-    let isPrimary: Bool
+    let treatment: Treatment
     let isFocused: Bool
     let isHovered: Bool
-    let isChip: Bool
 
     func makeBody(configuration: Configuration) -> some View {
         PeekActionFillBody(style: self, isPressed: configuration.isPressed) {
@@ -159,7 +168,7 @@ private struct PeekActionFillBody<Label: View>: View {
             }
             .padding(style.isFocused ? -GanchoTokens.Stroke.focus * 1.5 : 0)
             .scaleEffect(
-                style.isPrimary && isPressed
+                style.treatment == .primary && isPressed
                     ? GanchoMotion.pressScale(reduceMotion: reduceMotion) : 1
             )
             .animation(GanchoMotion.press, value: isPressed)
@@ -169,17 +178,29 @@ private struct PeekActionFillBody<Label: View>: View {
         isPressed ? ButtonStates.pressedStep : style.isHovered ? ButtonStates.hoverStep : 0
     }
 
+    private var ink: Color {
+        switch style.treatment {
+        case .danger: GanchoTokens.Palette.danger
+        case .quiet where !style.isHovered && !style.isFocused: GanchoTokens.Palette.ink2
+        default: GanchoTokens.Palette.ink
+        }
+    }
+
     @ViewBuilder private var filled: some View {
-        if style.isPrimary {
+        if style.treatment == .primary {
             label.ganchoPrimaryVerb(in: style.shape, step: step)
         } else {
-            let rest = style.isChip ? 0.05 : 0
-            let wash = isPressed ? 0.09 : style.isHovered ? 0.05 + rest : rest
+            let wash = isPressed ? 0.09 : style.isHovered ? 0.05 : 0
             label
                 .background(Color.primary.opacity(wash), in: style.shape)
-                .foregroundStyle(
-                    style.isChip || style.isHovered || style.isFocused
-                        ? GanchoTokens.Palette.ink : GanchoTokens.Palette.ink2)
+                .overlay {
+                    if style.treatment == .bordered {
+                        style.shape.stroke(
+                            GanchoTokens.Palette.hairline2,
+                            lineWidth: GanchoTokens.Stroke.hairline)
+                    }
+                }
+                .foregroundStyle(ink)
         }
     }
 }

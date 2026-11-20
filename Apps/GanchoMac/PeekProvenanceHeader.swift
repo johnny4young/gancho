@@ -14,12 +14,17 @@ struct PeekSyncStateKey: Equatable {
 }
 
 /// The provenance caption: kind, source app, age, boards, sync state and
-/// expiry on one line. A masked clip shows only its kind and expiry, like its row.
+/// expiry on one line. A masked clip shows only its kind and expiry, like its
+/// row; with previews hidden it says the kind is all there is.
 struct PeekProvenanceHeader: View {
+    enum Disclosure {
+        case full, masked, kindOnly
+    }
+
     let item: ClipItem
     let boards: [Pinboard]
     let syncState: PeekSyncState?
-    let masksProvenance: Bool
+    let disclosure: Disclosure
     /// Off when the peek's own countdown already shows the expiry.
     var showsExpiry = true
 
@@ -48,7 +53,10 @@ struct PeekProvenanceHeader: View {
 
     private var facts: [Fact] {
         var facts = [Fact(id: "peek-kind", text: Text(item.kind.cardName))]
-        if !masksProvenance {
+        if disclosure == .kindOnly {
+            return facts + [Fact(id: "peek-kind-only", text: Text("Kind only"))]
+        }
+        if disclosure == .full {
             if let bundleID = item.sourceAppBundleID {
                 facts.append(
                     Fact(

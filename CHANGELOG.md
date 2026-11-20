@@ -48,9 +48,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   make the whole loop, and a search that finds nothing lists what the other
   modes found, with the best one a single ↓ away and previewed beside it.
 - On the Mac, time left is a ring and privacy is redaction: a secret's preview
-  counts down on a dial (⌘R reveals it for 10 s), and Private Mode shows its
-  time left on the same ring and draws hidden rows and previews as bars and
-  hatch, with no indigo.
+  counts down on a dial with minute marks (⌘R reveals it for 10 s, Delete now
+  sits beside it as plain red text), and Private Mode shows its time left on
+  the same ring and draws hidden rows and previews as bars and hatch, with no
+  indigo. While previews are hidden, the preview's caption says it shows the
+  kind only.
 - Blue, indigo and orange are gone from the interface: error messages read in
   a red that keeps its contrast on light backgrounds, warnings in a darker
   amber, and "Exposed to agents", paused sync, the images marker in Retention
