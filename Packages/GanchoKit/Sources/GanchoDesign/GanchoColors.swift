@@ -124,6 +124,10 @@ extension GanchoTokens {
             #endif
         }
 
+        /// The graphite a clip list sits on: the Mac panel's pair on every
+        /// platform, where iOS's `surface(.panel)` stays the system background.
+        public static let listSurface = ColorPair.panel.color
+
         // MARK: Dynamic color helper
 
         #if os(macOS)

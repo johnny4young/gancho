@@ -24,6 +24,8 @@ public struct ClipTile: View {
         self.countdown = Countdown(item: item, lifetime: sensitiveLifetime)
     }
 
+    private static let cornerRatio: CGFloat = ClipCard.isTouchRow ? 11 / 40 : 8 / 34
+
     /// The glyph a kind shows on the neutral tile: outlines only.
     nonisolated public static func symbolName(for kind: ClipContentKind) -> String {
         switch kind {
@@ -35,7 +37,7 @@ public struct ClipTile: View {
 
     public var body: some View {
         let masked = hidden || ClipSafePresentation.requiresMasking(item)
-        let shape = RoundedRectangle(cornerRadius: size * 8 / 34, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: size * Self.cornerRatio, style: .continuous)
         Group {
             if item.kind == .image, !masked, let thumbnail {
                 thumbnail

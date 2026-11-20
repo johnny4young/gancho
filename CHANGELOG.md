@@ -32,6 +32,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On iPhone, a color or an image fills the top of its clip, with each color
   format one tap to copy; Copy, Pin, Share and Delete stay docked below. Home
   counts every board, and the keyboard's Up next clip is a card of its own.
+- iPhone Home lists clips as touch-size rows straight on the graphite surface,
+  with hairlines between them instead of grouped cards. A row's app and age
+  ("6 min", "1 hr") never truncate, and at the largest text sizes they move to
+  their own line. Apps whose bundle id ends in a platform name, like Figma's
+  desktop app, show their own name instead of "Desktop".
 - Settings, the menu-bar menu and the copy HUD follow the new look: serif pane
   titles and mono section headers, menu-bar badges in grey, ink or red only,
   the paste stack in its own menu section, and a dark HUD that shows the clip

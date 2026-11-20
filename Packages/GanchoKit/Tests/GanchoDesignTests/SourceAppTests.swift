@@ -17,6 +17,18 @@ struct SourceAppTests {
     @Test("Recognizes platform bundle aliases")
     func platformAliases() {
         #expect(SourceApp.fallbackName(forBundleID: "com.apple.mobilesafari") == "Safari")
+        #expect(SourceApp.fallbackName(forBundleID: "com.apple.dt.Xcode") == "Xcode")
+    }
+
+    @Test(
+        "A platform suffix gives way to the app's name",
+        arguments: [
+            ("com.figma.Desktop", "Figma"), ("com.example.notes.macOS", "Notes"),
+            ("com.example.Reader.iOS", "Reader"), ("io.example.App", "Example"),
+            ("Desktop", "Desktop"), ("app.Desktop", "Desktop")
+        ])
+    func platformSuffix(bundleID: String, name: String) {
+        #expect(SourceApp.fallbackName(forBundleID: bundleID) == name)
     }
 
     @Test("A dotless id stays as-is; a single char is capitalized; empty is safe")

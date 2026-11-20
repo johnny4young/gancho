@@ -42,6 +42,13 @@ struct ContrastTokenTests {
         }
     }
 
+    @MainActor
+    @Test("The list surface is the graphite panel pair", arguments: appearances)
+    func listSurfaceIsThePanelPair(scheme: ColorScheme) {
+        let surface = GanchoTokens.Palette.listSurface.resolve(in: environment(scheme))
+        #expect(bytes(surface) == bytes(GanchoTokens.ColorPair.panel.resolved(scheme)))
+    }
+
     #if os(macOS)
         @MainActor
         @Test("The Mac's opaque panel and card are the graphite pairs", arguments: appearances)

@@ -32,7 +32,10 @@ struct CaptureView: View {
             VStack(spacing: 0) {
                 boardRail
                 HistoryFilterChipsRow()
-                List { listContent }
+                List { homeRows }
+                    .listStyle(.plain)
+                    .environment(\.defaultMinListHeaderHeight, 0)
+                    .scrollContentBackground(.hidden)
                     .searchable(text: $model.query, prompt: Text("Search your clipboard"))
                     .onChange(of: model.query) { _, _ in
                         askTask?.cancel()
@@ -82,6 +85,7 @@ struct CaptureView: View {
                     .accessibilityIdentifier("capture-screen")
                     .reuseSuggestionInset()
             }
+            .background(GanchoTokens.Palette.listSurface.ignoresSafeArea())
         }
         .captureShell(activeSheet: $activeSheet) { clip in
             activeSheet = nil
@@ -102,25 +106,41 @@ struct CaptureView: View {
         }
     }
 
-    @ViewBuilder private var listContent: some View {
+    /// Rows straight on the graphite, with hairlines only between rows. The
+    /// Ask row sets its own fill, so it stays outside the clear one.
+    private var homeRows: some View {
+        Group {
+            statusSections.listRowBackground(Color.clear)
+            askSection
+            historySections.listRowBackground(Color.clear)
+        }
+        .listSectionSeparator(.hidden)
+    }
+
+    @ViewBuilder private var statusSections: some View {
         if model.storageIsEphemeral { StorageWarningSection() }
         syncStatusSection
-        PasteboardSection()
+        PasteboardSection(horizontalInset: Self.rowInset)
+    }
 
+    @ViewBuilder private var askSection: some View {
         if !model.query.isEmpty, model.askAvailable {
             Section {
                 askRow
                     .listRowBackground(
                         answer == nil
-                            ? nil : Rectangle().fill(GanchoTokens.Palette.selectionWash))
+                            ? Color.clear : GanchoTokens.Palette.selectionWash)
             }
         }
+    }
 
+    @ViewBuilder private var historySections: some View {
         if model.visibleClips.isEmpty {
             Section {
                 emptyState
             } header: {
                 SectionCountHeader(title: listTitle, count: nil)
+                    .homeHeaderInsets()
             }
         } else if model.isGroupedView {
             // Pinned first, then Today / Yesterday / … date sections.
@@ -130,7 +150,9 @@ struct CaptureView: View {
                 } header: {
                     SectionCountHeader(
                         title: group.section.title,
-                        count: model.headerCount(for: group))
+                        count: model.headerCount(for: group)
+                    )
+                    .homeHeaderInsets()
                 }
             }
         } else {
@@ -138,6 +160,7 @@ struct CaptureView: View {
                 ForEach(model.visibleClips) { clipRow($0) }
             } header: {
                 SectionCountHeader(title: listTitle, count: model.listCount)
+                    .homeHeaderInsets()
             }
         }
         if !model.query.isEmpty, !model.relatedClips.isEmpty {
@@ -148,6 +171,7 @@ struct CaptureView: View {
                     title: "Related by meaning",
                     count: HeaderCount(value: model.relatedClips.count, isAtLeast: false)
                 )
+                .homeHeaderInsets()
                 .accessibilityIdentifier("meaning-related-heading")
             }
         }
@@ -246,9 +270,20 @@ struct CaptureView: View {
                 currentDeviceName: model.currentDeviceName)
         }
         .buttonStyle(.plain)
+        .listRowInsets(Self.rowInsets(vertical: 10))
+        .listRowSeparatorTint(GanchoTokens.Palette.hairline)
+        .alignmentGuide(.listRowSeparatorTrailing) { $0[.trailing] }
         .task(id: ClipContentVersion(item)) { await model.thumbnails.ensureLoaded(item) }
         .onAppear { Task { await model.loadMoreIfNeeded(item) } }
         .clipRowActions(item, model: model) { activeSheet = .move(item) }
+    }
+
+    /// Rows sit straight on the graphite at the screen's 20 pt margin; with
+    /// the 40 pt tile a row is 64 pt at the standard text size.
+    static let rowInset: CGFloat = 20
+
+    static func rowInsets(vertical: CGFloat) -> EdgeInsets {
+        EdgeInsets(top: vertical, leading: rowInset, bottom: vertical, trailing: rowInset)
     }
 
     private var listTitle: LocalizedStringKey { model.query.isEmpty ? "History" : "Results" }
@@ -497,6 +532,13 @@ extension ClipSection {
             case .older: "Older"
             }
         }
+    }
+}
+
+extension View {
+    /// A Home section header at the rows' 20 pt margin.
+    fileprivate func homeHeaderInsets() -> some View {
+        listRowInsets(CaptureView.rowInsets(vertical: GanchoTokens.Spacing.xxs))
     }
 }
 

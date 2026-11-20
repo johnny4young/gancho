@@ -24,6 +24,21 @@ final class HomeV4UITests: XCTestCase {
     }
 
     @MainActor
+    func testRowsSitOnTheSurfaceAtTouchSize() throws {
+        let app = try launch(["-seed-home-v4"])
+        defer { app.terminate() }
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        XCTAssertTrue(row.appears(within: 10))
+        let cell = app.cells.containing(.any, identifier: "clip-row").firstMatch
+        XCTAssertTrue(cell.exists, "a clip row is a list cell")
+        XCTAssertLessThanOrEqual(cell.frame.height, 72, "a row is 64 pt at the default size")
+        XCTAssertLessThanOrEqual(row.frame.height, 72)
+        XCTAssertEqual(
+            cell.frame.minX, app.windows.firstMatch.frame.minX, accuracy: 0.5,
+            "rows span the screen, not an inset card")
+    }
+
+    @MainActor
     func testClipboardCardNamesTheSensedKind() throws {
         let app = try launch(["-ui-test-pasteboard-hints", "link"])
         defer { app.terminate() }
