@@ -56,11 +56,11 @@ struct TextRecipeReview: View {
                 Text(
                     "Could not complete this operation. Check the definition, sizes and clip availability, then retry."
                 )
-                .foregroundStyle(.red).panelFont(.caption)
+                .foregroundStyle(GanchoTokens.Palette.danger).panelFont(.caption)
             }
             if clipboardChanged {
                 Text("The clipboard changed. Review the result and choose Copy result again.")
-                    .foregroundStyle(.orange).panelFont(.caption)
+                    .foregroundStyle(GanchoTokens.Palette.warningInk).panelFont(.caption)
             }
             HStack {
                 Button("Cancel") {
@@ -141,7 +141,7 @@ struct TextRecipeReview: View {
                 editor
             } else if !selectedID.isEmpty {
                 Text("This definition is damaged. Other recipes are unaffected; you can delete it.")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(GanchoTokens.Palette.warningInk)
             }
             if !model.preferences.isPrivateModePaused, let input {
                 HStack(alignment: .top) {
@@ -154,7 +154,7 @@ struct TextRecipeReview: View {
                 .panelFont(.caption).foregroundStyle(.secondary)
             } else if !loading {
                 Text("This clip is unavailable, protected or not text-backed.").foregroundStyle(
-                    .orange)
+                    GanchoTokens.Palette.warningInk)
             }
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -204,7 +204,7 @@ struct TextRecipeReview: View {
                 Text(
                     "Use a name of up to 80 characters and one to eight supported steps. Unknown versions cannot run."
                 )
-                .foregroundStyle(.orange).panelFont(.caption)
+                .foregroundStyle(GanchoTokens.Palette.warningInk).panelFont(.caption)
             }
         }.disabled(operation != nil)
     }

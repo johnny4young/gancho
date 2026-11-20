@@ -85,11 +85,11 @@ public enum BoardIdentityEmoji: String, CaseIterable, Identifiable, Sendable {
 /// background wash. A user override wins; otherwise the board's id provides a
 /// stable automatic choice.
 public enum BoardColors {
-    /// Stable identity color. The built-in Favorites board keeps the warm
-    /// "favorite" hue; user boards prefer a valid persisted palette token and
-    /// otherwise map by a fixed byte of their UUID.
+    /// Stable identity color. The built-in Favorites board is neutral; user
+    /// boards prefer a valid persisted palette token and otherwise map by a
+    /// fixed byte of their UUID.
     public static func color(for board: Pinboard) -> Color {
-        guard !board.isSystem else { return GanchoTokens.Palette.warning }
+        guard !board.isSystem else { return GanchoTokens.Palette.ink2 }
         return option(for: board).color
     }
 

@@ -67,11 +67,11 @@ struct CombinedTextReview: View {
             .accessibilityIdentifier("combined-text-preview")
             if failed || combined == nil && !loading {
                 Text("Remove unavailable or incompatible clips, or reduce the combined size.")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(GanchoTokens.Palette.danger)
             }
             if changed {
                 Text("The selection or clipboard changed. Review and copy again.").foregroundStyle(
-                    .orange)
+                    GanchoTokens.Palette.warningInk)
             }
             HStack {
                 Button("Cancel") { cancel() }.keyboardShortcut(.cancelAction)

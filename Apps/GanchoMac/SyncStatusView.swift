@@ -75,7 +75,7 @@ struct SyncStatusView: View {
     private var tint: Color {
         switch status {
         case .upToDate: GanchoTokens.Palette.success
-        case .paused: GanchoTokens.Palette.warning
+        case .paused: GanchoTokens.Palette.ink2
         case .failed: GanchoTokens.Palette.danger
         default: .secondary  // syncing / pending / idle
         }

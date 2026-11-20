@@ -52,18 +52,12 @@ extension GanchoTokens {
         /// Success and "Synced" render neutral; pair it with a checkmark.
         public static var success: Color { ink2 }
 
-        /// Warning status (sync paused, permission missing) — `--warning`.
+        /// Warning status (permission missing, Library almost full) — `--warning`.
         public static let warning = ColorPair.warning.color
 
         /// Delete, access denied and a secret's last minute. Reads as text on
         /// every surface.
         public static let danger = ColorPair.danger.color
-
-        /// Indigo: Private Mode (never read as a pause or a failure) and search filter tokens.
-        public static let indigo = ColorPair.indigo.color
-
-        /// Agent activity: MCP clients reading or organizing clips.
-        public static let agent = ColorPair.agent.color
 
         /// Warning amber as text or a status glyph; the raw amber is 2.2:1 on white.
         public static var warningInk: ReadableInk { ReadableInk(base: warning) }
@@ -372,8 +366,6 @@ extension GanchoTokens {
         static let danger = ColorPair(
             light: StatusBytes.dangerLight, dark: StatusBytes.dangerDark)
         static let warning = ColorPair(light: StatusBytes.warning, dark: StatusBytes.warning)
-        static let indigo = ColorPair(light: StatusBytes.indigo, dark: StatusBytes.indigo)
-        static let agent = ColorPair(light: StatusBytes.agentLight, dark: StatusBytes.agentDark)
 
         #if canImport(AppKit)
             /// Appearance-dynamic, with the design's exact sRGB values.

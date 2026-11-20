@@ -19,7 +19,7 @@ extension CaptureView {
                 Text("\(Text("Waiting to sync")) · \(String(count))"), "arrow.up.circle")
         case .paused(let cause):
             syncRow(
-                Text(causeText(cause)), "pause.circle", tint: GanchoTokens.Palette.warning,
+                Text(causeText(cause)), "pause.circle", tint: GanchoTokens.Palette.ink2,
                 retry: true)
         case .failed(let cause):
             syncRow(

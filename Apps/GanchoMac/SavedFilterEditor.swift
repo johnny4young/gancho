@@ -72,7 +72,10 @@ struct SavedFilterEditor: View {
                     }
                 }
             }.frame(maxHeight: 360)
-            if failed { Text("Couldn’t save this filter. Try again.").foregroundStyle(.red) }
+            if failed {
+                Text("Couldn’t save this filter. Try again.").foregroundStyle(
+                    GanchoTokens.Palette.danger)
+            }
             HStack {
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Spacer()

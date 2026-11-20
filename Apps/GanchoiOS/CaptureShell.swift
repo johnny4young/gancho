@@ -196,7 +196,7 @@ struct ClipRowActions: ViewModifier {
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
-                pinButton.tint(.orange)
+                pinButton.tint(GanchoTokens.Palette.controlTint)
             }
             .swipeActions(edge: .leading) {
                 Button {
@@ -204,11 +204,11 @@ struct ClipRowActions: ViewModifier {
                 } label: {
                     Label("Copy", systemImage: "doc.on.doc")
                 }
-                .tint(.blue)
+                .tint(GanchoTokens.Palette.controlTint)
                 Button(action: onMove) {
                     Label("Board", systemImage: "tray.and.arrow.down")
                 }
-                .tint(.indigo)
+                .tint(GanchoTokens.Palette.controlTint)
             }
             .contextMenu {
                 Button {

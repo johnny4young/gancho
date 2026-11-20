@@ -246,13 +246,13 @@ struct BoardsHomeView: View {
                 } label: {
                     Label("Rename", systemImage: "pencil")
                 }
-                .tint(.blue)
+                .tint(GanchoTokens.Palette.controlTint)
                 Button {
                     appearanceTarget = currentBoard(board)
                 } label: {
                     Label("Appearance", systemImage: "paintpalette")
                 }
-                .tint(.indigo)
+                .tint(GanchoTokens.Palette.controlTint)
             }
         }
     }

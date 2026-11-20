@@ -72,7 +72,7 @@ struct PaywallView: View {
                     if let licenseError {
                         Text(LocalizedStringKey(licenseError))
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(GanchoTokens.Palette.danger)
                     }
                     ActionButton(
                         "Activate", systemImage: "checkmark.seal.fill",
@@ -129,7 +129,7 @@ struct PaywallView: View {
             if let licenseError {
                 Text(LocalizedStringKey(licenseError))
                     .font(.footnote)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(GanchoTokens.Palette.danger)
             }
             ActionButton(
                 "Check again", systemImage: "arrow.clockwise", identifier: "recheck-license"

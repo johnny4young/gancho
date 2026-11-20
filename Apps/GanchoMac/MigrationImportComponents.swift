@@ -145,13 +145,13 @@ struct MigrationImportReview: View {
                     tint: GanchoTokens.Palette.success, identifier: "migration-ready-count")
                 statistic(
                     preview.duplicateCount, label: "Duplicates", symbol: "equal.circle.fill",
-                    tint: .blue, identifier: "migration-duplicate-count")
+                    tint: GanchoTokens.Palette.ink2, identifier: "migration-duplicate-count")
                 statistic(
                     preview.unsupportedCount, label: "Unsupported", symbol: "minus.circle.fill",
-                    tint: .orange, identifier: "migration-unsupported-count")
+                    tint: GanchoTokens.Palette.warning, identifier: "migration-unsupported-count")
                 statistic(
                     preview.protectedCount, label: "Protected", symbol: "lock.circle.fill",
-                    tint: .red, identifier: "migration-protected-count")
+                    tint: GanchoTokens.Palette.ink2, identifier: "migration-protected-count")
             }
             Label(
                 "Protected source metadata is discarded; sensitive content keeps Gancho’s masking and expiry rules.",
@@ -249,7 +249,7 @@ struct MigrationImportFailure: View {
         VStack(spacing: GanchoTokens.Spacing.md) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 42))
-                .foregroundStyle(.orange)
+                .foregroundStyle(GanchoTokens.Palette.warningInk)
                 .accessibilityHidden(true)
             Text("Couldn’t read this source")
                 .font(.title3.bold())

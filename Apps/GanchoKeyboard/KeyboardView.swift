@@ -326,7 +326,7 @@ struct KeyboardView: View {
                 } label: {
                     Label("Copy", systemImage: "doc.on.doc")
                 }
-                .tint(.blue)
+                .tint(GanchoTokens.Palette.controlTint)
             }
             .swipeActions(edge: .trailing) {
                 Button(role: .destructive) {

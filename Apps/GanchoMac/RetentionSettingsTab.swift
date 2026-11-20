@@ -242,9 +242,8 @@ private struct RetentionTimelineCard: View {
         let first = marker.groups.first
         switch first {
         case .secrets: return GanchoTokens.Palette.danger
-        case .images: return GanchoTokens.Palette.warning
         case .text: return Color.secondary
-        case .everything: return GanchoTokens.Palette.success
+        case .images, .everything: return GanchoTokens.Palette.ink2
         case .keptForever, nil: return Color.primary
         }
     }
@@ -252,9 +251,8 @@ private struct RetentionTimelineCard: View {
     private func ink(_ marker: RetentionTimeline.Marker) -> AnyShapeStyle {
         switch marker.groups.first {
         case .secrets: AnyShapeStyle(GanchoTokens.Palette.danger)
-        case .images: AnyShapeStyle(GanchoTokens.Palette.warningInk)
         case .text: AnyShapeStyle(.secondary)
-        case .everything: AnyShapeStyle(GanchoTokens.Palette.ink2)
+        case .images, .everything: AnyShapeStyle(GanchoTokens.Palette.ink2)
         case .keptForever, nil: AnyShapeStyle(.primary)
         }
     }

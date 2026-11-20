@@ -56,11 +56,11 @@ struct SelectedContextReview: View {
                 Text(
                     "Couldn’t prepare or share this context. Try again; existing access is unchanged."
                 )
-                .foregroundStyle(.red)
+                .foregroundStyle(GanchoTokens.Palette.danger)
             }
             if imageFailed {
                 Text("Couldn’t prepare this image. Remove it or share its text instead.")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(GanchoTokens.Palette.danger)
             }
             if prepared?.isCopyable == false {
                 Text("Images are shared only through MCP access, not copied.")
@@ -68,11 +68,11 @@ struct SelectedContextReview: View {
             }
             if prepared == nil && !loading {
                 Text("Remove incompatible clips or reduce the context below 64 KiB.")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(GanchoTokens.Palette.danger)
             }
             if changed {
                 Text("The selection or clipboard changed. Review and try again.").foregroundStyle(
-                    .orange)
+                    GanchoTokens.Palette.warningInk)
             }
             if let grant {
                 Text("Read-only access expires in one hour. Revoke it in MCP Access.").panelFont(

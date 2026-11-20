@@ -188,7 +188,7 @@ struct ContrastTokenTests {
             ClipContentKind.allCases.map(GanchoTokens.Palette.kindTint(for:))
             + [
                 GanchoTokens.Palette.success, GanchoTokens.Palette.warning,
-                GanchoTokens.Palette.danger, GanchoTokens.Palette.indigo
+                GanchoTokens.Palette.danger
             ]
         for scheme in Self.appearances {
             let environment = environment(scheme)
