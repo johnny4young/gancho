@@ -71,15 +71,20 @@ struct PeekPasteStack: View {
                     .panelFont(size: 27, design: .serif)
                     .foregroundStyle(GanchoTokens.Palette.ink)
                 Spacer(minLength: GanchoTokens.Spacing.xs)
-                Text(verbatim: shown.position)
-                    .panelFont(size: 24, .medium, design: .monospaced)
+                Text(positionText(shown))
+                    .panelFont(size: 22, .medium, design: .monospaced)
                     .foregroundStyle(GanchoTokens.Palette.ink)
-                    .accessibilityLabel(
-                        Text("\(min(shown.cursor + 1, shown.count)) of \(shown.count)")
-                    )
+                    .accessibilityLabel(Text("\(shown.current) of \(shown.count)"))
                     .accessibilityIdentifier("paste-stack-position")
             }
         }
+    }
+
+    /// "2/4" with the total quieter than the entry it is on.
+    private func positionText(_ shown: PasteStackPresentation) -> AttributedString {
+        var total = AttributedString("/\(shown.count)")
+        total.foregroundColor = GanchoTokens.Palette.ink3
+        return AttributedString("\(shown.current)") + total
     }
 
     // MARK: Dock
@@ -221,7 +226,8 @@ private struct PasteStackRow: View {
                 ClipCard(
                     item: row.clip, previewsHidden: model.previewsHidden,
                     thumbnail: model.thumbnails.cached(for: row.clip),
-                    sensitiveLifetime: model.retentionPolicy.sensitiveLifetime)
+                    sensitiveLifetime: model.retentionPolicy.sensitiveLifetime,
+                    showsSourceAndTime: false)
                 accessory
             }
             .padding(.trailing, GanchoTokens.Spacing.xs)

@@ -132,8 +132,8 @@ final class AppQualityUITests: XCTestCase {
         try keepRender(of: "@sheet", in: app, named: "snippet-many-fields-large-text")
         let fields = sheet.scrollViews["fill-fields-scroll"].firstMatch
         XCTAssertTrue(fields.appears(within: 3))
-        fields.scroll(byDeltaX: 0, deltaY: -1_000)
-        XCTAssertTrue(sheet.textFields["fill-field-field20"].firstMatch.isHittable)
+        XCTAssertTrue(
+            sheet.textFields["fill-field-field20"].firstMatch.revealByScrolling(in: fields))
         XCTAssertTrue(insert.isHittable)
         cancel.click()
         XCTAssertTrue(sheet.waitForNonexistence(timeout: 5))

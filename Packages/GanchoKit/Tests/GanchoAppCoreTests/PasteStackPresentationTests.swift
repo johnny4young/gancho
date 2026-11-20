@@ -18,7 +18,7 @@ struct PasteStackPresentationTests {
         let shown = PasteStackPresentation(stack: stack(4, pasted: 1))
         #expect(shown.rows.map(\.state) == [.pasted, .next, .waiting, .waiting])
         #expect(shown.rows.map(\.number) == [1, 2, 3, 4])
-        #expect(shown.position == "2/4")
+        #expect(shown.current == 2)
         #expect(shown.isRunActive)
     }
 
@@ -26,7 +26,7 @@ struct PasteStackPresentationTests {
     func beforeTheRun() {
         let shown = PasteStackPresentation(stack: stack(3))
         #expect(shown.rows.map(\.state) == [.next, .waiting, .waiting])
-        #expect(shown.position == "1/3")
+        #expect(shown.current == 1)
         #expect(!shown.isRunActive)
     }
 
@@ -34,7 +34,7 @@ struct PasteStackPresentationTests {
     func empty() {
         let shown = PasteStackPresentation(stack: PasteStack())
         #expect(shown.rows.isEmpty)
-        #expect(shown.position == "0/0")
+        #expect(shown.current == 0)
         #expect(shown.dock(skipKey: nil, backKey: nil).first?.isEnabled == false)
     }
 

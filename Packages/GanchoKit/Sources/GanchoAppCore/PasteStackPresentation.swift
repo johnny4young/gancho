@@ -51,8 +51,8 @@ public struct PasteStackPresentation: Equatable, Sendable {
 
     public var count: Int { rows.count }
 
-    /// "2/4": the entry the next paste takes, out of all of them.
-    public var position: String { "\(min(cursor + 1, count))/\(count)" }
+    /// The entry the next paste takes, counting from 1, as in "2/4".
+    public var current: Int { min(cursor + 1, count) }
 
     /// Return and esc are the panel's own keys; Skip and Back show a recorded
     /// global shortcut, and Reset has none.
