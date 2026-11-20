@@ -18,12 +18,16 @@ final class LibraryWindowController {
             let hosting = NSHostingController(
                 rootView: LibraryView().environment(model).ganchoTinted())
             let created = NSWindow(contentViewController: hosting)
+            // The sidebar runs under the traffic lights; the hidden title still
+            // names the window for VoiceOver and the Window menu.
             created.title = String(localized: "Library")
-            created.styleMask = [.titled, .closable, .resizable]
+            created.styleMask = [.titled, .closable, .resizable, .fullSizeContentView]
+            created.titleVisibility = .hidden
+            created.titlebarAppearsTransparent = true
             created.isReleasedWhenClosed = false
             // Open roomy and never let it shrink below the two-pane layout's needs.
-            created.setContentSize(NSSize(width: 900, height: 640))
-            created.contentMinSize = NSSize(width: 800, height: 560)
+            created.setContentSize(NSSize(width: 960, height: 640))
+            created.contentMinSize = LibraryView.minimumSize
             created.center()
             #if DEBUG
                 // XCTest window screenshots can fail on negative-coordinate displays.

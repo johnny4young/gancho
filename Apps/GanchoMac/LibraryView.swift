@@ -7,8 +7,8 @@ import GanchoKit
 import SwiftUI
 
 /// The unified Library (the design's "Library + Pro"): a sidebar that navigates
-/// two worlds — BOARDS (All clips · Pinned · Favorites · your boards, each with
-/// a live count) and LIBRARY · SNIPPETS (keyword-triggered `{placeholder}`
+/// two worlds — All clips, Pinned and BOARDS (Favorites · your boards), each
+/// with a live count, and LIBRARY · SNIPPETS (keyword-triggered `{placeholder}`
 /// templates). Selecting a board shows its clips as a card grid; selecting a
 /// snippet opens the editor. Everything is local; the free ceiling gates
 /// creation, not browsing.
@@ -67,19 +67,26 @@ struct LibraryView: View {
 
     enum EditorField { case title, keyword }
 
+    /// The detail's minimum fits the toolbar in one row without truncating it.
+    static let sidebarMinWidth: CGFloat = 232
+    static let detailMinWidth: CGFloat = 680
+    /// Both panes at their minimums plus the split's divider, rounded up.
+    static let minimumSize = CGSize(width: 920, height: 560)
+
     /// The panes plus the browse controls' observers, split from `body` so it type-checks.
     private var browser: some View {
-        VStack(spacing: 0) {
-            toolbar
-            Divider()
-            HSplitView {
-                sidebar
-                    .frame(minWidth: 232, idealWidth: 252, maxWidth: 320)
+        HSplitView {
+            sidebar
+                .frame(minWidth: Self.sidebarMinWidth, idealWidth: 252, maxWidth: 320)
+            VStack(spacing: 0) {
+                toolbar
                 detail
-                    .frame(minWidth: 460, maxWidth: .infinity)
             }
+            // A split pane has its own safe area; the toolbar sits beside the traffic lights.
+            .ignoresSafeArea(.container, edges: .top)
+            .frame(minWidth: Self.detailMinWidth, maxWidth: .infinity)
         }
-        .frame(minWidth: 800, minHeight: 560)
+        .frame(minWidth: Self.minimumSize.width, minHeight: Self.minimumSize.height)
         .onAppear { layout = model.libraryLayout }
         .task {
             // AppKit hands the window's first responder to the search field; take it back.

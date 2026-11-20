@@ -28,7 +28,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   and a secret shows its mask inside a ring that counts down the time it has
   left. The selected row is a neutral wash, and its key becomes Return.
 - The Library shows each board as a wall of its clips at their own shapes,
-  under the board's name, its count and a bar of the kinds it holds.
+  under the board's name, its count and a bar of the kinds it holds. Its
+  sidebar runs the full height of the window under the window buttons, with
+  All clips and Pinned above Boards, and the free plan's limits live only in
+  the meter at its foot.
 - On iPhone, a color or an image fills the top of its clip, with each color
   format one tap to copy; Copy, Pin, Share and Delete stay docked below. Home
   counts every board, and the keyboard's Up next clip is a card of its own.
