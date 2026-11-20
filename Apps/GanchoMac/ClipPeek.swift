@@ -26,6 +26,8 @@ struct ClipPeek: View {
     /// Tells the panel an inline editor owns the keyboard, so a window regaining
     /// key status does not pull focus back to the search field.
     @Binding var isEditingInline: Bool
+    /// The action panel is open, so the status footer shows its keys.
+    @Binding var actionPanelIsOpen: Bool
     /// Bumped by the panel's ⌘K.
     let transformRequest: Int
     /// The peek column is shorter than `PanelView.shortPeekHeight` (the Compact
@@ -38,10 +40,14 @@ struct ClipPeek: View {
     /// (entered with → from the list, left with ←).
     var focus: FocusState<PanelFocus?>.Binding
     @Environment(AppModel.self) var model
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State var recipeRequest: TextRecipeReviewRequest?
     @State var actionResult: String?
-    @State var showsTransformPopover = false
+    @State var showsActionPanel = false
+    /// Where the keyboard goes back to when the action panel closes.
+    @State var actionPanelReturnFocus: PanelFocus = .search
+    /// A fresh identity for each opening of the action panel.
+    @State var actionPanelOpenCount = 0
     /// The dock verbs the row has room for; empty until the dock reports.
     @State var visibleDockIDs: [String] = []
     @Environment(\.panelTypeScale) var typeScale
@@ -96,6 +102,7 @@ struct ClipPeek: View {
     init(
         item: ClipItem, text: String, isTextEditable: Bool,
         focus: FocusState<PanelFocus?>.Binding, isEditingInline: Binding<Bool>,
+        actionPanelIsOpen: Binding<Bool>,
         transformRequest: Int = 0, revealRequest: Int = 0, isShort: Bool = false,
         addToBoard: @escaping () -> Void, addToLastBoard: @escaping () -> Void,
         showContext: (() -> Void)? = nil
@@ -105,6 +112,7 @@ struct ClipPeek: View {
         self.isTextEditable = isTextEditable
         self.focus = focus
         _isEditingInline = isEditingInline
+        _actionPanelIsOpen = actionPanelIsOpen
         self.transformRequest = transformRequest
         self.revealRequest = revealRequest
         self.isShort = isShort
@@ -131,236 +139,80 @@ struct ClipPeek: View {
         return ClipTextPreview.truncated(raw, limit: 4_000)
     }
 
+    // Built in stages (below): one chain this long times out the type checker.
     var body: some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-            header
-            if titleSaveFailed {
-                Text("Couldn’t save the title.")
-                    .panelFont(.caption)
-                    .foregroundStyle(GanchoTokens.Palette.danger)
+        peekStateSync
+            .task(id: secretReveal) {
+                guard let until = secretReveal.until else { return }
+                try? await Task.sleep(for: .seconds(max(0, until.timeIntervalSinceNow)))
+                guard !Task.isCancelled else { return }
+                endSecretReveal()
             }
-            if model.preferences.isPrivateModePaused {
-                PeekPrivateModeNotice()
-            } else if showsSecretHero {
-                secretSection
-            } else if hidesPreview {
-                Text(verbatim: ClipSafePresentation.masked)
-                    .panelFont(.body)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .accessibilityIdentifier("peek-masked")
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-                        hero
-                        if let mergedParts, let parts = item.parts, !isEditingText {
-                            PeekPartsControls(
-                                separator: parts.separator, partCount: mergedParts.count,
-                                isBusy: isRewritingParts, choose: rejoinParts,
-                                split: splitParts)
-                        }
-                        if ocrShowsHere {
-                            PeekImageTextSection(
-                                item: item, hoveredLine: $ocrHoveredLine,
-                                copiedLine: $ocrCopiedLine,
-                                revealSecret: $ocrRevealSecret, isEditing: $isEditingOCR)
-                        }
-                        if !transformPipeline.isEmpty { pipelineSection }
-                        if describeMode { describeSection }
-                        if translationFailed { translationUnavailableMessage }
-                        if isThinking {
-                            Label("Thinking…", systemImage: "sparkles")
-                                .panelFont(.caption)
-                                .foregroundStyle(.secondary)
-                                .symbolEffect(.pulse, options: .repeating)
-                                .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
-                        } else if let actionResult, !actionResult.isEmpty {
-                            resultBox(actionResult)
-                                .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
-                        }
-                    }
-                    // Scoped to the three things that come and go inside
-                    // the peek; a global transaction would also move the
-                    // editor and the scroll position.
-                    .animation(peekContentAnimation, value: suggestedBoard?.id)
-                    .animation(peekContentAnimation, value: isThinking)
-                    .animation(peekContentAnimation, value: actionResult)
+            .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidHide)) { _ in
+                endSecretReveal()
+                // Cleared now: the panel's show handlers read these before the next render.
+                showsActionPanel = false
+                actionPanelIsOpen = false
+                isEditingInline = isInlineEditing
+                if describeMode { closeTransform() }
+            }
+            // Sharing or private mode: a revealed secret masks at once.
+            .onChange(of: model.secretRevealAllowed) { _, allowed in
+                if !allowed { endSecretReveal() }
+            }
+            .onChange(of: hidesPreview) { _, hidden in
+                if hidden {
+                    closeTransform()
+                    isEditingTitle = false
+                    isEditingText = false
+                    isEditingOCR = false
+                    actionResult = nil
+                    actionIndex = 0
+                    // The torn-down editor never hands focus back itself.
+                    if focus.wrappedValue == nil { focus.wrappedValue = .peek }
                 }
-                // A gutter scroller narrows an aspect-fit image until it stops
-                // overflowing, then hides and lets it grow: a layout loop that freezes the panel.
-                .scrollIndicators(item.kind == .image ? .never : .automatic)
             }
-            dock
-        }
-        .padding(GanchoTokens.Spacing.md)
-        // Scroll the content independently so editing, OCR and board chips cannot
-        // push the dock outside a compact panel.
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        // The peek owns the keyboard while focus == .peek: ↑↓ move among the
-        // actions, Enter runs the focused one, ← hands focus back to the list.
-        .focusable()
-        .focusEffectDisabled()
-        .focused(focus, equals: .peek)
-        .onKeyPress(.upArrow) {
-            guard !isInlineEditing else { return .ignored }
-            return moveAction(-1)
-        }
-        .onKeyPress(.downArrow) {
-            guard !isInlineEditing else { return .ignored }
-            return moveAction(1)
-        }
-        .onKeyPress(.leftArrow) {
-            guard !isInlineEditing else { return .ignored }
-            focus.wrappedValue = .search
-            return .handled
-        }
-        .onKeyPress(.return, phases: .down) { press in
-            guard !isInlineEditing else { return .ignored }
-            if press.modifiers.contains(.option), press.modifiers.contains(.command) {
-                model.pushToStack(item)
-            } else if press.modifiers.contains(.option) {
-                model.paste(item, asPlainText: true)
-            } else if press.modifiers.contains(.shift), let result = pendingResult {
-                if !transformPipeline.isEmpty { rememberPipeline() }
-                model.pasteText(result)
-            } else if press.modifiers.contains(.shift), let convert = convertAction {
-                convert.run()
-            } else {
-                runFocusedAction()
+            // The open action panel owns the keyboard like an inline editor does.
+            .onChange(of: isInlineEditing || showsActionPanel, initial: true) { _, editing in
+                isEditingInline = editing
             }
-            return .handled
-        }
-        .onKeyPress(characters: CharacterSet(charactersIn: "pPbB"), phases: .down) { press in
-            // Same modifier semantics as the list's handlers, including ⇧⌘B.
-            guard !isInlineEditing, press.modifiers.contains(.command) else { return .ignored }
-            if press.characters.lowercased() == "p" {
-                model.togglePin(item)
-            } else if press.modifiers.contains(.shift) {
-                addToLastBoard()
-            } else {
-                addToBoard()
+            .onChange(of: showsActionPanel) { _, open in actionPanelIsOpen = open }
+            // A new clip swaps the peek on every arrow; unchanged flags stay unwritten.
+            .onDisappear {
+                if isEditingInline { isEditingInline = false }
+                if actionPanelIsOpen { actionPanelIsOpen = false }
             }
-            return .handled
-        }
-        // The dock shows ⌘J on Context, which can fold away into Actions.
-        .onKeyPress(characters: CharacterSet(charactersIn: "jJ"), phases: .down) { press in
-            guard !isInlineEditing, press.modifiers.contains(.command), let showContext else {
-                return .ignored
+            .task(id: translationAvailabilityRequest) { await refreshTranslationTargets() }
+            // The panel's hosting view has no scene phase; re-check pairs on every show.
+            .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidShow)) { _ in
+                translationRefresh += 1
             }
-            showContext()
-            return .handled
-        }
-        // ⌫ arrives as the system Delete command; the undo toast takes it back.
-        .onDeleteCommand {
-            guard !isInlineEditing else { return }
-            model.delete(item)
-        }
-        .onKeyPress(characters: CharacterSet(charactersIn: "iI"), phases: .down) { press in
-            guard !isInlineEditing, press.modifiers.isEmpty, canPickColor else { return .ignored }
-            isPickingColor.toggle()
-            return .handled
-        }
-        .onKeyPress(.escape) {
-            guard !isInlineEditing else { return .ignored }
-            // esc puts the eyedropper down, then closes a transform, before it hides the panel.
-            if isPickingColor {
-                isPickingColor = false
-            } else if !transformPipeline.isEmpty || actionResult != nil || describeMode {
-                closeTransform()
-            } else {
-                model.panel.hide()
+            .onDisappear { translationTask?.cancel() }
+            .onChange(of: presentedText) { _, _ in
+                // A rewrite of the previous text must never paste over the edit.
+                if describeMode { closeTransform() }
+                translationTargets = []
+                translationTask?.cancel()
+                translationRequestID = UUID()
+                isThinking = false
+                translationFailed = false
             }
-            return .handled
-        }
-        .onChange(of: focus.wrappedValue) { _, newValue in
-            if newValue == .peek { actionIndex = 0 }
-        }
-        .onChange(of: transformRequest) { _, _ in
-            if !isThinking { showsTransformPopover = true }
-        }
-        .onChange(of: revealRequest) { _, _ in toggleSecretReveal() }
-        // A verb that folds away must not keep the keyboard focus.
-        .onChange(of: visibleDockIDs) { _, _ in
-            actionIndex = min(actionIndex, max(0, navActions.count - 1))
-        }
-        // A new request (same clip, run again) starts from a clean section.
-        .onChange(of: model.manualOCR.requestID) { _, _ in
-            ocrHoveredLine = nil
-            ocrCopiedLine = nil
-            ocrRevealSecret = false
-            isEditingOCR = false
-        }
-        // The result is transient and lives exactly as long as this clip stays
-        // selected: leaving the clip, or hiding the panel, discards it.
-        .onDisappear {
-            if model.manualOCR.itemID == item.id { model.manualOCR.cancel() }
-        }
-        .onChange(of: item.title) { _, newTitle in
-            guard !isEditingTitle else { return }
-            presentedTitle = newTitle
-            titleDraft = newTitle
-        }
-        .onChange(of: text) { _, newText in
-            presentedText = newText
-        }
-        .task(id: secretReveal) {
-            guard let until = secretReveal.until else { return }
-            try? await Task.sleep(for: .seconds(max(0, until.timeIntervalSinceNow)))
-            guard !Task.isCancelled else { return }
-            endSecretReveal()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidHide)) { _ in
-            endSecretReveal()
-            if describeMode { closeTransform() }
-        }
-        // Sharing or private mode: a revealed secret masks at once.
-        .onChange(of: model.secretRevealAllowed) { _, allowed in
-            if !allowed { endSecretReveal() }
-        }
-        .onChange(of: hidesPreview) { _, hidden in
-            if hidden {
-                closeTransform()
-                isEditingTitle = false
-                isEditingText = false
-                isEditingOCR = false
-                actionResult = nil
-                actionIndex = 0
-                // The torn-down editor never hands focus back itself.
-                if focus.wrappedValue == nil { focus.wrappedValue = .peek }
+            .task(id: ClipContentVersion(item)) { await model.thumbnails.ensureLoaded(item) }
+            .task(id: item) {
+                let membership = await model.boardMembership(for: item)
+                guard !Task.isCancelled else { return }
+                boardIDs = membership
             }
-        }
-        .onChange(of: isInlineEditing, initial: true) { _, editing in
-            isEditingInline = editing
-        }
-        .onDisappear { isEditingInline = false }
-        .task(id: translationAvailabilityRequest) { await refreshTranslationTargets() }
-        // The panel's hosting view has no scene phase; re-check pairs on every show.
-        .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidShow)) { _ in
-            translationRefresh += 1
-        }
-        .onDisappear { translationTask?.cancel() }
-        .onChange(of: presentedText) { _, _ in
-            // A rewrite of the previous text must never paste over the edit.
-            if describeMode { closeTransform() }
-            translationTargets = []
-            translationTask?.cancel()
-            translationRequestID = UUID()
-            isThinking = false
-            translationFailed = false
-        }
-        .task(id: ClipContentVersion(item)) { await model.thumbnails.ensureLoaded(item) }
-        .task(id: item) {
-            let membership = await model.boardMembership(for: item)
-            guard !Task.isCancelled else { return }
-            boardIDs = membership
-        }
-        .task(id: item.id) { await loadSuggestedBoard() }
-        .task(id: PeekSyncStateKey(id: item.id, status: model.syncStatus)) {
-            // A masked clip never shows the chip, so it is not looked up.
-            var state: PeekSyncState?
-            if !hidesPreview { state = await model.uploadState(for: item) }
-            guard !Task.isCancelled else { return }
-            syncState = state
-        }
+            .task(id: item.id) { await loadSuggestedBoard() }
+            .task(id: PeekSyncStateKey(id: item.id, status: model.syncStatus)) {
+                // A masked clip never shows the chip, so it is not looked up.
+                var state: PeekSyncState?
+                if !hidesPreview { state = await model.uploadState(for: item) }
+                guard !Task.isCancelled else { return }
+                syncState = state
+            }
+            // Outside the peek's key handlers, so they never see the panel's keys.
+            .overlay { actionPanelLayer.animation(peekContentAnimation, value: showsActionPanel) }
     }
 
     /// Provenance first, then the title on its own row.
@@ -449,6 +301,206 @@ struct ClipPeek: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .clipDragSource(item)
+    }
+}
+
+// The body's stages, so no single modifier chain outgrows the type checker.
+extension ClipPeek {
+    private var peekLayout: some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
+            header
+            if titleSaveFailed {
+                Text("Couldn’t save the title.")
+                    .panelFont(.caption)
+                    .foregroundStyle(GanchoTokens.Palette.danger)
+            }
+            if model.preferences.isPrivateModePaused {
+                PeekPrivateModeNotice()
+            } else if showsSecretHero {
+                secretSection
+            } else if hidesPreview {
+                Text(verbatim: ClipSafePresentation.masked)
+                    .panelFont(.body)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .accessibilityIdentifier("peek-masked")
+            } else {
+                ScrollViewReader { scroller in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
+                            hero
+                            if let mergedParts, let parts = item.parts, !isEditingText {
+                                PeekPartsControls(
+                                    separator: parts.separator, partCount: mergedParts.count,
+                                    isBusy: isRewritingParts, choose: rejoinParts,
+                                    split: splitParts)
+                            }
+                            if ocrShowsHere {
+                                PeekImageTextSection(
+                                    item: item, hoveredLine: $ocrHoveredLine,
+                                    copiedLine: $ocrCopiedLine,
+                                    revealSecret: $ocrRevealSecret, isEditing: $isEditingOCR)
+                            }
+                            if !transformPipeline.isEmpty {
+                                pipelineSection.id(PeekResultSection.pipeline)
+                            }
+                            if describeMode { describeSection.id(PeekResultSection.describe) }
+                            if translationFailed { translationUnavailableMessage }
+                            if isThinking {
+                                Label("Thinking…", systemImage: "sparkles")
+                                    .panelFont(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .symbolEffect(.pulse, options: .repeating)
+                                    .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
+                                    .accessibilityIdentifier("peek-thinking")
+                            } else if let actionResult, !actionResult.isEmpty {
+                                resultBox(actionResult)
+                                    .id(PeekResultSection.result)
+                                    .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
+                            }
+                        }
+                        // Scoped to the three things that come and go inside
+                        // the peek; a global transaction would also move the
+                        // editor and the scroll position.
+                        .animation(peekContentAnimation, value: suggestedBoard?.id)
+                        .animation(peekContentAnimation, value: isThinking)
+                        .animation(peekContentAnimation, value: actionResult)
+                    }
+                    // A gutter scroller narrows an aspect-fit image until it stops
+                    // overflowing, then hides and lets it grow: a layout loop that freezes the panel.
+                    .scrollIndicators(item.kind == .image ? .never : .automatic)
+                    // A result lands below a tall clip; its Paste, Copy and Save must not sit under the dock.
+                    .onChange(of: shownResult) { _, section in
+                        guard let section else { return }
+                        withAnimation(peekContentAnimation) {
+                            scroller.scrollTo(section, anchor: .bottom)
+                        }
+                    }
+                }
+            }
+            dock
+        }
+        .padding(GanchoTokens.Spacing.md)
+        // Scroll the content independently so editing, OCR and board chips cannot
+        // push the dock outside a compact panel.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var peekKeyHandling: some View {
+        peekLayout
+            // The peek owns the keyboard while focus == .peek: ↑↓ move among the
+            // actions, Enter runs the focused one, ← hands focus back to the list.
+            .focusable()
+            .focusEffectDisabled()
+            .focused(focus, equals: .peek)
+            .onKeyPress(.upArrow) {
+                guard !isInlineEditing else { return .ignored }
+                return moveAction(-1)
+            }
+            .onKeyPress(.downArrow) {
+                guard !isInlineEditing else { return .ignored }
+                return moveAction(1)
+            }
+            .onKeyPress(.leftArrow) {
+                guard !isInlineEditing else { return .ignored }
+                focus.wrappedValue = .search
+                return .handled
+            }
+            .onKeyPress(.return, phases: .down) { press in
+                guard !isInlineEditing else { return .ignored }
+                if press.modifiers.contains(.option), press.modifiers.contains(.command) {
+                    model.pushToStack(item)
+                } else if press.modifiers.contains(.option) {
+                    model.paste(item, asPlainText: true)
+                } else if press.modifiers.contains(.shift), let result = pendingResult {
+                    if !transformPipeline.isEmpty { rememberPipeline() }
+                    model.pasteText(result)
+                } else if press.modifiers.contains(.shift), let convert = convertAction {
+                    convert.run()
+                } else {
+                    runFocusedAction()
+                }
+                return .handled
+            }
+            .onKeyPress(characters: CharacterSet(charactersIn: "pPbB"), phases: .down) { press in
+                // Same modifier semantics as the list's handlers, including ⇧⌘B.
+                guard !isInlineEditing, press.modifiers.contains(.command) else { return .ignored }
+                if press.characters.lowercased() == "p" {
+                    model.togglePin(item)
+                } else if press.modifiers.contains(.shift) {
+                    addToLastBoard()
+                } else {
+                    addToBoard()
+                }
+                return .handled
+            }
+            // The dock shows ⌘J on Context, which can fold away into Actions.
+            .onKeyPress(characters: CharacterSet(charactersIn: "jJ"), phases: .down) { press in
+                guard !isInlineEditing, press.modifiers.contains(.command), let showContext else {
+                    return .ignored
+                }
+                showContext()
+                return .handled
+            }
+            // ⌫ arrives as the system Delete command; the undo toast takes it back.
+            .onDeleteCommand {
+                guard !isInlineEditing else { return }
+                model.delete(item)
+            }
+            .onKeyPress(characters: CharacterSet(charactersIn: "iI"), phases: .down) { press in
+                guard !isInlineEditing, press.modifiers.isEmpty, canPickColor else {
+                    return .ignored
+                }
+                isPickingColor.toggle()
+                return .handled
+            }
+            .onKeyPress(.escape) {
+                guard !isInlineEditing else { return .ignored }
+                // esc puts the eyedropper down, then closes a transform, before it hides the panel.
+                if isPickingColor {
+                    isPickingColor = false
+                } else if !transformPipeline.isEmpty || actionResult != nil || describeMode {
+                    closeTransform()
+                } else {
+                    model.panel.hide()
+                }
+                return .handled
+            }
+    }
+
+    private var peekStateSync: some View {
+        peekKeyHandling
+            .onChange(of: focus.wrappedValue) { _, newValue in
+                if newValue == .peek { actionIndex = 0 }
+                // A click into the search field or the list leaves the action panel.
+                if newValue != nil, showsActionPanel { closeActionPanel(restoringFocus: false) }
+            }
+            // Opens while a transform runs too: its verbs stay runnable.
+            .onChange(of: transformRequest) { _, _ in openActionPanel() }
+            .onChange(of: revealRequest) { _, _ in toggleSecretReveal() }
+            // A verb that folds away must not keep the keyboard focus.
+            .onChange(of: visibleDockIDs) { _, _ in
+                actionIndex = min(actionIndex, max(0, navActions.count - 1))
+            }
+            // A new request (same clip, run again) starts from a clean section.
+            .onChange(of: model.manualOCR.requestID) { _, _ in
+                ocrHoveredLine = nil
+                ocrCopiedLine = nil
+                ocrRevealSecret = false
+                isEditingOCR = false
+            }
+            // The result is transient and lives exactly as long as this clip stays
+            // selected: leaving the clip, or hiding the panel, discards it.
+            .onDisappear {
+                if model.manualOCR.itemID == item.id { model.manualOCR.cancel() }
+            }
+            .onChange(of: item.title) { _, newTitle in
+                guard !isEditingTitle else { return }
+                presentedTitle = newTitle
+                titleDraft = newTitle
+            }
+            .onChange(of: text) { _, newText in
+                presentedText = newText
+            }
     }
 }
 
@@ -749,27 +801,6 @@ extension ClipPeek {
         navActions[actionIndex].run()
     }
 
-    private func resultBox(_ result: String) -> some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
-            ScrollView {
-                Text(result)
-                    .accessibilityIdentifier("intelligence-result-text")
-                    .panelFont(.body, design: .monospaced)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-            }
-            .frame(maxHeight: 140)
-            HStack(spacing: GanchoTokens.Spacing.xxs) {
-                ActionButton("Paste", systemImage: "doc.on.clipboard", identifier: "paste-result") {
-                    model.pasteText(result)
-                }
-                ActionButton("Copy result", systemImage: "doc.on.doc", identifier: "copy-result") {
-                    SystemPasteboardWriter().write(.text(result), asPlainText: true)
-                    model.toasts.show(GanchoToast(message: "Copied"))
-                }
-            }
-        }
-    }
 }
 
 /// The ids of the dock tier on screen, reported by the row that fits.

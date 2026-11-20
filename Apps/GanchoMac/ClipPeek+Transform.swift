@@ -10,7 +10,8 @@ extension ClipPeek {
     var actionsButton: some View {
         let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
         return Button {
-            showsTransformPopover.toggle()
+            // The click itself moved focus into the peek; typing belongs to the search field.
+            openActionPanel(returningTo: .search)
         } label: {
             HStack(spacing: 6) {
                 Text("Actions").panelFont(size: 12.5, .medium).lineLimit(1)
@@ -30,14 +31,56 @@ extension ClipPeek {
         // Verbs stay reachable while a transform runs; only new transforms wait.
         .accessibilityValue(Text(verbatim: "⌘K"))
         .accessibilityIdentifier("transform-button")
-        .popover(isPresented: $showsTransformPopover, arrowEdge: .top) {
+    }
+
+    /// The action panel, anchored to the peek's top-trailing corner; a click beside it closes it.
+    @ViewBuilder var actionPanelLayer: some View {
+        if showsActionPanel {
             let actions = dockActions
-            PeekTransformPopover(
-                groups: panelGroups(actions),
-                title: { transformTitle($0) }, groupTitle: groupTitle,
-                symbol: { transformSymbol($0, dock: actions) },
-                key: { rowKey($0, dock: actions) }, footnote: panelFootnote,
-                onSelect: { runTransformRow($0, dock: actions) })
+            ZStack(alignment: .topTrailing) {
+                Color.clear
+                    .contentShape(.rect)
+                    .onTapGesture { closeActionPanel() }
+                    .accessibilityHidden(true)
+                PeekActionPanel(
+                    groups: panelGroups(actions),
+                    title: { transformTitle($0) }, groupTitle: groupTitle,
+                    symbol: { transformSymbol($0, dock: actions) },
+                    key: { rowKey($0, dock: actions) }, footnote: panelFootnote,
+                    isEnabled: canRun,
+                    onSelect: { runTransformRow($0, dock: actions) },
+                    onClose: { closeActionPanel() }
+                )
+                .padding(.vertical, 10)
+                .padding(.horizontal, 14)
+                // A reopen during the closing transition would revive the old panel,
+                // whose focus task never runs again.
+                .id(actionPanelOpenCount)
+            }
+            .transition(
+                GanchoMotion.replace(reduceMotion: reduceMotion)
+                    .combined(with: AnyTransition(InertWhileClosing())))
+        }
+    }
+
+    /// `returnFocus` overrides where the keyboard goes back to; nil keeps where it is now.
+    func openActionPanel(returningTo returnFocus: PanelFocus? = nil) {
+        guard !showsActionPanel else { return }
+        actionPanelReturnFocus = returnFocus ?? focus.wrappedValue ?? .search
+        // Released first, or the panel's own focus keeps the search field and takes esc.
+        focus.wrappedValue = nil
+        actionPanelOpenCount &+= 1
+        showsActionPanel = true
+    }
+
+    /// Hands the keyboard back to where it was, unless the row just run took it.
+    func closeActionPanel(restoringFocus: Bool = true) {
+        showsActionPanel = false
+        guard restoringFocus else { return }
+        Task { @MainActor in
+            await Task.yield()
+            guard focus.wrappedValue == nil, !isInlineEditing else { return }
+            focus.wrappedValue = actionPanelReturnFocus
         }
     }
 
@@ -253,10 +296,13 @@ extension ClipPeek {
         }
     }
 
+    /// While a transform runs, only clip verbs run; new transforms wait.
+    private func canRun(_ row: TransformRow) -> Bool { !isThinking || row.isVerb }
+
     /// A verb runs what its dock button or key runs.
     private func runTransformRow(_ row: TransformRow, dock: [PeekAction]) {
-        if isThinking, !row.isVerb { return }
-        showsTransformPopover = false
+        guard canRun(row) else { return }
+        closeActionPanel(restoringFocus: !row.focusesOwnField)
         switch row {
         case .verb(.markdownLink): copyMarkdownLink()
         case .verb(.delete): if !isInlineEditing { model.delete(item) }
@@ -288,10 +334,62 @@ extension ClipPeek {
     }
 }
 
+/// The transform output the peek scrolls to when it appears.
+enum PeekResultSection: Hashable {
+    case pipeline, describe, result
+}
+
+extension ClipPeek {
+    var shownResult: PeekResultSection? {
+        if describeMode { return describedChange == nil ? nil : .describe }
+        if !transformPipeline.isEmpty { return .pipeline }
+        if let actionResult, !actionResult.isEmpty, !isThinking { return .result }
+        return nil
+    }
+
+    /// A one-off action's output with its Paste and Copy.
+    func resultBox(_ result: String) -> some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
+            ScrollView {
+                Text(result)
+                    .accessibilityIdentifier("intelligence-result-text")
+                    .panelFont(.body, design: .monospaced)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(maxHeight: 140)
+            HStack(spacing: GanchoTokens.Spacing.xxs) {
+                ActionButton("Paste", systemImage: "doc.on.clipboard", identifier: "paste-result") {
+                    model.pasteText(result)
+                }
+                ActionButton("Copy result", systemImage: "doc.on.doc", identifier: "copy-result") {
+                    SystemPasteboardWriter().write(.text(result), asPlainText: true)
+                    model.toasts.show(GanchoToast(message: "Copied"))
+                }
+            }
+        }
+    }
+}
+
+/// A closing layer must not swallow the clicks meant for the peek under it.
+private struct InertWhileClosing: Transition {
+    func body(content: Content, phase: TransitionPhase) -> some View {
+        content.allowsHitTesting(phase != .didDisappear)
+    }
+}
+
 extension TransformRow {
     /// Clip verbs stay runnable while a transform is in flight.
     fileprivate var isVerb: Bool {
         if case .verb = self { return true }
         return false
+    }
+
+    /// The board picker, a change request and the recipes sheet take the keyboard.
+    fileprivate var focusesOwnField: Bool {
+        switch self {
+        case .verb(.board), .describeChange, .savedPrompt, .recipes: true
+        default: false
+        }
     }
 }

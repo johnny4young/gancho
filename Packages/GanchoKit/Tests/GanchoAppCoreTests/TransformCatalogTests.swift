@@ -100,6 +100,17 @@ struct TransformCatalogTests {
         #expect(TransformCatalog.movedHighlight(3, by: 1, count: 0) == 0)
     }
 
+    @Test("↑ and ↓ step over rows that can't run and stay put when none is ahead")
+    func highlightSkipsDisabledRows() {
+        let enabled: Set = [0, 1, 4]
+        let isEnabled = { enabled.contains($0) }
+        #expect(TransformCatalog.movedHighlight(1, by: 1, count: 5, isEnabled: isEnabled) == 4)
+        #expect(TransformCatalog.movedHighlight(4, by: -1, count: 5, isEnabled: isEnabled) == 1)
+        #expect(TransformCatalog.movedHighlight(4, by: 1, count: 5, isEnabled: isEnabled) == 4)
+        #expect(TransformCatalog.movedHighlight(0, by: -1, count: 5, isEnabled: isEnabled) == 0)
+        #expect(TransformCatalog.movedHighlight(0, by: 1, count: 3) { $0 == 0 } == 0)
+    }
+
     @Test("The filter covers clip verbs, and md or mark lead with the Markdown link")
     func filteringClipVerbs() {
         let groups =

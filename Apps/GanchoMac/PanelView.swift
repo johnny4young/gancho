@@ -109,6 +109,7 @@ struct PanelView: View {
     @State private var boardPickerReturnFocus: PanelFocus = .search
     /// An inline editor in the peek owns the keyboard.
     @State private var peekIsEditingInline = false
+    @State private var peekActionPanelIsOpen = false
     /// Measured outside the peek's per-clip identity, so a new selection
     /// starts at the right density. Starts short, like the default preset.
     @State private var peekIsShort = true
@@ -942,6 +943,7 @@ struct PanelView: View {
                 historyEmpty: historyIsEmpty, narrowed: isNarrowed),
             alternativeHint: bestAlternative?.alternative.footerHint,
             offersEyedropper: offersEyedropper && !stackIsShown,
+            actionPanelIsOpen: peekActionPanelIsOpen,
             stackIsOpen: stackBinding,
             showKeyboardShortcuts: { toggleKeyboardShortcuts() }
         )
@@ -1688,6 +1690,7 @@ struct PanelView: View {
                 isTextEditable: presentation.isTextEditable,
                 focus: $focus,
                 isEditingInline: $peekIsEditingInline,
+                actionPanelIsOpen: $peekActionPanelIsOpen,
                 transformRequest: transformRequest,
                 revealRequest: revealRequest,
                 isShort: peekIsShort,

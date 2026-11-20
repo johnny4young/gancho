@@ -15,7 +15,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   iPhone and iPad.
 - ⌘K opens one action panel for the selected clip in the Mac history panel:
   its verbs with their keys, its transforms, recipes and Smart paste behind
-  one filter (⌘T still opens it).
+  one filter (⌘T still opens it). It floats over the preview, and it
+  opens while a transform runs too: the clip's verbs work, and new transforms
+  wait until the running one finishes. While it is open, the footer shows its
+  keys.
 - Rows show the clip itself: a link leads with its site, a color is its
   swatch, code keeps its typeface with quiet tints, an image is its thumbnail,
   and a secret shows its mask inside a ring that counts down the time it has
@@ -74,6 +77,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- On the Mac, a "Describe the change" rewrite scrolls into view, so its Paste,
+  Copy and Save buttons no longer sit under the preview's dock.
 - On the Mac, VoiceOver reads each decoded link parameter and URL part with
   its value, not only its name.
 - Developer line actions now recognize CRLF and Unicode newlines: sorting,

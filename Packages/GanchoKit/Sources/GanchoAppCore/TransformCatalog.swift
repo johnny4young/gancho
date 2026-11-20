@@ -202,6 +202,19 @@ public enum TransformCatalog {
         return min(max(index + delta, 0), count - 1)
     }
 
+    /// The same move, stepping over rows that can't run; with none ahead it stays put.
+    public static func movedHighlight(
+        _ index: Int, by delta: Int, count: Int, isEnabled: (Int) -> Bool
+    ) -> Int {
+        var next = index
+        while true {
+            let step = movedHighlight(next, by: delta, count: count)
+            guard step != next else { return index }
+            next = step
+            if isEnabled(next) { return next }
+        }
+    }
+
     /// What the popover offers for a clip, in order: the kind's own actions
     /// first, then text transforms, recipes and on-device Smart paste.
     /// `plainText` stays out: Paste plain already covers it.
