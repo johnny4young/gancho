@@ -36,6 +36,8 @@ extension GanchoTokens {
         /// Captions, counts and placeholders.
         public static let ink3 = ColorPair.ink3.color
         public static let hairline = ColorPair.hairline.color
+        /// A hairline that has to read on its own: a bordered verb, a dial's ticks.
+        public static let hairline2 = ColorPair.hairline2.color
 
         public static var inverseFill: Color { ink }
         public static let inverseText = ColorPair.panel.color
@@ -361,6 +363,8 @@ extension GanchoTokens {
             light: graphite, dark: white, lightAlpha: 0.07, darkAlpha: 0.09)
         static let hairline = ColorPair(
             light: graphite, dark: white, lightAlpha: 0.10, darkAlpha: 0.085)
+        static let hairline2 = ColorPair(
+            light: graphite, dark: white, lightAlpha: 0.2, darkAlpha: 0.17)
         static let ink = ColorPair(light: graphite, dark: (0xF5, 0xF4, 0xEF))
         static let ink2 = ColorPair(light: (0x4F, 0x53, 0x51), dark: (0xB6, 0xB5, 0xAD))
         static let ink3 = ColorPair(light: StatusBytes.ink3, dark: (0x9A, 0x99, 0x92))

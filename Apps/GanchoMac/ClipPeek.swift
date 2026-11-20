@@ -223,7 +223,9 @@ struct ClipPeek: View {
                 // Favorites is the title row's star, so the caption skips it.
                 boards: Array(
                     model.boards.filter { boardIDs.contains($0.id) && !$0.isSystem }.prefix(3)),
-                syncState: syncState, masksProvenance: hidesPreview,
+                syncState: syncState,
+                disclosure: model.previewsHidden
+                    ? .kindOnly : hidesPreview ? .masked : .full,
                 showsExpiry: !showsSecretHero)
             titleRow
         }
