@@ -109,12 +109,7 @@ private struct CaptureSheetContent: View {
             // drag-to-dismiss isn't discoverable. The row resolves live so a
             // pin or an edit shows without reopening the peek.
             NavigationStack {
-                ClipDetailView(item: model.liveClip(clip))
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Done", action: close)
-                        }
-                    }
+                ClipDetailView(item: model.liveClip(clip), onDone: close)
             }
         case .move(let clip): MoveToBoardSheet(item: clip)
         case .pro:

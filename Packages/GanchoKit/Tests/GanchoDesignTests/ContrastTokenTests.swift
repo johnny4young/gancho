@@ -310,6 +310,29 @@ struct ContrastTokenTests {
         #expect(Contrast.ratio(ink, fill) >= Contrast.text)
     }
 
+    @Test(
+        "A colour hero's chrome takes the fill's ink and the matching appearance",
+        arguments: [
+            (0xFF6B4A, ColorScheme.light), (0x0F4C4A, .dark), (0xFFFFFF, .light),
+            (0x000000, .dark)
+        ])
+    func heroChromeOnFill(hex: Int, scheme: ColorScheme) {
+        let fill = resolved(hex, environment(.light))
+        let ink = ContrastingForeground.ink(on: fill, scheme: .light)
+        #expect(Contrast.ratio(ink, fill) >= Contrast.text)
+        #expect(ContrastingForeground.scheme(on: fill) == scheme)
+        #expect(Contrast.luminance(ink) < 0.5 ? scheme == .light : scheme == .dark)
+    }
+
+    @Test("A lime hero keeps a light bar, matching its dark ink", arguments: appearances)
+    func limeHeroChrome(scheme: ColorScheme) {
+        let lime = GanchoTokens.ColorPair.accent.resolved(scheme)
+        #expect(ContrastingForeground.scheme(on: lime) == .light)
+        #expect(
+            Contrast.ratio(.init(colorSpace: .sRGB, red: 0, green: 0, blue: 0), lime)
+                >= Contrast.text)
+    }
+
     @Test("Stepping keeps the hue and moves lightness the requested way")
     func steppingDirection() {
         let environment = environment(.light)

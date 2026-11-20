@@ -108,7 +108,7 @@ extension ClipDetailView {
                     quietAction("Board", systemImage: "rectangle.stack")
                 }
                 .accessibilityIdentifier("detail-board")
-                snippetButton
+                if isTextLike { snippetButton }
             }
             .buttonStyle(.plain)
             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
@@ -116,10 +116,9 @@ extension ClipDetailView {
         }
     }
 
-    /// Always in the row so it never jumps: off for non-text and masked clips,
-    /// shown as set once the clip is a snippet.
+    /// Off for masked clips, shown as set once the clip is a snippet.
     private var snippetButton: some View {
-        let applies = isTextLike && !requiresMasking && !isSnippet
+        let applies = !requiresMasking && !isSnippet
         return Button {
             Task { if await model.saveAsSnippet(item) { isSnippet = true } }
         } label: {

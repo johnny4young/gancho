@@ -60,6 +60,18 @@ final class IOSFlowsV4UITests: XCTestCase {
         XCTAssertFalse(
             app.descendants(matching: .any)["detail-content"].firstMatch.exists,
             "the hero and format rows carry the value; no text block repeats it")
+        for id in ["detail-copy", "detail-pin", "detail-share", "detail-delete"] {
+            XCTAssertTrue(app.buttons[id].firstMatch.exists, "\(id) is docked")
+        }
+        XCTAssertTrue(app.buttons["detail-board"].firstMatch.exists)
+        XCTAssertFalse(
+            app.buttons["detail-save-snippet"].firstMatch.exists,
+            "a colour can't become a snippet, so it shows no Snippet")
+        app.buttons["Done"].firstMatch.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["detail-color-hero"].firstMatch
+                .waitForNonexistence(timeout: 5),
+            "Done closes the peek")
     }
 
     @MainActor

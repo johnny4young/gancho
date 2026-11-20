@@ -16,10 +16,7 @@ public struct ContrastingForeground: ShapeStyle {
     /// The ink for an opaque fill: black or white by contrast, or the accent's
     /// dark ink on the lime (also when stepped for hover or pressed).
     public static func ink(on fill: Color.Resolved, scheme: ColorScheme) -> Color.Resolved {
-        let luminance = Contrast.luminance(fill)
-        let blackContrast = (luminance + 0.05) / 0.05
-        let whiteContrast = 1.05 / (luminance + 0.05)
-        guard blackContrast >= whiteContrast else {
+        guard takesBlackInk(fill) else {
             return Color.Resolved(colorSpace: .sRGB, red: 1, green: 1, blue: 1)
         }
         let onAccent = GanchoTokens.onAccentInk
@@ -27,6 +24,17 @@ public struct ContrastingForeground: ShapeStyle {
             return Color.Resolved(colorSpace: .sRGB, red: 0, green: 0, blue: 0)
         }
         return onAccent
+    }
+
+    /// The appearance whose chrome reads on an opaque fill: light where the
+    /// fill takes black ink, dark where it takes white.
+    public static func scheme(on fill: Color.Resolved) -> ColorScheme {
+        takesBlackInk(fill) ? .light : .dark
+    }
+
+    private static func takesBlackInk(_ fill: Color.Resolved) -> Bool {
+        let luminance = Contrast.luminance(fill)
+        return (luminance + 0.05) / 0.05 >= 1.05 / (luminance + 0.05)
     }
 
     private static func isLime(_ color: Color.Resolved, _ scheme: ColorScheme) -> Bool {
