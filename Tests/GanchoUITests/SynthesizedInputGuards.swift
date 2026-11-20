@@ -135,6 +135,16 @@ extension XCUIElement {
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
+    /// Polls until the element's label reads `label`, checking once up front
+    /// (only when it exists: reading `label` on a missing element fails the test).
+    @MainActor
+    func waitForLabel(_ label: String, timeout: TimeInterval = 5) -> Bool {
+        if exists, self.label == label { return true }
+        let predicate = NSPredicate(format: "label == %@", label)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: self)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
     /// Polls until the element reports itself hittable. XCTest evaluates a
     /// predicate expectation once per second, so a timeout under one second
     /// gets only the check up front — pass at least 1. A caller that falls

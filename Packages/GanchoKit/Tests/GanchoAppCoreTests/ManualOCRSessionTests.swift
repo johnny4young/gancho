@@ -8,16 +8,31 @@ import Testing
 private actor OCRLatch {
     private var waiter: CheckedContinuation<String?, Never>?
     private var started = false
+    private var startWaiters: [CheckedContinuation<Bool, Never>] = []
     func recognize() async -> String? {
         started = true
+        resumeStartWaiters()
         return await withCheckedContinuation { waiter = $0 }
     }
-    /// Bounded: an unbounded spin makes a regression hang the whole package run
-    /// instead of failing one test, which is exactly how a lost signal hides.
+    /// Signalled, not polled: a wall-clock spin expires on a starved CI pool
+    /// before the recognizer is scheduled. The suite's time limit cancels a
+    /// lost signal, which returns false instead of hanging the package run.
     func waitUntilStarted() async -> Bool {
-        let deadline = ContinuousClock.now + .seconds(5)
-        while !started, ContinuousClock.now < deadline { await Task.yield() }
-        return started
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if started || Task.isCancelled {
+                    continuation.resume(returning: started)
+                } else {
+                    startWaiters.append(continuation)
+                }
+            }
+        } onCancel: {
+            Task { await self.resumeStartWaiters() }
+        }
+    }
+    private func resumeStartWaiters() {
+        for continuation in startWaiters { continuation.resume(returning: started) }
+        startWaiters = []
     }
     func release() {
         waiter?.resume(returning: "old result")
@@ -82,15 +97,16 @@ struct ManualOCRSessionTests {
         let latch = OCRLatch()
         let clipboard = OCRClipboardProbe()
         var copies = 0
+        let (finished, finish) = AsyncStream.makeStream(of: Void.self)
         session.start(
             recognize: { (await latch.recognize()).map(ManualOCRResult.init(text:)) },
             isAllowed: { true },
             clipboardRevision: { clipboard.revision }, copy: { _ in copies += 1 },
-            didFinish: { _ in })
+            didFinish: { _ in finish.yield() })
         #expect(await latch.waitUntilStarted(), "the recognizer never started")
         clipboard.revision = 2
         await latch.release()
-        #expect(await settled(session), "the session never left .recognizing")
+        #expect(await settled(finished), "the session never left .recognizing")
         #expect(session.state == .ready)
         #expect(copies == 0)
         #expect(session.text == "old result")
@@ -184,15 +200,16 @@ struct ManualOCRSessionTests {
         let permission = OCRPermission()
         let latch = OCRLatch()
         let session = ManualOCRSession()
+        let (finished, finish) = AsyncStream.makeStream(of: Void.self)
         session.start(
             recognize: { (await latch.recognize()).map(ManualOCRResult.init(text:)) },
             isAllowed: { await permission.read() },
             clipboardRevision: { 0 }, copy: { _ in Issue.record("protected copy") },
-            didFinish: { _ in })
+            didFinish: { _ in finish.yield() })
         #expect(await latch.waitUntilStarted(), "the recognizer never started")
         await permission.revoke()
         await latch.release()
-        #expect(await settled(session), "the session never left .recognizing")
+        #expect(await settled(finished), "the session never left .recognizing")
         #expect(session.state == .unavailable)
         #expect(session.text.isEmpty)
     }
@@ -409,14 +426,10 @@ struct ManualOCRSessionTests {
         #expect(result?.lines == [RecognizedTextLine(text: "fresh", box: box)])
     }
 
-    /// Bounded wait for a terminal state. Without the deadline a session that
-    /// never finishes hangs the package run instead of failing this test.
-    private func settled(_ session: ManualOCRSession) async -> Bool {
-        let deadline = ContinuousClock.now + .seconds(5)
-        while session.state == .recognizing, ContinuousClock.now < deadline {
-            await Task.yield()
-        }
-        return session.state != .recognizing
+    /// Waits for `didFinish`; the suite's time limit ends the stream if it never comes.
+    private func settled(_ finished: AsyncStream<Void>) async -> Bool {
+        for await _ in finished { return true }
+        return false
     }
 }
 

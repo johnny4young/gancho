@@ -650,6 +650,12 @@ final class AppModel {
         // the controller only drives the engine lifecycle and calls back.
         syncController.onStatus = { [weak self] status in self?.applySyncStatus(status) }
         syncController.onIdle = { [weak self] in self?.syncStatus = .idle }
+        #if DEBUG
+            // A forced free tier never starts sync, so nothing replaces this state.
+            if forceFreeTier, CommandLine.arguments.contains("-ui-test-sync-up-to-date") {
+                syncStatus = .upToDate(at: nil)
+            }
+        #endif
         // Content-free sync-trouble trail → the Privacy Center's "Recent issues"
         // (fetched records that fail to decode/apply, non-transient save errors).
         syncController.diagnostics = diagnostics
