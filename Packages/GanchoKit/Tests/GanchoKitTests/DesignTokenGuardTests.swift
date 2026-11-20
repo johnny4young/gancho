@@ -43,12 +43,13 @@ struct DesignTokenGuardTests {
     }
 
     /// Indigo, amber, agent blue and kind tints are retired; red is a token kept
-    /// for Delete, denied and a secret's last minute. A destructive button's
-    /// role draws its own red.
+    /// for errors, Delete, denied and a secret's last minute. A destructive
+    /// button's role draws its own red.
     @Test func appsDoNotUseRetiredSystemHues() throws {
+        let hues = #"(Color)?\.(red|orange|blue|indigo|purple|yellow|teal|pink|mint|cyan|brown)\b"#
         let pattern =
-            #"\.(foregroundStyle|foregroundColor|tint)\([^)]*?"#
-            + #"(?<![\w)])(Color)?\.(red|orange|blue|indigo|purple|yellow|teal)\b"#
+            #"\.(foregroundStyle|foregroundColor|tint|fill|background|stroke|strokeBorder)\([^)]*?"#
+            + #"(?<![\w)])"# + hues + #"|\btint:\s*"# + hues
         let offenders = try Self.matches(of: pattern, excluding: ["GanchoWidgets"])
         #expect(offenders.isEmpty, "use Palette.danger, warningInk or a neutral ink: \(offenders)")
     }

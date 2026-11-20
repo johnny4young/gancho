@@ -36,7 +36,7 @@ extension CaptureView {
                 Label {
                     text
                 } icon: {
-                    // "Synced" stays neutral; paused/failed warn — like macOS.
+                    // Synced and paused stay neutral, failed is red; the glyph tells them apart.
                     Image(systemName: symbol).foregroundStyle(ReadableInk(base: tint))
                 }
                 .font(.footnote)

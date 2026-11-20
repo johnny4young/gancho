@@ -47,8 +47,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Blue, indigo and orange are gone from the interface: error messages read in
   a red that keeps its contrast on light backgrounds, warnings in a darker
   amber, and "Exposed to agents", paused sync, the images marker in Retention
-  and the iPhone swipe actions in neutral grey. Red is left for Delete, access
-  denied and a secret's last minute.
+  and the iPhone swipe actions in neutral grey. Red is left for errors, Delete,
+  access denied and a secret's last minute.
 - On the Mac, the paste stack opens in the preview: numbered clips with the
   pasted ones checked and the next one marked, drag or VoiceOver actions to
   reorder and remove, Return to paste the next and esc to end the run.
