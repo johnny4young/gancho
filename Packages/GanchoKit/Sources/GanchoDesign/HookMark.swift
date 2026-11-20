@@ -5,7 +5,8 @@ import SwiftUI
 public struct HookMark: Shape {
     public init() {}
 
-    public func path(in rect: CGRect) -> Path {
+    /// Stroked once: only the fit to `rect` changes between calls.
+    private static let unitMark: Path = {
         var hook = Path()
         hook.move(to: CGPoint(x: 50, y: 32))
         hook.addLine(to: CGPoint(x: 50, y: 57))
@@ -17,9 +18,13 @@ public struct HookMark: Shape {
         mark.addPath(
             Path(ellipseIn: CGRect(x: 42, y: 16, width: 16, height: 16))
                 .strokedPath(StrokeStyle(lineWidth: 9)))
+        return mark
+    }()
+
+    public func path(in rect: CGRect) -> Path {
         let side = min(rect.width, rect.height)
         let scale = side / 84
-        return mark.applying(
+        return Self.unitMark.applying(
             CGAffineTransform(
                 translationX: rect.minX + (rect.width - side) / 2,
                 y: rect.minY + (rect.height - side) / 2

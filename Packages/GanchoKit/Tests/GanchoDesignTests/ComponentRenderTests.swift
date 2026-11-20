@@ -21,6 +21,23 @@
         return renderer.cgImage
     }
 
+    private func hasInk(_ image: CGImage) -> Bool {
+        let width = image.width
+        let height = image.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard
+                let context = CGContext(
+                    data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                    bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        return drawn && stride(from: 3, to: pixels.count, by: 4).contains { pixels[$0] > 0 }
+    }
+
     @Suite("Design components — render smoke (light/dark)")
     @MainActor
     struct ComponentRenderTests {
@@ -99,6 +116,23 @@
             let field = render(
                 SearchField("Search", text: .constant("query")), dark: dark)
             #expect((field?.width ?? 0) > 0)
+            let panelField = render(
+                SearchField("Search", text: .constant("query"), style: .bare, glyph: .mark),
+                dark: dark)
+            #expect((panelField?.width ?? 0) > 0)
+        }
+
+        @Test("The search field's hook mark draws ink and follows the panel text size")
+        func searchMark() throws {
+            for size in PanelTextSize.allCases {
+                let renderer = ImageRenderer(
+                    content: SearchFieldGlyph(symbolName: nil)
+                        .environment(\.panelTypeScale, size.scale))
+                renderer.scale = 1
+                let image = try #require(renderer.cgImage)
+                #expect(image.width == Int((16 * size.scale).rounded(.up)), "\(size)")
+                #expect(hasInk(image), "\(size)")
+            }
         }
 
         @Test("Key caps and the live dot render", arguments: [false, true])

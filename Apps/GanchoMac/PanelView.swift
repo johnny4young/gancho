@@ -637,7 +637,7 @@ struct PanelView: View {
         @Bindable var search = search
         return VStack(spacing: 0) {
             SearchField(
-                "Search your clipboard", text: $search.query, style: .bare,
+                "Search your clipboard", text: $search.query, style: .bare, glyph: .mark,
                 hidesPreviews: model.previewsHidden
             ) {
                 SearchTokenChips(search: search)
