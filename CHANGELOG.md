@@ -62,7 +62,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Transparency or Translucent background off) uses the new graphite surfaces.
 - On the Mac, the paste stack opens in the preview: numbered clips with the
   pasted ones checked and the next one marked, drag or VoiceOver actions to
-  reorder and remove, Return to paste the next and esc to end the run.
+  reorder and remove, Return to paste the next and esc to end the run. Its
+  rows show only the clip and its state, so titles have room, and the
+  position reads like 2/4 with the total in a quieter grey.
 - On the Mac, each copy costs Gancho far less work. Titles, search and board
   suggestions share one loaded language model instead of loading it for every
   clip, and the hidden history panel no longer redraws itself on every copy.

@@ -183,6 +183,8 @@ public struct ClipCard: View {
     let matchQuery: String?
     /// Off while Return acts elsewhere: the selected row keeps its ⌘N.
     let marksReturn: Bool
+    /// Off where the host shows the clip's state instead, e.g. a paste-stack row.
+    let showsSourceAndTime: Bool
     // Dynamic Type grows the tile on iOS; the panel's own scale on the Mac.
     @ScaledMetric(relativeTo: .body) private var baseTileSize: CGFloat = 34
     @Environment(\.panelTypeScale) private var typeScale
@@ -196,7 +198,8 @@ public struct ClipCard: View {
         shortcutNumber: Int? = nil, thumbnail: Image? = nil,
         selectionNamespace: Namespace.ID? = nil, isSelectionAnchor: Bool = true,
         currentDeviceName: String? = nil, sensitiveLifetime: TimeInterval? = nil,
-        matchQuery: String? = nil, marksReturn: Bool = true
+        matchQuery: String? = nil, marksReturn: Bool = true,
+        showsSourceAndTime: Bool = true
     ) {
         let protected = ClipSafePresentation.requiresMasking(item)
         let masking = ClipRowContent.Masking.for(item, previewsHidden: previewsHidden)
@@ -218,6 +221,7 @@ public struct ClipCard: View {
             ? nil : currentDeviceName.flatMap { Self.foreignDeviceName(of: item, current: $0) }
         self.matchQuery = Self.matchQuery(matchQuery, masking: masking)
         self.marksReturn = marksReturn
+        self.showsSourceAndTime = showsSourceAndTime
     }
 
     /// A masked row never marks a match: the mark would say what it hides.
@@ -499,7 +503,7 @@ public struct ClipCard: View {
     /// "Safari · 12 minutes ago", hidden in private mode. Minute-granular: it sits
     /// beside the preview, and a per-second timer would resize it every tick.
     @ViewBuilder private var sourceTimeLine: some View {
-        if masking != .hidden {
+        if masking != .hidden, showsSourceAndTime {
             HStack(spacing: 3) {
                 if let bundleID = item.sourceAppBundleID, !bundleID.isEmpty {
                     Text(SourceApp.fallbackName(forBundleID: bundleID))

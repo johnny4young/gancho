@@ -12,6 +12,9 @@ final class PasteStackRunUITests: XCTestCase {
         XCTAssertTrue(strip.appears(within: 15))
         strip.click()
 
+        XCTAssertTrue(stackView(in: app).appears(within: 5))
+        let position = app.staticTexts["paste-stack-position"].firstMatch
+        XCTAssertTrue(waitForText("1 of 2", of: position), "the run starts on the first entry")
         let rows = app.descendants(matching: .any).matching(identifier: "paste-stack-row")
         XCTAssertTrue(rows.firstMatch.appears(within: 5))
         XCTAssertEqual(rows.count, 2)
@@ -33,9 +36,36 @@ final class PasteStackRunUITests: XCTestCase {
         XCTAssertTrue(waitForValue("Pasted", of: rows.element(boundBy: 0)))
         XCTAssertEqual(rows.element(boundBy: 1).value as? String, "Next")
         XCTAssertEqual(rows.count, 2, "a pasted row stays in the run")
+        XCTAssertTrue(waitForText("2 of 2", of: position))
 
         app.buttons["paste-stack-reset"].firstMatch.click()
         XCTAssertTrue(waitForValue("Next", of: rows.element(boundBy: 0)))
+    }
+
+    @MainActor
+    func testLastDockButtonClosesTheStackAndEndsARun() throws {
+        let app = launchPanel(nonce: UUID().uuidString)
+        defer { app.terminate() }
+        let strip = app.buttons["paste-stack-strip"].firstMatch
+        XCTAssertTrue(strip.appears(within: 15))
+        strip.click()
+        let stack = stackView(in: app)
+        let end = app.buttons["paste-stack-end"].firstMatch
+        XCTAssertTrue(end.appears(within: 5))
+        XCTAssertEqual(end.label, "Close", "nothing to end before a run")
+        end.click()
+        XCTAssertTrue(stack.waitForNonexistence(timeout: 5), "Close leaves the stack view")
+        XCTAssertTrue(waitForLabel("BEGINSWITH", "Paste stack, 2 ", of: strip), strip.label)
+
+        // A skip starts the run; ending it drops what the run passed.
+        strip.click()
+        XCTAssertTrue(stack.appears(within: 5))
+        app.buttons["paste-stack-skip"].firstMatch.click()
+        XCTAssertTrue(waitForText("End run", of: end))
+        XCTAssertTrue(waitForLabel("CONTAINS", "2 of 2", of: strip), strip.label)
+        end.click()
+        XCTAssertTrue(stack.waitForNonexistence(timeout: 5), "End run leaves the stack view")
+        XCTAssertTrue(waitForLabel("BEGINSWITH", "Paste stack, 1 ", of: strip), strip.label)
     }
 
     @MainActor
@@ -62,6 +92,11 @@ final class PasteStackRunUITests: XCTestCase {
         XCTAssertTrue(position.waitForNonexistence(timeout: 5), "End run closes the strip")
     }
 
+    @MainActor
+    private func stackView(in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)["peek-paste-stack"].firstMatch
+    }
+
     /// macOS puts a static text's string in its label or its value.
     @MainActor
     private func text(of element: XCUIElement) -> String {
@@ -70,16 +105,27 @@ final class PasteStackRunUITests: XCTestCase {
 
     @MainActor
     private func waitForText(_ value: String, of element: XCUIElement) -> Bool {
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label == %@ OR value == %@", value, value),
-            object: element)
-        return XCTWaiter.wait(for: [expectation], timeout: 5) == .completed
+        wait(for: NSPredicate(format: "label == %@ OR value == %@", value, value), on: element)
+    }
+
+    /// `comparison` is an NSPredicate string operator such as CONTAINS.
+    @MainActor
+    private func waitForLabel(
+        _ comparison: String, _ text: String, of element: XCUIElement
+    ) -> Bool {
+        wait(for: NSPredicate(format: "label \(comparison) %@", text), on: element)
     }
 
     @MainActor
     private func waitForValue(_ value: String, of element: XCUIElement) -> Bool {
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "value == %@", value), object: element)
+        wait(for: NSPredicate(format: "value == %@", value), on: element)
+    }
+
+    /// Checks once before waiting: the expectation first samples after about a second.
+    @MainActor
+    private func wait(for predicate: NSPredicate, on element: XCUIElement) -> Bool {
+        if element.exists, predicate.evaluate(with: element) { return true }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter.wait(for: [expectation], timeout: 5) == .completed
     }
 
