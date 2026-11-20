@@ -34,7 +34,7 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   counts every board, and the keyboard's Up next clip is a card of its own.
 - iPhone Home lists clips as touch-size rows straight on the graphite surface,
   with hairlines between them instead of grouped cards. A row's app and age
-  ("6 min", "1 h") never truncate, and at the largest text sizes they move to
+  ("6 min", "1 hr") never truncate, and at the largest text sizes they move to
   their own line. Apps whose bundle id ends in a platform name, like Figma's
   desktop app, show their own name instead of "Desktop".
 - Settings, the menu-bar menu and the copy HUD follow the new look: serif pane

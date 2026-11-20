@@ -106,18 +106,24 @@ struct CaptureView: View {
         }
     }
 
-    /// Rows straight on the graphite, with hairlines only between rows.
+    /// Rows straight on the graphite, with hairlines only between rows. The
+    /// Ask row sets its own fill, so it stays outside the clear one.
     private var homeRows: some View {
-        listContent
-            .listRowBackground(Color.clear)
-            .listSectionSeparator(.hidden)
+        Group {
+            statusSections.listRowBackground(Color.clear)
+            askSection
+            historySections.listRowBackground(Color.clear)
+        }
+        .listSectionSeparator(.hidden)
     }
 
-    @ViewBuilder private var listContent: some View {
+    @ViewBuilder private var statusSections: some View {
         if model.storageIsEphemeral { StorageWarningSection() }
         syncStatusSection
         PasteboardSection(horizontalInset: Self.rowInset)
+    }
 
+    @ViewBuilder private var askSection: some View {
         if !model.query.isEmpty, model.askAvailable {
             Section {
                 askRow
@@ -126,7 +132,9 @@ struct CaptureView: View {
                             ? Color.clear : GanchoTokens.Palette.selectionWash)
             }
         }
+    }
 
+    @ViewBuilder private var historySections: some View {
         if model.visibleClips.isEmpty {
             Section {
                 emptyState

@@ -519,8 +519,9 @@ public struct ClipCard: View {
             sensitiveLifetime: sensitiveLifetime)
     }
 
-    /// "Safari · 12 minutes ago", hidden in private mode. Minute-granular: it sits
-    /// beside the preview, and a per-second timer would resize it every tick.
+    /// "Safari · 12 minutes ago" ("Safari · 12 min" on iOS), hidden in private mode.
+    /// Minute-granular: it sits beside the preview, and a per-second timer would
+    /// resize it every tick.
     @ViewBuilder private var sourceTimeLine: some View {
         if masking != .hidden, showsSourceAndTime {
             HStack(spacing: 3) {
@@ -533,8 +534,6 @@ public struct ClipCard: View {
             .panelFont(.caption2)
             .foregroundStyle(GanchoTokens.Palette.ink3)
             .lineLimit(1)
-            // A touch row truncates its content first, never source · time.
-            .fixedSize(horizontal: Self.isTouchRow && !stacksMeta, vertical: false)
         }
     }
 
@@ -543,6 +542,8 @@ public struct ClipCard: View {
             TimelineView(.everyMinute) { context in
                 Text(verbatim: Self.shortAge(since: item.createdAt, now: context.date))
             }
+            // Short enough to never truncate; a long app name gives way instead.
+            .fixedSize()
         #else
             Text(.currentDate, format: .reference(to: item.createdAt, maxFieldCount: 1))
         #endif
