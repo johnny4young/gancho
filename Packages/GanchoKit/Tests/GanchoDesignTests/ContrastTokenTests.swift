@@ -321,6 +321,16 @@ struct ContrastTokenTests {
         let ink = ContrastingForeground.ink(on: fill, scheme: .light)
         #expect(Contrast.ratio(ink, fill) >= Contrast.text)
         #expect(ContrastingForeground.scheme(on: fill) == scheme)
+        #expect(Contrast.luminance(ink) < 0.5 ? scheme == .light : scheme == .dark)
+    }
+
+    @Test("A lime hero keeps a light bar, matching its dark ink", arguments: appearances)
+    func limeHeroChrome(scheme: ColorScheme) {
+        let lime = GanchoTokens.ColorPair.accent.resolved(scheme)
+        #expect(ContrastingForeground.scheme(on: lime) == .light)
+        #expect(
+            Contrast.ratio(.init(colorSpace: .sRGB, red: 0, green: 0, blue: 0), lime)
+                >= Contrast.text)
     }
 
     @Test("Stepping keeps the hue and moves lightness the requested way")

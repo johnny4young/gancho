@@ -67,7 +67,7 @@ extension ClipDetailView {
                         Text(verbatim: text)
                             .font(dataFont(15, .callout))
                             .foregroundStyle(GanchoTokens.Palette.ink)
-                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 0)
                         Image(systemName: "square.on.square")
                             .foregroundStyle(GanchoTokens.Palette.ink3)

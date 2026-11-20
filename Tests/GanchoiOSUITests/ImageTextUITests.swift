@@ -10,6 +10,10 @@ final class ImageTextUITests: XCTestCase {
         let copyImage = app.buttons["detail-copy"].firstMatch
         XCTAssertTrue(copyImage.appears(within: 5))
         XCTAssertEqual(copyImage.label, "Copy image")
+        XCTAssertTrue(app.buttons["detail-board"].firstMatch.exists)
+        XCTAssertFalse(
+            app.buttons["detail-save-snippet"].firstMatch.exists,
+            "an image can't become a snippet, so it shows no Snippet")
         XCTAssertTrue(
             app.descendants(matching: .any)["detail-ocr-region-4"].firstMatch
                 .appears(within: 60), "recognition never finished")
