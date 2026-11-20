@@ -109,6 +109,10 @@ struct PanelView: View {
     @State private var boardPickerReturnFocus: PanelFocus = .search
     /// An inline editor in the peek owns the keyboard.
     @State private var peekIsEditingInline = false
+    /// Measured outside the peek's per-clip identity, so a new selection
+    /// starts at the right density.
+    @State private var peekIsShort = false
+    nonisolated private static let shortPeekHeight: CGFloat = 500
     /// ⌘↑/⌘↓ search recall: the loaded recall list (newest first), the
     /// cursor into it, and the entry we last applied — so `onChange` can tell
     /// "user typed" (ends the session) from "we recalled" (keeps it).
@@ -1686,6 +1690,7 @@ struct PanelView: View {
                 isEditingInline: $peekIsEditingInline,
                 transformRequest: transformRequest,
                 revealRequest: revealRequest,
+                isShort: peekIsShort,
                 addToBoard: presentBoardPicker,
                 addToLastBoard: { model.assignToLastBoard(search.selectedItems) },
                 showContext: peekShowContext
@@ -1697,6 +1702,11 @@ struct PanelView: View {
             .id(selected.id)
         }
         .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
+        .onGeometryChange(for: Bool.self) {
+            $0.size.height < Self.shortPeekHeight
+        } action: {
+            peekIsShort = $0
+        }
         // Only behind the peek: the list stays on the neutral surface.
         .background {
             ambientWash

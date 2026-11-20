@@ -28,6 +28,9 @@ struct ClipPeek: View {
     @Binding var isEditingInline: Bool
     /// Bumped by the panel's ⌘K.
     let transformRequest: Int
+    /// The Compact and Standard presets: the link hero tightens so its paste
+    /// rows and board suggestion sit above the dock without scrolling.
+    let isShort: Bool
     /// Bumped by the panel's ⌘R.
     let revealRequest: Int
     /// Shared with the list: the peek owns the keyboard when this equals `.peek`
@@ -92,7 +95,7 @@ struct ClipPeek: View {
     init(
         item: ClipItem, text: String, isTextEditable: Bool,
         focus: FocusState<PanelFocus?>.Binding, isEditingInline: Binding<Bool>,
-        transformRequest: Int = 0, revealRequest: Int = 0,
+        transformRequest: Int = 0, revealRequest: Int = 0, isShort: Bool = false,
         addToBoard: @escaping () -> Void, addToLastBoard: @escaping () -> Void,
         showContext: (() -> Void)? = nil
     ) {
@@ -103,6 +106,7 @@ struct ClipPeek: View {
         _isEditingInline = isEditingInline
         self.transformRequest = transformRequest
         self.revealRequest = revealRequest
+        self.isShort = isShort
         self.addToBoard = addToBoard
         self.addToLastBoard = addToLastBoard
         self.showContext = showContext
@@ -462,7 +466,7 @@ extension ClipPeek {
                     let markdown = link.markdownLink(title: presentedTitle)
                     PeekLinkHero(
                         parts: link, anatomy: LinkAnatomy(text: link.text), markdown: markdown,
-                        copyMarkdown: copyMarkdownLink)
+                        isCompact: isShort, copyMarkdown: copyMarkdownLink)
                 }
                 if let color = colorValue, !isEditingText {
                     PeekColorHero(color: color) { value, label in
@@ -471,7 +475,8 @@ extension ClipPeek {
                 }
                 heroBody
             }
-            .padding(link == nil ? GanchoTokens.Spacing.sm : GanchoTokens.Spacing.md)
+            .padding(
+                link == nil || isShort ? GanchoTokens.Spacing.sm : GanchoTokens.Spacing.md)
             if let suggestedBoard {
                 suggestionRow(suggestedBoard)
                     .transition(GanchoMotion.replace(reduceMotion: reduceMotion))

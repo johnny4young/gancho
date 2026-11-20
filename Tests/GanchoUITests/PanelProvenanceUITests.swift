@@ -55,6 +55,36 @@ final class PanelProvenanceUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["peek-pastes-as"].firstMatch.exists)
     }
 
+    /// At the Standard preset the link's anatomy reads on one line and every
+    /// paste row sits above the dock without scrolling.
+    @MainActor
+    func testLinkPeekFitsAboveTheDockAtTheStandardPreset() throws {
+        let app = launch(
+            seeded: true, extra: ["-panel-content-width", "864", "-panel-content-height", "540"])
+        defer { app.terminate() }
+        let link = row("example.com", in: app)
+        XCTAssertTrue(link.appears(within: 15))
+        link.click()
+        let dock = app.descendants(matching: .any)["peek-dock"].firstMatch
+        XCTAssertTrue(dock.appears(within: 5))
+        let host = app.descendants(matching: .any)["peek-link-part-host"].firstMatch
+        XCTAssertTrue(host.exists)
+        for part in ["scheme", "path", "query", "fragment"] {
+            let segment = app.descendants(matching: .any)["peek-link-part-\(part)"].firstMatch
+            XCTAssertTrue(segment.exists, part)
+            XCTAssertEqual(segment.frame.minY, host.frame.minY, accuracy: 1, part)
+        }
+        // A middle-truncated part still reads in full to VoiceOver.
+        XCTAssertEqual(
+            app.descendants(matching: .any)["peek-link-part-query"].firstMatch.value as? String,
+            "?q=a%26b")
+        for id in ["peek-pastes-as-return", "peek-pastes-as-plain", "peek-pastes-as-markdown"] {
+            let pasteRow = app.descendants(matching: .any)[id].firstMatch
+            XCTAssertTrue(pasteRow.exists, id)
+            XCTAssertLessThanOrEqual(pasteRow.frame.maxY, dock.frame.minY, id)
+        }
+    }
+
     @MainActor
     func testMaskedClipHidesProvenance() throws {
         let app = launch(seeded: true)
