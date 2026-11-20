@@ -59,7 +59,7 @@ struct PeekImageStage: View {
                 Text("Regions").tag(true)
                 Text("Image only").tag(false)
             }
-            .pickerStyle(.segmented)
+            .ganchoSegmented()
             .labelsHidden()
             .fixedSize()
             .accessibilityIdentifier("peek-region-toggle")

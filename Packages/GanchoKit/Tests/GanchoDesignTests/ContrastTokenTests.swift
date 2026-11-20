@@ -23,9 +23,53 @@ struct ContrastTokenTests {
 
     /// A translucent token as it lands on the panel, or on a card on the panel.
     private func surfaces(_ scheme: ColorScheme) -> [Color.Resolved] {
-        let panel = GanchoTokens.ColorPair.panel.resolved(scheme)
-        let card = Contrast.composited(GanchoTokens.ColorPair.card.resolved(scheme), over: panel)
-        return [panel, card]
+        [
+            GanchoTokens.ColorPair.panel.resolved(scheme),
+            GanchoTokens.ColorPair.cardOnPanel.resolved(scheme)
+        ]
+    }
+
+    private func bytes(_ color: Color.Resolved) -> [Int] {
+        [color.red, color.green, color.blue].map { Int(($0 * 255).rounded()) }
+    }
+
+    @Test("ReadableInk's assumed surface bounds the panel and the card", arguments: appearances)
+    func readableInkBoundsTheSurfaces(scheme: ColorScheme) {
+        let bound = Contrast.luminance(ReadableInk.assumedSurface(dark: scheme == .dark))
+        for surface in surfaces(scheme) {
+            let luminance = Contrast.luminance(surface)
+            #expect(scheme == .dark ? luminance <= bound : luminance >= bound)
+        }
+    }
+
+    #if os(macOS)
+        @MainActor
+        @Test("The Mac's opaque panel and card are the graphite pairs", arguments: appearances)
+        func macSurfacesAreTheGraphitePairs(scheme: ColorScheme) {
+            let environment = environment(scheme)
+            let pairs: [(GanchoTokens.SurfaceLevel, GanchoTokens.ColorPair)] = [
+                (.panel, .panel), (.card, .cardOnPanel)
+            ]
+            for (level, pair) in pairs {
+                let surface = GanchoTokens.Palette.surface(level).resolve(in: environment)
+                #expect(bytes(surface) == bytes(pair.resolved(scheme)), "\(level) \(scheme)")
+            }
+        }
+    #endif
+
+    @MainActor
+    @Test(
+        "A segmented picker's selected segment reads in both appearances", arguments: appearances)
+    func selectedSegment(scheme: ColorScheme) {
+        let environment = environment(scheme)
+        let fill = GanchoTokens.Palette.inverseFill.resolve(in: environment)
+        // As AppKit renders it (pinned by the Library and image-peek snapshots):
+        // a black label on the light fill, white on the dark one.
+        let label = resolved(scheme == .dark ? 0x000000 : 0xFFFFFF, environment)
+        #expect(Contrast.ratio(label, fill) >= Contrast.text)
+        #expect(
+            Contrast.ratio(GanchoTokens.Palette.inverseText.resolve(in: environment), fill)
+                >= Contrast.text)
     }
 
     @Test(
@@ -143,9 +187,9 @@ struct ContrastTokenTests {
     func dangerText(scheme: ColorScheme) {
         let environment = environment(scheme)
         let danger = GanchoTokens.Palette.danger.resolve(in: environment)
-        let surfaces = scheme == .dark ? [0x1C1C1E, 0x2C2C2E] : [0xFFFFFF, 0xF5F5F7]
-        for surface in surfaces {
-            #expect(Contrast.ratio(danger, resolved(surface, environment)) >= Contrast.text)
+        let system = scheme == .dark ? [0x1C1C1E, 0x2C2C2E] : [0xFFFFFF, 0xF5F5F7]
+        for surface in surfaces(scheme) + system.map({ resolved($0, environment) }) {
+            #expect(Contrast.ratio(danger, surface) >= Contrast.text)
         }
     }
 
@@ -172,9 +216,9 @@ struct ContrastTokenTests {
                     .sRGB, red: Double((hex >> 16) & 0xFF) / 255,
                     green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
             ).resolve(in: environment)
-            let surfaces = scheme == .dark ? [0x1C1C1E, 0x2C2C2E] : [0xFFFFFF, 0xE6E6E8]
-            for surface in surfaces {
-                #expect(Contrast.ratio(ink, resolved(surface, environment)) >= Contrast.text)
+            let system = scheme == .dark ? [0x1C1C1E, 0x2C2C2E] : [0xFFFFFF, 0xE6E6E8]
+            for surface in surfaces(scheme) + system.map({ resolved($0, environment) }) {
+                #expect(Contrast.ratio(ink, surface) >= Contrast.text)
             }
         }
     }

@@ -49,6 +49,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   amber, and "Exposed to agents", paused sync, the images marker in Retention
   and the iPhone swipe actions in neutral grey. Red is left for errors, Delete,
   access denied and a secret's last minute.
+- On the Mac, segmented controls (Regions / Image only, Grid / List and the
+  General settings pickers) mark the selected option with a solid fill whose
+  label stays readable in dark mode, and the opaque history panel (Reduce
+  Transparency or Translucent background off) uses the new graphite surfaces.
 - On the Mac, the paste stack opens in the preview: numbered clips with the
   pasted ones checked and the next one marked, drag or VoiceOver actions to
   reorder and remove, Return to paste the next and esc to end the run.

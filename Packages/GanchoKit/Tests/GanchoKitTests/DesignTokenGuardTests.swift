@@ -54,6 +54,19 @@ struct DesignTokenGuardTests {
         #expect(offenders.isEmpty, "use Palette.danger, warningInk or a neutral ink: \(offenders)")
     }
 
+    /// The system segmented style puts a white label on the control tint.
+    @Test func appsUseTheGanchoSegmentedStyle() throws {
+        let pattern = #"pickerStyle\(\s*(\.segmented|SegmentedPickerStyle\(\))"#
+        let root = LocalizationTests.repoRoot
+        let offenders =
+            try Self.matches(of: pattern, in: root.appendingPathComponent("Apps/GanchoMac"))
+            + Self.matches(
+                of: pattern,
+                in: root.appendingPathComponent("Packages/GanchoKit/Sources/GanchoDesign"),
+                excluding: ["SelectionStyles.swift"])
+        #expect(offenders.isEmpty, "use ganchoSegmented(): \(offenders)")
+    }
+
     /// Where each accent-bearing component may appear. The accent means
     /// "Return does this", so a new entry is a design decision, not a fix.
     static let accentBudget: [(pattern: String, files: Set<String>)] = [
