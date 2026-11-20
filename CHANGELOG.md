@@ -33,6 +33,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   (scheme, host, path, query, fragment), decodes each parameter, and shows what
   Return and ⌥Return paste and the Markdown link you can copy. The preview's
   header is one caption line over a larger title, with a star for Favorites.
+  The URL's parts stay on one line, and at the Standard and Compact panel
+  sizes the paste rows show without scrolling.
 - On the Mac, boards and type filters share one row with clip counts, rows mark
   the words you searched for, and the preview's actions are one line: Paste as
   the single filled button, then Plain, Pin, Board and Stack with their keys,
@@ -72,6 +74,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- On the Mac, VoiceOver reads each decoded link parameter and URL part with
+  its value, not only its name.
 - Developer line actions now recognize CRLF and Unicode newlines: sorting,
   deduplicating and reversing normalize line endings, and Count stats counts
   every logical line.

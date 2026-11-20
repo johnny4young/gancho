@@ -21,6 +21,13 @@ final class PeekDockUITests: XCTestCase {
             dock.buttons["preview-paste"].firstMatch.isHittable, "Paste must be a native button")
         let edit = app.buttons["preview-edit-content"].firstMatch
         XCTAssertTrue(edit.appears(within: 5))
+        // A short peek can leave Edit under the dock; scroll it clear first.
+        let hero = app.descendants(matching: .any)["peek-hero"].firstMatch
+        for _ in 0..<3 where edit.frame.maxY > dock.frame.minY {
+            hero.scroll(byDeltaX: 0, deltaY: -200)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        XCTAssertLessThanOrEqual(edit.frame.maxY, dock.frame.minY)
         edit.click()
         let editor = app.textViews["preview-content-field"].firstMatch
         XCTAssertTrue(editor.appears(within: 5))
