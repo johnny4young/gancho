@@ -42,6 +42,18 @@ struct DesignTokenGuardTests {
         #expect(offenders.isEmpty, "use an ink token, warningInk or ReadableInk: \(offenders)")
     }
 
+    /// Indigo, amber, agent blue and kind tints are retired; red is a token kept
+    /// for errors, Delete, denied and a secret's last minute. A destructive
+    /// button's role draws its own red.
+    @Test func appsDoNotUseRetiredSystemHues() throws {
+        let hues = #"(Color)?\.(red|orange|blue|indigo|purple|yellow|teal|pink|mint|cyan|brown)\b"#
+        let pattern =
+            #"\.(foregroundStyle|foregroundColor|tint|fill|background|stroke|strokeBorder)\([^)]*?"#
+            + #"(?<![\w)])"# + hues + #"|\btint:\s*"# + hues
+        let offenders = try Self.matches(of: pattern, excluding: ["GanchoWidgets"])
+        #expect(offenders.isEmpty, "use Palette.danger, warningInk or a neutral ink: \(offenders)")
+    }
+
     /// Where each accent-bearing component may appear. The accent means
     /// "Return does this", so a new entry is a design decision, not a fix.
     static let accentBudget: [(pattern: String, files: Set<String>)] = [

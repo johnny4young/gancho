@@ -19,7 +19,11 @@ struct AgentExposedBadge: View {
                 .font(.caption.weight(.semibold))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .ganchoTintedPill(GanchoTokens.Palette.agent, wash: 0.15)
+                .foregroundStyle(GanchoTokens.Palette.ink2)
+                .overlay(
+                    Capsule().strokeBorder(
+                        GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
+                )
                 .fixedSize()
         }
     }

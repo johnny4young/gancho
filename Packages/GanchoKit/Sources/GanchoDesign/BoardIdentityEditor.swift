@@ -17,7 +17,7 @@ public struct BoardIdentityMark: View {
         if board.isSystem {
             Image(systemName: board.sfSymbol)
                 .font(.system(size: size * 0.82, weight: .semibold))
-                .foregroundStyle(GanchoTokens.Palette.warning)
+                .foregroundStyle(BoardColors.color(for: board))
                 .frame(width: size, height: size)
                 .accessibilityHidden(true)
         } else if let token = BoardIdentityEmoji.canonicalToken(board.emoji) {

@@ -56,10 +56,12 @@ struct ManualOCRReview: View {
                         ? "The source clip is no longer available. Copy the text you need before closing."
                         : "The screen region is no longer available. Copy the text you need before closing."
                 )
-                .foregroundStyle(.red).accessibilityIdentifier("ocr-review-error")
+                .foregroundStyle(GanchoTokens.Palette.danger).accessibilityIdentifier(
+                    "ocr-review-error")
             } else if failed {
                 Text("This action couldn’t be completed. Check the source and try again.")
-                    .foregroundStyle(.red).accessibilityIdentifier("ocr-review-error")
+                    .foregroundStyle(GanchoTokens.Palette.danger).accessibilityIdentifier(
+                        "ocr-review-error")
             }
             HStack {
                 Button("Close") { model.manualOCRWindow.close() }

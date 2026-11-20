@@ -19,7 +19,7 @@ extension CaptureView {
                 Text("\(Text("Waiting to sync")) · \(String(count))"), "arrow.up.circle")
         case .paused(let cause):
             syncRow(
-                Text(causeText(cause)), "pause.circle", tint: GanchoTokens.Palette.warning,
+                Text(causeText(cause)), "pause.circle", tint: GanchoTokens.Palette.ink2,
                 retry: true)
         case .failed(let cause):
             syncRow(
@@ -36,7 +36,7 @@ extension CaptureView {
                 Label {
                     text
                 } icon: {
-                    // "Synced" stays neutral; paused/failed warn — like macOS.
+                    // Synced and paused stay neutral, failed is red; the glyph tells them apart.
                     Image(systemName: symbol).foregroundStyle(ReadableInk(base: tint))
                 }
                 .font(.footnote)
