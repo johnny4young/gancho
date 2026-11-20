@@ -18,6 +18,8 @@ extension DesignV4SnapshotUITests {
                 "-force-free-tier", "-suppress-paused-notice-for-ui-test",
                 "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
                 "-suppress-storage-notice-for-ui-test", "-ui-test-paste-target", "Terminal",
+                // A pinned size: an unpinned panel opens at one of two heights.
+                "-panel-content-width", "864", "-panel-content-height", "480",
                 "-AppleLanguages", "(en)"
             ]
         app.launch()

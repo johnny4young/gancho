@@ -3,8 +3,9 @@ import GanchoDesign
 import GanchoKit
 import SwiftUI
 
-/// The dial's side; its ring sits 7.5 pt inside.
+/// The dial's side, and the compact side a narrow peek uses; the ring sits 10% inside.
 private let dialSide: CGFloat = 150
+private let compactDialSide: CGFloat = 108
 
 /// A secret's stage in the peek: its lifetime as a dial, then the stored mask
 /// (or the revealed text), its actions and what never happens to it.
@@ -20,12 +21,8 @@ struct PeekSecretHero<Actions: View>: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
         let wideWidth = (dialSide + 20 + 2 * 20 + 180) * typeScale
-        let layout =
-            isWide
-            ? AnyLayout(HStackLayout(alignment: .center, spacing: 20 * typeScale))
-            : AnyLayout(VStackLayout(alignment: .center, spacing: GanchoTokens.Spacing.sm))
-        layout {
-            if let countdown { dial(countdown) }
+        HStack(alignment: .center, spacing: 20 * typeScale) {
+            if let countdown { dial(countdown, side: isWide ? dialSide : compactDialSide) }
             details.frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(20 * typeScale)
@@ -35,7 +32,7 @@ struct PeekSecretHero<Actions: View>: View {
             shape.strokeBorder(
                 GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
         )
-        // Narrower than dial, gap, padding and a verb column, the dial stacks above the token.
+        // Narrower than dial, gap, padding and a verb column, the dial shrinks.
         .onGeometryChange(for: Bool.self) {
             $0.size.width >= wideWidth
         } action: {
@@ -65,27 +62,33 @@ struct PeekSecretHero<Actions: View>: View {
     }
 
     /// One element for VoiceOver: the clock it shows, in a sentence.
-    private func dial(_ countdown: Countdown) -> some View {
-        TimelineView(.periodic(from: countdown.deadline, by: 1)) { context in
-            let clock = countdown.clock(at: context.date)
-            TimeRing(countdown, lineWidth: 3) {
-                VStack(spacing: 6 * typeScale) {
-                    Text(verbatim: clock)
-                        .panelFont(size: 30, .medium, design: .monospaced)
-                        .tracking(-1.2 * typeScale)
-                        .foregroundStyle(
-                            countdown.isUrgent(at: context.date)
-                                ? GanchoTokens.Palette.danger : GanchoTokens.Palette.ink)
-                    Text("Self-destructs").peekCaps(size: 8.5)
+    private func dial(_ countdown: Countdown, side: CGFloat) -> some View {
+        let share = side / dialSide
+        return
+            TimelineView(.periodic(from: countdown.deadline, by: 1)) { context in
+                let clock = countdown.clock(at: context.date)
+                TimeRing(countdown, lineWidth: 3) {
+                    VStack(spacing: 6 * share * typeScale) {
+                        Text(verbatim: clock)
+                            .panelFont(size: 30 * share, .medium, design: .monospaced)
+                            .tracking(-1.2 * share * typeScale)
+                            .foregroundStyle(
+                                countdown.isUrgent(at: context.date)
+                                    ? GanchoTokens.Palette.danger : GanchoTokens.Palette.ink)
+                        Text("Self-destructs").peekCaps(size: 8.5)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    .padding(.horizontal, 10 * typeScale)
                 }
+                // The compact dial has no room for marks beside its caption.
+                .background { if side == dialSide { MinuteTickMarks(lineWidth: 3) } }
+                .frame(width: side * 0.9 * typeScale, height: side * 0.9 * typeScale)
+                .padding(side * 0.05 * typeScale)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text("Self-destructs in \(clock)"))
+                .accessibilityIdentifier("peek-secret-countdown")
             }
-            .background(MinuteTickMarks(lineWidth: 3))
-            .frame(width: 135 * typeScale, height: 135 * typeScale)
-            .padding((dialSide - 135) / 2 * typeScale)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text("Self-destructs in \(clock)"))
-            .accessibilityIdentifier("peek-secret-countdown")
-        }
     }
 
     private var token: some View {

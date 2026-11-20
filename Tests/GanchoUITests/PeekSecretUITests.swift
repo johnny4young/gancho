@@ -46,6 +46,7 @@ final class PeekSecretUITests: XCTestCase {
             app.descendants(matching: .any)["peek-private-mode"].firstMatch
                 .appears(within: 5))
         let kindOnly = app.descendants(matching: .any)["peek-kind-only"].firstMatch
+        XCTAssertTrue(kindOnly.appears(within: 5))
         XCTAssertEqual(
             text(of: kindOnly).lowercased(), "kind only",
             "the caption says the kind is all it shows")
