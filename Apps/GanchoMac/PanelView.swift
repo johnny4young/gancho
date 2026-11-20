@@ -195,6 +195,8 @@ struct PanelView: View {
             // ⌘R shows the selected secret for its window, or hides it again.
             Button("") { revealRequest += 1 }
                 .keyboardShortcut("r", modifiers: .command)
+            Button("") { GanchoMenuBarCommand.settings.perform(on: model) }
+                .keyboardShortcut(",", modifiers: .command)
             ToastUndoShortcut()
         }
         // A field being edited owns ⌘V and friends; these would act on the list behind it.
@@ -945,8 +947,12 @@ struct PanelView: View {
             awaitsFirstCopy: PanelFirstRunStage.awaitsFirstCopy(
                 historyEmpty: historyIsEmpty, narrowed: isNarrowed),
             alternativeHint: bestAlternative?.alternative.footerHint,
-            offersEyedropper: offersEyedropper && !stackIsShown,
-            actionPanelIsOpen: peekActionPanelIsOpen,
+            offersEyedropper: offersEyedropper,
+            state: .resolve(
+                actionPanelIsOpen: peekActionPanelIsOpen, stackIsOpen: stackIsShown,
+                historyEmpty: historyIsEmpty, narrowed: isNarrowed,
+                listIsEmpty: search.filtered.isEmpty && !search.isSearching
+                    && search.searchFailure == nil),
             stackIsOpen: stackBinding,
             showKeyboardShortcuts: { toggleKeyboardShortcuts() }
         )

@@ -19,6 +19,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   opens while a transform runs too: the clip's verbs work, and new transforms
   wait until the running one finishes. While it is open, the footer shows its
   keys.
+- The Mac history panel's footer shows only the keys that work right now: the
+  paste stack's keys while it is open, and no navigate or numbered-paste keys
+  when nothing is listed. An empty history offers ⌘, for Settings, which now
+  opens them from the panel.
 - Rows show the clip itself: a link leads with its site, a color is its
   swatch, code keeps its typeface with quiet tints, an image is its thumbnail,
   and a secret shows its mask inside a ring that counts down the time it has

@@ -180,6 +180,21 @@ final class PanelProvenanceUITests: XCTestCase {
     }
 
     @MainActor
+    func testEmptyFooterOffersSettingsAndCommandCommaOpensThem() throws {
+        let app = launch(seeded: false)
+        defer { app.terminate() }
+        let settingsHint = app.staticTexts["panel-hint-settings"].firstMatch
+        XCTAssertTrue(settingsHint.appears(within: 15))
+        XCTAssertTrue(app.buttons["panel-shortcuts-button"].firstMatch.exists)
+        XCTAssertFalse(
+            app.staticTexts["panel-hint-paste-nth"].firstMatch.exists, "nothing to paste")
+        XCTAssertFalse(
+            app.staticTexts["panel-hint-navigate"].firstMatch.exists, "nothing to pick")
+        app.typeKey(",", modifierFlags: .command)
+        XCTAssertTrue(app.buttons["settings-tab-general"].firstMatch.appears(within: 5))
+    }
+
+    @MainActor
     func testLessonStaysGoneOnceAPasteHasLanded() throws {
         // A real number in the argument domain, as the paste-back stamp stores.
         let app = launch(seeded: false, extra: ["-first-pasteback-at", "<real>1</real>"])

@@ -13,6 +13,10 @@ final class PasteStackRunUITests: XCTestCase {
         strip.click()
 
         XCTAssertTrue(stackView(in: app).appears(within: 5))
+        XCTAssertTrue(app.staticTexts["panel-hint-add-to-stack"].firstMatch.exists)
+        XCTAssertFalse(
+            app.staticTexts["panel-hint-paste-nth"].firstMatch.exists,
+            "the footer shows the stack's keys")
         let position = app.staticTexts["paste-stack-position"].firstMatch
         XCTAssertTrue(waitForText("1 of 2", of: position), "the run starts on the first entry")
         let rows = app.descendants(matching: .any).matching(identifier: "paste-stack-row")

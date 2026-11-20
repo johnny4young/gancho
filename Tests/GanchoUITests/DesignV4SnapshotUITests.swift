@@ -240,7 +240,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
             // The board's panel size; unpinned, the window alternates between two heights.
             arguments += [
                 "-start-capture-paused", "-ui-test-show-ask", "-panel-content-width", "864",
-                "-panel-content-height", "540"
+                "-panel-content-height", "480"
             ]
         }
         app.launchArguments = arguments
@@ -302,7 +302,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
             "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
             "-suppress-storage-notice-for-ui-test", "-AppleLanguages", "(en)",
             "-appearance", appearance, "-ui-test-snapshot-dir", renders.path,
-            "-panel-content-width", "864", "-panel-content-height", "540",
+            "-panel-content-width", "864", "-panel-content-height", "480",
             // Pin the default ⇧⌘V so the baseline ignores this Mac's recorded
             // shortcut; quoted so the argument domain keeps it a string.
             "-KeyboardShortcuts_toggle-panel", #""{\"carbonKeyCode\":9,\"carbonModifiers\":768}""#,
