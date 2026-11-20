@@ -135,10 +135,11 @@ extension XCUIElement {
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
-    /// Polls until the element's label reads `label`, checking once up front.
+    /// Polls until the element's label reads `label`, checking once up front
+    /// (only when it exists: reading `label` on a missing element fails the test).
     @MainActor
     func waitForLabel(_ label: String, timeout: TimeInterval = 5) -> Bool {
-        if self.label == label { return true }
+        if exists, self.label == label { return true }
         let predicate = NSPredicate(format: "label == %@", label)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: self)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed

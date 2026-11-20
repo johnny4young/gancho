@@ -106,10 +106,11 @@ final class LibraryBrowseUITests: XCTestCase {
             mix, reads: "Kinds: 2 Images, 1 Links, 1 Code, 1 Colors, 1 Secrets", sumsTo: count)
         XCTAssertFalse(library.descendants(matching: .any)["sync-status"].exists)
 
-        library.staticTexts.matching(
+        let work = library.staticTexts.matching(
             NSPredicate(format: "identifier BEGINSWITH 'library-board-' AND value == 'Work'")
-        )
-        .firstMatch.click()
+        ).firstMatch
+        XCTAssertTrue(work.appears(within: 5))
+        work.click()
         waitForCards(1, in: library)
         XCTAssertTrue(title.waitForLabel("Work"))
         try assertKindMix(mix, reads: "Kinds: 1 Links", sumsTo: count)
@@ -150,10 +151,14 @@ final class LibraryBrowseUITests: XCTestCase {
         let leadingCount = { (text: Substring) in
             try XCTUnwrap(Int(text.prefix(while: \.isNumber)), file: file, line: line)
         }
-        let total = try leadingCount(Substring(count.value as? String ?? ""))
         let sum = try mix.label.dropFirst("Kinds: ".count).split(separator: ", ")
             .map(leadingCount).reduce(0, +)
-        XCTAssertEqual(sum, total, mix.label, file: file, line: line)
+        // The header's count loads apart from the mix, so poll instead of sampling once.
+        let counted = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value BEGINSWITH %@", "\(sum) "), object: count)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [counted], timeout: 5), .completed,
+            "\(mix.label) vs \(count.value as? String ?? "")", file: file, line: line)
     }
 
     /// Pinned stays first; inside a date group Oldest reverses capture order.
