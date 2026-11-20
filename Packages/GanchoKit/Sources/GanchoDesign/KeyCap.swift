@@ -40,6 +40,11 @@ public struct KeyCap: View {
     }
 
     public var body: some View {
+        // The shelf sits below the key, so a tile reserves its height.
+        key.padding(.bottom, size == .tile ? 2 * scale : 0)
+    }
+
+    @ViewBuilder private var key: some View {
         let isTile = size == .tile
         switch fill {
         case .neutral:

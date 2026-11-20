@@ -41,9 +41,12 @@ public enum ClipMatchHighlight {
         let string = text as NSString
         let haystack = NSRange(location: 0, length: min(string.length, patternHaystackLimit))
         // Widened to whole characters: `.` can match half of an emoji.
-        let found = regex.matches(in: text, range: haystack)
-            .filter { $0.range.length > 0 }
-            .compactMap { Range(string.rangeOfComposedCharacterSequences(for: $0.range), in: text) }
+        // The cut is not the end of the text: `$` and `\b` must not match at it.
+        let found = regex.matches(
+            in: text, options: [.withoutAnchoringBounds, .withTransparentBounds], range: haystack
+        )
+        .filter { $0.range.length > 0 }
+        .compactMap { Range(string.rangeOfComposedCharacterSequences(for: $0.range), in: text) }
         return merged(found)
     }
 

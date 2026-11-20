@@ -74,12 +74,11 @@ final class SearchTokensUITests: XCTestCase {
 
         try typeTextReliably("source sample", into: field, in: app)
         XCTAssertTrue(waitForRows(1, in: app))
-        // One combined element: its value reads "Results, · , Exact, 1".
-        let header = app.staticTexts.matching(
-            NSPredicate(
-                format: "value BEGINSWITH[c] %@ AND value CONTAINS[c] %@", "Results", "Exact")
-        ).firstMatch
-        XCTAssertTrue(header.exists, "the results header names the mode")
+        let header = app.descendants(matching: .any)["results-header"].firstMatch
+        XCTAssertTrue(header.exists)
+        XCTAssertTrue(
+            AccessibleValue.text(of: header).localizedCaseInsensitiveContains("Exact"),
+            "the results header names the mode")
 
         field.typeKey("s", modifierFlags: [.command, .shift])
         XCTAssertTrue(

@@ -62,6 +62,8 @@ struct ClipMatchHighlightTests {
         let text = String(repeating: "a", count: limit) + "b"
         #expect(patternMatches("a+b", in: text).isEmpty)
         #expect(patternMatches("a+", in: text) == [String(repeating: "a", count: limit)])
+        // The cut is not the end of the text.
+        #expect(patternMatches("a$", in: text).isEmpty)
     }
 
     @Test("A pattern's mark never splits a character")
@@ -107,7 +109,9 @@ struct ClipMatchHighlightTests {
         #expect(ClipCard(item: text, match: .words("launch")).match == .words("launch"))
         #expect(ClipCard(item: text, match: .pattern("laun.h")).match == .pattern("laun.h"))
         #expect(ClipCard(item: text, match: .words("  ")).match == nil)
-        #expect(ClipCard(item: text, match: .pattern(" ")).match == nil)
+        #expect(ClipCard(item: text, match: .pattern("")).match == nil)
+        // A space is a pattern search runs, so its matches are marked.
+        #expect(ClipCard(item: text, match: .pattern(" ")).match == .pattern(" "))
         #expect(ClipCard(item: text).match == nil)
     }
 }

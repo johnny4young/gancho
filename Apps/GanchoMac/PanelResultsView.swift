@@ -160,6 +160,7 @@ struct PanelResultsView<RowContent: View>: View {
         .peekCaps()
         .padding(.horizontal, GanchoTokens.Spacing.xs)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("results-header")
     }
 
     private var groupedRows: some View {

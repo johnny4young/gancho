@@ -7,11 +7,11 @@ public enum ClipMatch: Hashable, Sendable {
     /// Every match of a regular expression, read as regex search reads it.
     case pattern(String)
 
-    /// A blank query marks nothing.
+    /// A blank query marks nothing; a space is still a pattern.
     public var isBlank: Bool {
         switch self {
-        case .words(let query), .pattern(let query):
-            query.trimmingCharacters(in: .whitespaces).isEmpty
+        case .words(let query): query.trimmingCharacters(in: .whitespaces).isEmpty
+        case .pattern(let pattern): pattern.isEmpty
         }
     }
 }
