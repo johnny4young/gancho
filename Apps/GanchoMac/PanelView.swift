@@ -110,8 +110,8 @@ struct PanelView: View {
     /// An inline editor in the peek owns the keyboard.
     @State private var peekIsEditingInline = false
     /// Measured outside the peek's per-clip identity, so a new selection
-    /// starts at the right density.
-    @State private var peekIsShort = false
+    /// starts at the right density. Starts short, like the default preset.
+    @State private var peekIsShort = true
     nonisolated private static let shortPeekHeight: CGFloat = 500
     /// ⌘↑/⌘↓ search recall: the loaded recall list (newest first), the
     /// cursor into it, and the entry we last applied — so `onChange` can tell

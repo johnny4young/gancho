@@ -68,7 +68,7 @@ final class PanelProvenanceUITests: XCTestCase {
         let dock = app.descendants(matching: .any)["peek-dock"].firstMatch
         XCTAssertTrue(dock.appears(within: 5))
         let host = app.descendants(matching: .any)["peek-link-part-host"].firstMatch
-        XCTAssertTrue(host.exists)
+        XCTAssertTrue(host.appears(within: 5))
         for part in ["scheme", "path", "query", "fragment"] {
             let segment = app.descendants(matching: .any)["peek-link-part-\(part)"].firstMatch
             XCTAssertTrue(segment.exists, part)

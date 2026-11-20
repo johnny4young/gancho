@@ -28,8 +28,9 @@ struct ClipPeek: View {
     @Binding var isEditingInline: Bool
     /// Bumped by the panel's ⌘K.
     let transformRequest: Int
-    /// The Compact and Standard presets: the link hero tightens so its paste
-    /// rows and board suggestion sit above the dock without scrolling.
+    /// The peek column is shorter than `PanelView.shortPeekHeight` (the Compact
+    /// and Standard presets): the link hero tightens so its paste rows and
+    /// board suggestion sit above the dock without scrolling.
     let isShort: Bool
     /// Bumped by the panel's ⌘R.
     let revealRequest: Int

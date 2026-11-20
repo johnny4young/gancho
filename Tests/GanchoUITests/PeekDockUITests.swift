@@ -22,9 +22,10 @@ final class PeekDockUITests: XCTestCase {
         let edit = app.buttons["preview-edit-content"].firstMatch
         XCTAssertTrue(edit.appears(within: 5))
         // A short peek can leave Edit under the dock; scroll it clear first.
-        if edit.frame.maxY > dock.frame.minY {
-            app.descendants(matching: .any)["peek-hero"].firstMatch
-                .scroll(byDeltaX: 0, deltaY: -200)
+        let hero = app.descendants(matching: .any)["peek-hero"].firstMatch
+        for _ in 0..<3 where edit.frame.maxY > dock.frame.minY {
+            hero.scroll(byDeltaX: 0, deltaY: -200)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
         XCTAssertLessThanOrEqual(edit.frame.maxY, dock.frame.minY)
         edit.click()
