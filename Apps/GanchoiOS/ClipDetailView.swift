@@ -83,6 +83,8 @@ struct ClipDetailView: View {
     var showsCopyShortcut = false
     /// The hero lifts into another app; only the iPad has one beside Gancho.
     var allowsDragOut = false
+    /// Closes a peek; the bar shows Done only when set.
+    var onDone: (() -> Void)?
     @State var fullText = ""
     @State var hasLoadedFullText = false
     /// Non-nil only when the durable payload is plain text and policy permits
@@ -153,13 +155,20 @@ struct ClipDetailView: View {
         item.kind == .color && !requiresMasking ? ColorValue.parse(item.preview) : nil
     }
 
+    /// A colour hero runs under the bar, so the bar takes the appearance
+    /// whose glass and glyphs read on that fill.
+    var heroChromeScheme: ColorScheme? {
+        colorValue.map { ContrastingForeground.scheme(on: Color.Resolved($0)) }
+    }
+
     var heroImage: Image? {
         guard item.kind == .image, !requiresMasking else { return nil }
         return model.detailImages.cached(for: item) ?? model.thumbnails.cached(for: item)
     }
 
     var body: some View {
-        GeometryReader { proxy in
+        let chromeScheme = heroChromeScheme
+        return GeometryReader { proxy in
             VStack(spacing: 0) {
                 // A share of the height, so a medium sheet keeps its list.
                 hero(maxHeight: proxy.size.height * 0.42)
@@ -169,6 +178,15 @@ struct ClipDetailView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { actionBar }
         .navigationTitle(Text(verbatim: ""))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarColorScheme(chromeScheme, for: .navigationBar)
+        .toolbar {
+            if let onDone {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done", action: onDone)
+                        .tint(chromeScheme.map { $0 == .dark ? Color.white : .black })
+                }
+            }
+        }
         .sheet(isPresented: $showMoveSheet) {
             MoveToBoardSheet(item: item)
         }

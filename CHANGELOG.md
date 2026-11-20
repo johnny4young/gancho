@@ -32,6 +32,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On iPhone, a color or an image fills the top of its clip, with each color
   format one tap to copy; Copy, Pin, Share and Delete stay docked below. Home
   counts every board, and the keyboard's Up next clip is a card of its own.
+  Over a color, Done and the back button take dark or light glass to match
+  it, long format values wrap instead of shrinking, and a color or an image
+  no longer shows a Snippet button it can't use.
 - iPhone Home lists clips as touch-size rows straight on the graphite surface,
   with hairlines between them instead of grouped cards. A row's app and age
   ("6 min", "1 hr") never truncate, and at the largest text sizes they move to
