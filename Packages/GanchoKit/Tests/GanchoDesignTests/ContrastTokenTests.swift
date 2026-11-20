@@ -33,6 +33,15 @@ struct ContrastTokenTests {
         [color.red, color.green, color.blue].map { Int(($0 * 255).rounded()) }
     }
 
+    @Test("ReadableInk's assumed surface bounds the panel and the card", arguments: appearances)
+    func readableInkBoundsTheSurfaces(scheme: ColorScheme) {
+        let bound = Contrast.luminance(ReadableInk.assumedSurface(dark: scheme == .dark))
+        for surface in surfaces(scheme) {
+            let luminance = Contrast.luminance(surface)
+            #expect(scheme == .dark ? luminance <= bound : luminance >= bound)
+        }
+    }
+
     #if os(macOS)
         @MainActor
         @Test("The Mac's opaque panel and card are the graphite pairs", arguments: appearances)
@@ -54,7 +63,8 @@ struct ContrastTokenTests {
     func selectedSegment(scheme: ColorScheme) {
         let environment = environment(scheme)
         let fill = GanchoTokens.Palette.inverseFill.resolve(in: environment)
-        // AppKit inks the selected label black on a light fill, white on a dark one.
+        // As AppKit renders it (pinned by the Library and image-peek snapshots):
+        // a black label on the light fill, white on the dark one.
         let label = resolved(scheme == .dark ? 0x000000 : 0xFFFFFF, environment)
         #expect(Contrast.ratio(label, fill) >= Contrast.text)
         #expect(

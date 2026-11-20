@@ -56,7 +56,14 @@ struct DesignTokenGuardTests {
 
     /// The system segmented style puts a white label on the control tint.
     @Test func appsUseTheGanchoSegmentedStyle() throws {
-        let offenders = try Self.matches(of: #"\.pickerStyle\(\s*\.segmented\s*\)"#)
+        let pattern = #"pickerStyle\(\s*(\.segmented|SegmentedPickerStyle\(\))"#
+        let root = LocalizationTests.repoRoot
+        let offenders =
+            try Self.matches(of: pattern, in: root.appendingPathComponent("Apps/GanchoMac"))
+            + Self.matches(
+                of: pattern,
+                in: root.appendingPathComponent("Packages/GanchoKit/Sources/GanchoDesign"),
+                excluding: ["SelectionStyles.swift"])
         #expect(offenders.isEmpty, "use ganchoSegmented(): \(offenders)")
     }
 

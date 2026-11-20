@@ -302,13 +302,16 @@ public struct ReadableInk: ShapeStyle {
         self.wash = wash
     }
 
-    public func resolve(in environment: EnvironmentValues) -> Color.Resolved {
-        let dark = environment.colorScheme == .dark
-        // The darkest light and lightest dark surface text sits on, iOS system
-        // backgrounds included; the Mac's graphite panel and card fall inside.
-        let surface = Color.Resolved(
+    /// The darkest light and lightest dark surface text sits on, iOS system
+    /// backgrounds included; the Mac's graphite panel and card fall inside.
+    static func assumedSurface(dark: Bool) -> Color.Resolved {
+        Color.Resolved(
             colorSpace: .sRGB, red: dark ? 0x2C / 255 : 0xE6 / 255,
             green: dark ? 0x2C / 255 : 0xE6 / 255, blue: dark ? 0x2E / 255 : 0xE8 / 255)
+    }
+
+    public func resolve(in environment: EnvironmentValues) -> Color.Resolved {
+        let surface = Self.assumedSurface(dark: environment.colorScheme == .dark)
         let ink = base.resolve(in: environment)
         guard wash > 0 else { return Contrast.adjusted(ink, against: surface) }
         var fill = ink

@@ -19,7 +19,14 @@ public struct GanchoSurface: ViewModifier {
         if !opaqueSurfaces, !reduceTransparency, contrast != .increased {
             content.glassEffect(.regular, in: shape)
         } else {
+            // An opaque card can match a dark window's grey; the hairline keeps its edge.
             content.background(GanchoTokens.Palette.surface(level), in: shape)
+                .overlay {
+                    if level != .panel {
+                        shape.strokeBorder(
+                            GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
+                    }
+                }
         }
     }
 }
