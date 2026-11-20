@@ -45,8 +45,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   The search field leads with Gancho's hook instead of a magnifier, and still
   turns into an eye-slash while previews are hidden.
 - On the Mac, an empty history shows Gancho's hook and the three keys that
-  make the whole loop, and a search that finds nothing lists what the other
-  modes found, with the best one a single ↓ away and previewed beside it.
+  make the whole loop, drawn as large keys, and a search that finds nothing
+  lists what the other modes found, with the best one a single ↓ away and
+  previewed beside it, its matches underlined. Regex results underline what
+  the pattern matched, as fuzzy and exact results underline your words.
 - On the Mac, time left is a ring and privacy is redaction: a secret's preview
   counts down on a dial with minute marks (⌘R reveals it for 10 s, Delete now
   sits beside it as plain red text), and Private Mode shows its time left on

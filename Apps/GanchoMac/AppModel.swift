@@ -1409,7 +1409,17 @@ final class AppModel {
         let sources: [ClipItem]
     }
 
-    var askAvailable: Bool { ClipIntelligenceFacade.askAvailable }
+    var askAvailable: Bool {
+        #if DEBUG
+            // Shows the row on runners without the on-device model; asking still answers unavailable.
+            if CommandLine.arguments.contains("-ui-test-show-ask"),
+                CommandLine.arguments.contains("-use-temp-durable-store")
+            {
+                return true
+            }
+        #endif
+        return ClipIntelligenceFacade.askAvailable
+    }
 
     /// Maps the shared ask-your-clipboard outcome onto this app's localized
     /// answer copy. Retrieval, the sensitive-clip filter and availability all

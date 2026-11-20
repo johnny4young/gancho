@@ -379,9 +379,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// Both bounds keep a hostile pattern (ReDoS) from wedging the reader
     /// queue; narrowing filters (kind/app/date/board) extend the reach.
     private func regexSearch(_ query: ClipSearchQuery, limit: Int) async throws -> [ClipItem] {
-        guard
-            let regex = try? NSRegularExpression(
-                pattern: query.text, options: [.caseInsensitive])
+        guard let regex = try? ClipSearchQuery.regularExpression(query.text)
         else { throw ClipSearchError.invalidRegularExpression }
 
         return try await writer.read { db in

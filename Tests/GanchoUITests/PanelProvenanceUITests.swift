@@ -167,6 +167,10 @@ final class PanelProvenanceUITests: XCTestCase {
         defer { app.terminate() }
         let stage = app.descendants(matching: .any)["panel-first-run-stage"].firstMatch
         XCTAssertTrue(stage.appears(within: 15))
+        let title = app.staticTexts["panel-empty-title"].firstMatch
+        XCTAssertTrue(title.exists)
+        XCTAssertEqual(AccessibleValue.text(of: title), "Nothing on the hook yet.")
+        XCTAssertTrue(app.descendants(matching: .any)["panel-empty-mark"].firstMatch.exists)
         let importer = app.buttons["panel-empty-import-button"].firstMatch
         XCTAssertTrue(importer.appears(within: 5))
         importer.click()

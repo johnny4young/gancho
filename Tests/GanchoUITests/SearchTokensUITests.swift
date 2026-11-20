@@ -3,17 +3,19 @@ import XCTest
 /// Filter tokens and the four search modes inside the panel's field.
 final class SearchTokensUITests: XCTestCase {
     @MainActor
-    private func launch() -> XCUIApplication {
+    private func launch(extra: [String] = []) -> XCUIApplication {
         continueAfterFailure = false
         let app = GanchoUITestApplication()
-        app.launchArguments = [
-            "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
-            "-seed-source-apps", "-force-free-tier", "-start-capture-paused",
-            "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
-            "-suppress-storage-notice-for-ui-test", "-suppress-paused-notice-for-ui-test",
-            "-AppleLanguages", "(en)",
-            "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.tokens.\(UUID().uuidString)"
-        ]
+        app.launchArguments =
+            [
+                "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
+                "-seed-source-apps", "-force-free-tier", "-start-capture-paused",
+                "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
+                "-suppress-storage-notice-for-ui-test", "-suppress-paused-notice-for-ui-test",
+                "-AppleLanguages", "(en)",
+                "-ui-test-defaults-suite",
+                "com.johnny4young.gancho.uitests.tokens.\(UUID().uuidString)"
+            ] + extra
         app.launch()
         app.activate()
         return app
@@ -72,10 +74,11 @@ final class SearchTokensUITests: XCTestCase {
 
         try typeTextReliably("source sample", into: field, in: app)
         XCTAssertTrue(waitForRows(1, in: app))
-        let header = app.staticTexts.matching(
-            NSPredicate(format: "label ==[c] %@ OR value ==[c] %@", "Exact", "Exact")
-        ).firstMatch
-        XCTAssertTrue(header.exists, "the results header names the mode")
+        let header = app.descendants(matching: .any)["results-header"].firstMatch
+        XCTAssertTrue(header.exists)
+        XCTAssertTrue(
+            AccessibleValue.text(of: header).localizedCaseInsensitiveContains("Exact"),
+            "the results header names the mode")
 
         field.typeKey("s", modifierFlags: [.command, .shift])
         XCTAssertTrue(
@@ -85,7 +88,7 @@ final class SearchTokensUITests: XCTestCase {
 
     @MainActor
     func testNoResultsOffersTheOtherModesAndDownArrowTakesTheBest() throws {
-        let app = launch()
+        let app = launch(extra: ["-ui-test-show-ask"])
         defer { app.terminate() }
         let field = app.textFields["search-field"].firstMatch
         XCTAssertTrue(field.appears(within: 15))
@@ -100,6 +103,9 @@ final class SearchTokensUITests: XCTestCase {
         XCTAssertTrue(
             app.descendants(matching: .any)["no-results-stage"].firstMatch.exists,
             "the peek previews the best alternative")
+        XCTAssertTrue(
+            app.buttons["ask-clipboard"].firstMatch.exists,
+            "Ask gancho stays on offer while nothing matches")
 
         field.typeKey(.downArrow, modifierFlags: [])
         XCTAssertTrue(waitForRows(1, in: app), "↓ applies the best alternative")

@@ -130,6 +130,7 @@ struct PanelAlternativeList: View {
 /// The peek column while nothing matches: what ↓ would show.
 struct PanelAlternativeStage: View {
     let result: PanelAlternativeResult
+    let match: ClipMatch?
     let previewsHidden: Bool
 
     var body: some View {
@@ -152,9 +153,12 @@ struct PanelAlternativeStage: View {
             .padding(.bottom, GanchoTokens.Spacing.xxs)
             // Return does nothing here, so no row is selected: every cap is ⌘n.
             ForEach(Array(result.preview.enumerated()), id: \.element.id) { index, item in
-                ClipCard(item: item, previewsHidden: previewsHidden, shortcutNumber: index + 1)
-                    // A preview of the alternative, not a row of the list.
-                    .accessibilityIdentifier("no-results-stage-row")
+                ClipCard(
+                    item: item, previewsHidden: previewsHidden, shortcutNumber: index + 1,
+                    match: match
+                )
+                // A preview of the alternative, not a row of the list.
+                .accessibilityIdentifier("no-results-stage-row")
             }
             Spacer(minLength: 0)
         }
