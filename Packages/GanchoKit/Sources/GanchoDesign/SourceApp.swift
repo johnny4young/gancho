@@ -11,13 +11,21 @@ import Foundation
 public enum SourceApp {
     /// A readable name derived purely from a bundle id. Known platform aliases
     /// use their familiar product name; otherwise the last dot-separated
-    /// segment is capitalized, or the whole id when it has no dots.
+    /// segment is capitalized (the one before it when the last only names a
+    /// platform, as in `com.figma.Desktop`), or the whole id when it has no dots.
     public static func fallbackName(forBundleID bundleID: String) -> String {
         if bundleID == "com.apple.mobilesafari" { return "Safari" }
-        let segment = bundleID.split(separator: ".").last.map(String.init) ?? bundleID
+        let segments = bundleID.split(separator: ".")
+        var segment = segments.last.map(String.init) ?? bundleID
+        if segments.count > 2, genericSegments.contains(segment.lowercased()) {
+            segment = String(segments[segments.count - 2])
+        }
         guard let first = segment.first else { return bundleID }
         return first.uppercased() + segment.dropFirst()
     }
+
+    /// Last segments that name a platform or build, not the app.
+    private static let genericSegments: Set<String> = ["desktop", "mac", "macos", "app", "ios"]
 
     #if canImport(AppKit)
         // The NSWorkspace lookups below are synchronous and not free; the peek

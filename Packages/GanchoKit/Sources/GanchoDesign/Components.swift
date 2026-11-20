@@ -186,10 +186,18 @@ public struct ClipCard: View {
     /// Off where the host shows the clip's state instead, e.g. a paste-stack row.
     let showsSourceAndTime: Bool
     // Dynamic Type grows the tile on iOS; the panel's own scale on the Mac.
-    @ScaledMetric(relativeTo: .body) private var baseTileSize: CGFloat = 34
+    @ScaledMetric(relativeTo: .body) private var baseTileSize: CGFloat = Self.tileBase
+    #if os(iOS)
+        /// A touch row: bigger tile, pinned short age, meta that stacks.
+        static let isTouchRow = true
+    #else
+        static let isTouchRow = false
+    #endif
+    static let tileBase: CGFloat = isTouchRow ? 40 : 34
     @Environment(\.panelTypeScale) private var typeScale
     private var tileSize: CGFloat { baseTileSize * typeScale }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.listIsScrolling) private var listIsScrolling
     @State private var isHovered = false
 
@@ -265,29 +273,42 @@ public struct ClipCard: View {
         pointerInside && !listIsScrolling
     }
 
+    /// At the accessibility sizes a phone row puts source · time on its own
+    /// line, so the content keeps the width.
+    private var stacksMeta: Bool { Self.isTouchRow && dynamicTypeSize.isAccessibilitySize }
+
     /// Row previews are short; the cap guards a malformed oversized one.
     private static let syntaxPreviewLimit = 240
 
     public var body: some View {
-        HStack(spacing: GanchoTokens.Spacing.sm) {
-            leadingTile
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 3) {
-                if masking == .hidden {
-                    redaction
-                } else {
-                    headline
-                        .lineLimit(1)
-                        .foregroundStyle(GanchoTokens.Palette.ink)
-                    description
+        let layout =
+            stacksMeta
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: GanchoTokens.Spacing.xxs))
+            : AnyLayout(HStackLayout(spacing: GanchoTokens.Spacing.sm))
+        layout {
+            HStack(spacing: GanchoTokens.Spacing.sm) {
+                leadingTile
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    if masking == .hidden {
+                        redaction
+                    } else {
+                        headline
+                            .lineLimit(1)
+                            .foregroundStyle(GanchoTokens.Palette.ink)
+                        description
+                    }
                 }
             }
-            Spacer(minLength: GanchoTokens.Spacing.xs)
+            if !stacksMeta { Spacer(minLength: GanchoTokens.Spacing.xs) }
             trailingMeta
         }
-        // With the tile, a row is 50 pt at the standard text size.
-        .padding(.vertical, GanchoTokens.Spacing.xs)
-        .padding(.horizontal, GanchoTokens.Spacing.xs + 1)
+        #if os(macOS)
+            // With the tile, a row is 50 pt at the standard text size; on iOS
+            // the List row's insets space it.
+            .padding(.vertical, GanchoTokens.Spacing.xs)
+            .padding(.horizontal, GanchoTokens.Spacing.xs + 1)
+        #endif
         .background {
             // Scoped to the highlight: an animated selection transaction would
             // also cross-fade the peek and animate the list's scroll-to.
@@ -412,7 +433,7 @@ public struct ClipCard: View {
     /// and the ⌘N badge. The pin marker's scale-in is scoped here so a pin
     /// toggle never animates the row's reflow into the Pinned section.
     private var trailingMeta: some View {
-        VStack(alignment: .trailing, spacing: 3) {
+        VStack(alignment: stacksMeta ? .leading : .trailing, spacing: 3) {
             sourceTimeLine
             if let foreignDevice {
                 // Its own line: a full device name beside the app and age left
@@ -423,7 +444,7 @@ public struct ClipCard: View {
                 }
                 .panelFont(.caption2)
                 .foregroundStyle(GanchoTokens.Palette.ink3)
-                .frame(maxWidth: 140, alignment: .trailing)
+                .frame(maxWidth: 140, alignment: stacksMeta ? .leading : .trailing)
                 .accessibilityHidden(true)
             }
             HStack(spacing: GanchoTokens.Spacing.xxs) {
@@ -507,13 +528,38 @@ public struct ClipCard: View {
                     Text(SourceApp.fallbackName(forBundleID: bundleID))
                     Text(verbatim: "·")
                 }
-                Text(.currentDate, format: .reference(to: item.createdAt, maxFieldCount: 1))
+                age
             }
             .panelFont(.caption2)
             .foregroundStyle(GanchoTokens.Palette.ink3)
             .lineLimit(1)
+            // A touch row truncates its content first, never source · time.
+            .fixedSize(horizontal: Self.isTouchRow && !stacksMeta, vertical: false)
         }
     }
+
+    @ViewBuilder private var age: some View {
+        #if os(iOS)
+            TimelineView(.everyMinute) { context in
+                Text(verbatim: Self.shortAge(since: item.createdAt, now: context.date))
+            }
+        #else
+            Text(.currentDate, format: .reference(to: item.createdAt, maxFieldCount: 1))
+        #endif
+    }
+
+    /// "6 min", "1 h", "2 days": the phone row's age in its largest whole
+    /// unit, never under a minute so it doesn't need a per-second tick.
+    nonisolated public static func shortAge(
+        since date: Date, now: Date, locale: Locale = .autoupdatingCurrent
+    ) -> String {
+        let seconds = max(60, Int(now.timeIntervalSince(date)))
+        return Duration.seconds(seconds).formatted(ageStyle.locale(locale))
+    }
+
+    nonisolated private static let ageStyle = Duration.UnitsFormatStyle(
+        allowedUnits: [.weeks, .days, .hours, .minutes], width: .abbreviated,
+        maximumUnitCount: 1, fractionalPart: .hide(rounded: .down))
 
     /// VoiceOver: kind + preview (masked previews stay masked here too).
     /// Single interpolated `Text` — concatenating with `+` is deprecated in 26.

@@ -295,14 +295,17 @@ struct StorageWarningSection: View {
 /// The status row the capture screen shows above history (see
 /// `PasteboardStatusRow`); it also carries the transient save notes.
 struct PasteboardSection: View {
+    var horizontalInset = GanchoTokens.Spacing.xxs
+
     var body: some View {
         Section {
             PasteboardStatusRow()
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
                 .listRowInsets(
                     EdgeInsets(
-                        top: GanchoTokens.Spacing.xxs, leading: GanchoTokens.Spacing.xxs,
-                        bottom: GanchoTokens.Spacing.xxs, trailing: GanchoTokens.Spacing.xxs))
+                        top: GanchoTokens.Spacing.xxs, leading: horizontalInset,
+                        bottom: GanchoTokens.Spacing.xxs, trailing: horizontalInset))
         }
     }
 }
