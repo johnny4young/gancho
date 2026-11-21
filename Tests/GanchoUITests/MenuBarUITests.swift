@@ -97,6 +97,9 @@ final class MenuBarUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         _ = try statusItem(app)
+        // The menu lists recents once, as it opens: ⌘1 needs the seeded clips loaded.
+        let seeded = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        XCTAssertTrue(seeded.appears(within: 10), "the seeded clips must load first")
         // In production another app is in front when the icon is clicked.
         let finder = XCUIApplication(bundleIdentifier: "com.apple.finder")
         finder.activate()
