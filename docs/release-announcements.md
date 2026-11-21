@@ -11,7 +11,7 @@ Gancho: a local-first, encrypted clipboard history and snippet library for
 Mac (iPhone and iPad apps in the repository, not distributed yet). Free and MIT
 licensed; Pro is a one-time direct purchase. Site: https://gancho.app.
 
-## v0.12.0 — 2026-11-20
+## v0.12.0 — 2026-11-21
 
 A full redesign around one rule — a single lime accent marks what Return does — plus every clip action on ⌘K and a Mac app that spends a fraction of the work on each copy.
 
@@ -53,10 +53,6 @@ Gancho 0.12 is a redesign of the whole app:
 - Each copy down from ~295 to 46 ms of CPU (indicative)
 
 Free and MIT; Pro is a one-time purchase for higher limits, on-device intelligence and encrypted iCloud sync. Needs Apple Silicon and macOS 26. Two-Mac sync and VoiceOver acceptance on the released build are still pending.
-
-### Platform notes
-
-> Prepared candidate: v0.12.0 is not tagged or published yet. Publish the release, and check the image URL responds, before posting any of these.
 
 ### Links
 
