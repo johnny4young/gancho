@@ -7,12 +7,14 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-20
+
 ### Changed
 
-- Gancho has a new look in progress: a calmer, neutral interface where one
-  lime accent marks only what Return does, and its own typefaces (Instrument
-  Serif, Geist and Geist Mono) in the Mac history panel and in clip rows on
-  iPhone and iPad.
+- Gancho has a new look across the Mac history panel, the Library, Settings,
+  the menu bar and iPhone: a calm graphite interface where one lime accent
+  marks only what Return does, with its own typefaces (Instrument Serif, Geist
+  and Geist Mono).
 - ⌘K opens one action panel for the selected clip in the Mac history panel:
   its verbs with their keys, its transforms, recipes and Smart paste behind
   one filter (⌘T still opens it). It floats over the preview, and it

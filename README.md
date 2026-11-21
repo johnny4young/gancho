@@ -17,14 +17,18 @@
 ![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
 
 **Status: public v0.11.1; in active development toward 1.0.**
-**Source version: v0.11.1.** The published direct download requires an Apple
-Silicon Mac with macOS 26 (build 23); Macs on Intel or macOS 15 keep v0.10.2.
-Local history and manual OCR are Free; Pro activation through Lemon Squeezy is
-included.
+**Source version: v0.12.0 (unreleased).** The published v0.11.1 direct download
+requires an Apple Silicon Mac with macOS 26 (build 23). Local history and manual
+OCR are Free; Pro activation through Lemon Squeezy is included. The v0.12.0
+source redraws the Mac panel, the Library, Settings, the menu bar and iPhone in
+one calm graphite look where a single lime accent marks what Return does, puts
+every clip action on ⌘K, and cuts each copy's processor time from about 295 to
+46 ms in indicative measurements; it is not yet a published build. See its
+[release notes](docs/releases/v0.12.0.md).
 
-![The Gancho panel with search modes, board and kind chips, and a link peek above its action dock](site/assets/v0.11.1-release.png)
+![The Gancho panel in its graphite look: rows that show each clip, the selected row's lime Return key, and a link preview that lists what each key pastes](site/assets/v0.12.0-release.png)
 
-*v0.11.1 with synthetic fixtures.*
+*v0.12.0 candidate with synthetic fixtures; this is not evidence of a published release.*
 
 [Download v0.11.1](https://github.com/johnny4young/gancho/releases/tag/v0.11.1)
 for windows that open in front of the app you're using, a quieter idle and a
@@ -46,14 +50,16 @@ not certify them. See the [release notes](docs/releases/v0.11.1.md),
 
 ## The redesigned panel
 
-Redesigned in v0.9.0 and rebuilt in the v0.11.0 source. The Mac panel has search
-modes, board and kind chips with counts, rows that show what each clip is at a
-glance, a peek with a provenance header and an action dock, motion that respects
-Reduce Motion, an optional ambient colour, and a gallery layout behind ⌘G.
+Redrawn in the v0.12.0 source. The Mac panel is neutral graphite with Gancho's
+own typefaces, and lime marks only what Return does. Rows show the clip itself,
+the preview says what each key pastes, ⌘K holds every action a clip has, and the
+empty, no-match, secret and Private Mode states teach the next key. Search
+modes, board and kind chips with counts, an optional ambient colour and the
+gallery layout behind ⌘G remain.
 
 <table>
   <tr>
-    <td colspan="2"><img src="site/assets/screen-panel-peek.png" alt="Redesigned Gancho panel: one toolbar, kind-coloured rows and a link peek with an action dock"><br><sub>A link's host and path set large — parsed on the Mac, never fetched — with Copy, Plain, Pin, Board and Context in the dock. The main button reads Copy because the capture runs without Accessibility; with it, the button names the app it pastes into.</sub></td>
+    <td colspan="2"><img src="site/assets/screen-panel-peek.png" alt="Gancho panel in graphite: rows that show each clip, the selected row's lime Return key and a link preview listing what each key pastes"><br><sub>A link names its scheme, host, path, query and fragment, decodes each parameter and lists what Return and ⌥Return paste — parsed on the Mac, never fetched — above one dock: Copy, Plain and Actions on ⌘K. The main button reads Copy because the capture runs without Accessibility; with it, the button names the app it pastes into.</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="site/assets/screen-panel-gallery.png" alt="Gancho panel gallery layout in dark mode with a colour clip selected"><br><sub>⌘G shows the history as cards; a color opens with its HEX, RGB, HSL and Swift values and its contrast.</sub></td>
