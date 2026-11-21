@@ -104,6 +104,8 @@ final class MenuBarUITests: XCTestCase {
         let finder = XCUIApplication(bundleIdentifier: "com.apple.finder")
         finder.activate()
         XCTAssertTrue(finder.wait(for: .runningForeground, timeout: 5))
+        // The panel closes as Finder takes focus; a close during tracking ends the menu.
+        XCTAssertTrue(app.dialogs["history-panel"].firstMatch.waitForNonexistence(timeout: 5))
 
         let center = DistributedNotificationCenter.default()
         let opened = expectation(
