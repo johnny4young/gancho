@@ -57,17 +57,17 @@ extension LibraryView {
                             sectionBody(group.clips, lastID: lastID, order: order)
                         }
                     }
-                    .onGeometryChange(for: CGFloat.self) {
-                        $0.size.width
-                    } action: {
-                        wallWidth = $0
-                    }
                     .padding(GanchoTokens.Spacing.md)
                     if clipList.failure == .unavailable {
                         libraryReadFailure { Task { await clipList.retry() } }
                     } else if clipList.isLoading {
                         ProgressView("Loading clips…").padding(GanchoTokens.Spacing.sm)
                     }
+                }
+                .onGeometryChange(for: CGFloat.self) {
+                    $0.size.width
+                } action: {
+                    wallWidth = Self.wallWidth(inScrollViewOf: $0)
                 }
                 .accessibilityIdentifier("library-clips-scroll")
                 #if DEBUG
@@ -113,6 +113,15 @@ extension LibraryView {
                 }
             }
         }
+    }
+
+    /// The wall's width less a legacy scroller whether or not it shows: if the
+    /// column count followed the scroller, the scroller could hide and show forever.
+    static func wallWidth(inScrollViewOf width: CGFloat) -> CGFloat {
+        let gutter =
+            NSScroller.preferredScrollerStyle == .legacy
+            ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy) : 0
+        return max(0, width - 2 * GanchoTokens.Spacing.md - gutter)
     }
 
     /// A section's clips dealt into columns by estimated height, each column
