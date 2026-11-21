@@ -23,8 +23,11 @@ public struct GanchoSurface: ViewModifier {
             content.background(GanchoTokens.Palette.surface(level), in: shape)
                 .overlay {
                     if level != .panel {
+                        // Decoration only: an overlay otherwise takes the card's clicks.
                         shape.strokeBorder(
-                            GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline)
+                            GanchoTokens.Palette.hairline, lineWidth: GanchoTokens.Stroke.hairline
+                        )
+                        .allowsHitTesting(false)
                     }
                 }
         }
@@ -70,7 +73,9 @@ private struct ElevationModifier: ViewModifier {
                             LinearGradient(
                                 colors: [.white.opacity(0.12), .clear], startPoint: .top,
                                 endPoint: .center),
-                            lineWidth: GanchoTokens.Stroke.hairline)
+                            lineWidth: GanchoTokens.Stroke.hairline
+                        )
+                        .allowsHitTesting(false)
                 }
             }
         } else {
