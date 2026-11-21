@@ -169,6 +169,35 @@ struct DesignTokenGuardTests {
         }
     }
 
+    /// The surface and elevation modifiers wrap buttons: a stroke overlaid on
+    /// them takes the clicks of everything underneath unless it opts out.
+    @Test func surfaceStrokesLetClicksThrough() throws {
+        let url = LocalizationTests.repoRoot
+            .appendingPathComponent("Packages/GanchoKit/Sources/GanchoDesign/Components.swift")
+        let text = try String(contentsOf: url, encoding: .utf8)
+        var strokes = 0
+        var offenders: [String] = []
+        var cursor = text.startIndex
+        while let call = text.range(of: ".strokeBorder(", range: cursor..<text.endIndex) {
+            strokes += 1
+            var depth = 1
+            var end = call.upperBound
+            while depth > 0, end < text.endIndex {
+                if text[end] == "(" { depth += 1 } else if text[end] == ")" { depth -= 1 }
+                end = text.index(after: end)
+            }
+            if !text[end...].drop(while: \.isWhitespace).hasPrefix(".allowsHitTesting(false)") {
+                let line = text[..<call.lowerBound].split(
+                    separator: "\n", omittingEmptySubsequences: false
+                ).count
+                offenders.append("Components.swift:\(line)")
+            }
+            cursor = end
+        }
+        #expect(strokes >= 2, "the surface and elevation strokes are scanned")
+        #expect(offenders.isEmpty, "add .allowsHitTesting(false): \(offenders)")
+    }
+
     static func matches(
         of pattern: String,
         in root: URL = LocalizationTests.repoRoot.appendingPathComponent("Apps"),
