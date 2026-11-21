@@ -200,7 +200,7 @@ extension XCUIElement {
 
     /// 1200 pt one way, then 1200 pt past the origin the other way, in steps
     /// shorter than the visible height so no row can sit between two of them.
-    static func revealDeltas(visibleHeight: CGFloat) -> [CGFloat] {
+    nonisolated static func revealDeltas(visibleHeight: CGFloat) -> [CGFloat] {
         let step = min(400, max(100, visibleHeight / 2))
         let count = Int((1200 / step).rounded(.up))
         return Array(repeating: -step, count: count) + Array(repeating: step, count: 2 * count)
