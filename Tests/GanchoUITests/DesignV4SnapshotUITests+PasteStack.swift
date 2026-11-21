@@ -21,7 +21,7 @@ extension DesignV4SnapshotUITests {
                 "-place-panel-for-ui-test", "-suppress-storage-notice-for-ui-test",
                 "-suppress-paused-notice-for-ui-test", "-ui-test-paste-target", "Xcode",
                 "-ui-test-paste-sink", "pasted", "-AppleLanguages", "(en)",
-                // Unpinned, the window alternates between two heights.
+                // The board's size; the content's minimum height makes the window 492 pt.
                 "-panel-content-width", "864", "-panel-content-height", "480"
             ]
         app.launch()

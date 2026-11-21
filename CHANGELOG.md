@@ -98,6 +98,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- On the Mac, the history panel keeps the size you set instead of sometimes
+  shrinking when a clip's preview opens.
 - On the Mac, a "Describe the change" rewrite scrolls into view, so its Paste,
   Copy and Save buttons no longer sit under the preview's dock.
 - On the Mac, VoiceOver reads each decoded link parameter and URL part with
