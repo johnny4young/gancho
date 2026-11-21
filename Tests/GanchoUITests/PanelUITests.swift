@@ -185,8 +185,9 @@ final class PanelUITests: XCTestCase {
         return app
     }
 
+    /// An empty history adds "· waiting for your first copy" to the capturing label.
     private func captureIndicatorValue(_ value: String) -> NSPredicate {
-        NSPredicate(format: "label == %@ OR value == %@", value, value)
+        NSPredicate(format: "label BEGINSWITH %@ OR value BEGINSWITH %@", value, value)
     }
 
     @MainActor

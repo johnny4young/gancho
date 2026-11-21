@@ -188,14 +188,22 @@ extension XCUIElement {
     @MainActor
     func revealByScrolling(
         in container: XCUIElement,
-        deltas: [CGFloat] = [-400, -400, -400, 1600, 400, 400]
+        deltas: [CGFloat]? = nil
     ) -> Bool {
         if isHittable { return true }
-        for delta in deltas {
+        for delta in deltas ?? Self.revealDeltas(visibleHeight: container.frame.height) {
             container.scroll(byDeltaX: 0, deltaY: delta)
             if isHittable { return true }
         }
         return false
+    }
+
+    /// 1200 pt one way, then 1200 pt past the origin the other way, in steps
+    /// shorter than the visible height so no row can sit between two of them.
+    nonisolated static func revealDeltas(visibleHeight: CGFloat) -> [CGFloat] {
+        let step = min(400, max(100, visibleHeight / 2))
+        let count = Int((1200 / step).rounded(.up))
+        return Array(repeating: -step, count: count) + Array(repeating: step, count: 2 * count)
     }
 
     /// True when the element's center lies on an active display. A coordinate
