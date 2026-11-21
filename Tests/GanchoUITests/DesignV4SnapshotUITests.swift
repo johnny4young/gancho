@@ -237,7 +237,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
             ]
         case .tokens: arguments.append("-start-capture-paused")
         case .noResults:
-            // The board's panel size; unpinned, the window alternates between two heights.
+            // The board's size; the content's minimum height makes the window 492 pt.
             arguments += [
                 "-start-capture-paused", "-ui-test-show-ask", "-panel-content-width", "864",
                 "-panel-content-height", "480"

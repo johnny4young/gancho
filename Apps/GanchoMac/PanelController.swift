@@ -367,7 +367,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         let hosting = NSHostingView(
             rootView: PanelView(model: model, displayDefaults: defaults)
                 .environment(model)
-                .ganchoTinted())
+                .ganchoTinted()
+                // An unbounded maximum: on layout the hosting view clamps the window
+                // to the content's limits, and the content's ideal height is smaller.
+                .frame(maxWidth: .infinity, maxHeight: .infinity))
         // AppKit owns the panel frame and resize limits. Avoid remeasuring the
         // entire SwiftUI tree for unused intrinsic/minimum/maximum constraints.
         hosting.sizingOptions = []

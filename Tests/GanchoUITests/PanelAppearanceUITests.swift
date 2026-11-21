@@ -61,6 +61,34 @@ final class PanelAppearanceUITests: XCTestCase {
             title.label == "Synthetic landscape" || title.value as? String == "Synthetic landscape")
     }
 
+    /// SwiftUI must not size the window to the content: selecting a peek used to
+    /// shrink the Standard panel from 540 to 492 pt on some launches.
+    @MainActor
+    func testSelectingPeeksKeepsTheStandardPanelSize() throws {
+        let app = GanchoUITestApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
+            "-seed-visual-library", "-seed-peek-link", "-force-free-tier",
+            "-start-capture-paused", "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
+            "-suppress-storage-notice-for-ui-test", "-AppleLanguages", "(en)",
+            "-ui-test-defaults-suite",
+            "com.johnny4young.gancho.uitests.panel-size.\(UUID().uuidString)"
+        ]
+        app.launch()
+        defer { app.terminate() }
+        let panel = app.dialogs["history-panel"].firstMatch
+        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
+        for prefix in ["example.com", "color,", "code,"] {
+            let row = rows.matching(NSPredicate(format: "label CONTAINS %@", prefix)).firstMatch
+            XCTAssertTrue(row.appears(within: 8), prefix)
+            row.click()
+            XCTAssertTrue(
+                app.descendants(matching: .any)["peek-dock"].firstMatch.appears(within: 5))
+            RunLoop.current.run(until: Date().addingTimeInterval(1))
+            XCTAssertEqual(panel.frame.size, CGSize(width: 864, height: 540), prefix)
+        }
+    }
+
     @MainActor
     private func verifyToolbar(language: String, extraArguments: [String]) throws {
         continueAfterFailure = false
