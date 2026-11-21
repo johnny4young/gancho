@@ -7,7 +7,7 @@ final class ShareSheetUITests: XCTestCase {
     func testTheInstantSwitchSavesWithoutTheSheet() throws {
         let gancho = try launchGancho(instant: true)
         defer { gancho.terminate() }
-        let safari = try openShareSheetInSafari()
+        let safari = try openShareSheetInSafari(instant: true)
         defer { safari.terminate() }
         XCTAssertFalse(
             safari.descendants(matching: .any)["share-save-button"].firstMatch
@@ -29,7 +29,7 @@ final class ShareSheetUITests: XCTestCase {
         ).firstMatch
         XCTAssertTrue(seeded.appears(within: 10))
 
-        let safari = try openShareSheetInSafari()
+        let safari = try openShareSheetInSafari(instant: false)
         defer { safari.terminate() }
         let save = safari.descendants(matching: .any)["share-save-button"].firstMatch
         XCTAssertTrue(save.appears(within: 10), "the sheet shows what will be saved")
@@ -96,7 +96,7 @@ final class ShareSheetUITests: XCTestCase {
 
     /// Safari on a page, its share sheet, and Gancho picked from the row.
     @MainActor
-    private func openShareSheetInSafari() throws -> XCUIApplication {
+    private func openShareSheetInSafari(instant: Bool) throws -> XCUIApplication {
         let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
         XCUIDevice.shared.system.open(URL(string: "https://example.com")!)
         guard safari.wait(for: .runningForeground, timeout: 15) else {
@@ -125,7 +125,15 @@ final class ShareSheetUITests: XCTestCase {
             NSPredicate(format: "label == 'Gancho' OR label == 'Save to Gancho'")
         ).firstMatch
         XCTAssertTrue(target.appears(within: 10), "Gancho is offered in the share sheet")
-        target.tap()
+        // The sheet can drop a tap while it settles: the switch closes it, the
+        // sheet mode shows Gancho's own sheet.
+        let save = safari.descendants(matching: .any)["share-save-button"].firstMatch
+        for _ in 0..<3 where target.exists {
+            target.tap()
+            if instant ? target.waitForNonexistence(timeout: 6) : save.appears(within: 6) {
+                break
+            }
+        }
 
         return safari
     }
