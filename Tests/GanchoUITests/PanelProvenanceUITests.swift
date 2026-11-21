@@ -55,6 +55,24 @@ final class PanelProvenanceUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["peek-pastes-as"].firstMatch.exists)
     }
 
+    /// SwiftUI must not size the window to the content: it keeps the Standard
+    /// size while peeks open.
+    @MainActor
+    func testSelectingPeeksKeepsTheStandardPanelSize() throws {
+        let app = launch(seeded: true)
+        defer { app.terminate() }
+        let panel = app.dialogs["history-panel"].firstMatch
+        for label in ["example.com", "color,", "code,"] {
+            let clip = row(label, in: app)
+            XCTAssertTrue(clip.appears(within: 15), label)
+            clip.click()
+            XCTAssertTrue(
+                app.descendants(matching: .any)["peek-dock"].firstMatch.appears(within: 5))
+            RunLoop.current.run(until: Date().addingTimeInterval(1))
+            XCTAssertEqual(panel.frame.size, CGSize(width: 864, height: 540), label)
+        }
+    }
+
     /// At the Standard preset the link's anatomy reads on one line and every
     /// paste row sits above the dock without scrolling.
     @MainActor
