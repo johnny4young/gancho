@@ -128,12 +128,12 @@ final class ShareSheetUITests: XCTestCase {
         // The sheet can drop a tap while it settles: the switch closes it, the
         // sheet mode shows Gancho's own sheet.
         let save = safari.descendants(matching: .any)["share-save-button"].firstMatch
-        for _ in 0..<3 where target.exists {
+        var taken = false
+        for _ in 0..<3 where !taken && target.exists {
             target.tap()
-            if instant ? target.waitForNonexistence(timeout: 6) : save.appears(within: 6) {
-                break
-            }
+            taken = instant ? target.waitForNonexistence(timeout: 6) : save.appears(within: 6)
         }
+        if instant { XCTAssertTrue(taken, "Gancho takes the tap on its share cell") }
 
         return safari
     }
