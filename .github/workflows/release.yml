@@ -258,19 +258,7 @@ jobs:
       # the Website workflow on site/** pushes.
       - name: Stage appcast + redirect stub for GitHub Pages
         if: ${{ steps.appcast.outcome == 'success' }}
-        run: |
-          mkdir -p _site
-          cp site/appcast.xml _site/appcast.xml
-          printf '%s\n' \
-            '<!doctype html>' \
-            '<meta charset="utf-8">' \
-            '<title>Gancho</title>' \
-            '<link rel="canonical" href="https://gancho.app/">' \
-            '<meta name="robots" content="noindex">' \
-            '<meta http-equiv="refresh" content="0; url=https://gancho.app/">' \
-            '<script>location.replace("https://gancho.app/" + location.hash)</script>' \
-            '<p>Gancho has moved to <a href="https://gancho.app/">gancho.app</a>.</p>' \
-            > _site/index.html
+        run: scripts/stage-appcast-pages.sh site/appcast.xml _site
 
       - name: Configure Pages
         if: ${{ steps.appcast.outcome == 'success' }}

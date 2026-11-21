@@ -178,8 +178,20 @@ struct ReleaseMetadataTests {
         #expect(workflow.contains("make appcast"))
         #expect(workflow.contains("SPARKLE_EDDSA_PRIVATE_KEY"))
         #expect(workflow.contains("actions/deploy-pages"))
+        #expect(workflow.contains("scripts/stage-appcast-pages.sh site/appcast.xml _site"))
         #expect(workflow.contains("path: _site"))
-        #expect(workflow.contains("https://gancho.app/"))
+        #expect(try Self.text("scripts", "stage-appcast-pages.sh").contains("https://gancho.app/"))
+    }
+
+    @Test func appcastRedeployShipsTheLatestPublishedFeed() throws {
+        let workflow = try Self.text(".github", "workflows", "appcast-redeploy.yml")
+
+        // It redeploys the published, signed appcast; an older tag would roll the feed back.
+        #expect(workflow.contains("gh release download \"${TAG}\" --pattern appcast.xml"))
+        #expect(workflow.contains("is not the latest release"))
+        #expect(workflow.contains("scripts/stage-appcast-pages.sh release-asset/appcast.xml _site"))
+        #expect(workflow.contains("actions/deploy-pages"))
+        #expect(!workflow.contains("make appcast"))
     }
 
     @Test func pagesWorkflowDeploysTheLandingToCloudflare() throws {
