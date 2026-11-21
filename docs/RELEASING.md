@@ -515,6 +515,14 @@ GitHub Pages deliberately keeps serving **only** the signed Sparkle **appcast** 
 app, which every install polls, so that URL must keep resolving — plus a redirect
 stub at the old site root that forwards the legacy github.io URL to gancho.app.
 
+If a tag's release published but its Pages deploy failed, the feed still serves
+the previous version. Deploy the published appcast again without rebuilding the
+DMG it signs (only the latest release is accepted):
+
+```bash
+gh workflow run appcast-redeploy.yml -f tag=vX.Y.Z
+```
+
 Run the local structural check before changing the site:
 
 ```bash

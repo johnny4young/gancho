@@ -1,0 +1,63 @@
+name: Redeploy appcast
+
+# Deploys the latest release's signed appcast to GitHub Pages again, without
+# rebuilding the DMG it signs. For a tag whose release published but whose
+# Pages deploy failed.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The latest published release tag (vX.Y.Z)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: appcast-redeploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy the released appcast
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # An older tag would roll every install's update feed back.
+      - name: Download the latest release's appcast
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          latest="$(gh release view --json tagName --jq .tagName)"
+          if [ "${TAG}" != "${latest}" ]; then
+            echo "::error::${TAG} is not the latest release (${latest})."
+            exit 1
+          fi
+          gh release download "${TAG}" --pattern appcast.xml --dir release-asset
+
+      - name: Stage appcast + redirect stub
+        run: scripts/stage-appcast-pages.sh release-asset/appcast.xml _site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+        with:
+          enablement: true
+
+      - name: Upload appcast Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - name: Deploy appcast to GitHub Pages
+        id: pages
+        uses: actions/deploy-pages@v5
