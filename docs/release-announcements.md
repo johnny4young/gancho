@@ -11,6 +11,60 @@ Gancho: a local-first, encrypted clipboard history and snippet library for
 Mac (iPhone and iPad apps in the repository, not distributed yet). Free and MIT
 licensed; Pro is a one-time direct purchase. Site: https://gancho.app.
 
+## v0.12.0 — 2026-11-20
+
+A full redesign around one rule — a single lime accent marks what Return does — plus every clip action on ⌘K and a Mac app that spends a fraction of the work on each copy.
+
+![The Gancho panel in its graphite look, with rows that show each clip and a link preview that lists what each key pastes](https://gancho.app/assets/v0.12.0-release.png) (local asset — attach when publishing)
+
+### X / Bluesky — 252 characters
+
+Gancho 0.12.0 (macOS 26, Apple Silicon): a full redesign in graphite where one lime accent marks only what Return does, every clip action on ⌘K, and each copy down from ~295 to 46 ms of CPU in indicative measurements. Free, MIT. https://gancho.app
+
+### Hacker News
+
+**Title:** `Show HN: Gancho 0.12 – a Mac clipboard manager redesigned around one accent color`
+
+**Text:**
+
+Gancho is a local-first clipboard history and snippet library for macOS: SQLCipher-encrypted on the Mac, no servers of ours, optional sync through your own private iCloud database. 0.12 is a redesign, and the rule behind it is small: the interface is neutral graphite, and lime appears only on what Return does — the selected row's key and the preview's main verb. Blue, indigo and orange are gone; red is left for errors, Delete, access denied and a secret's last minute.
+
+Most of the work went into making each surface say what it will do. Rows show the clip itself (a link's site, a color's swatch, code in its typeface, a secret's mask inside a ring that counts down). A link's preview names its scheme, host, path, query and fragment, decodes each parameter and lists what Return, ⌥Return and the Markdown link paste. ⌘K opens one action panel for everything a clip can do. An empty history shows the three keys of the loop, and a search that finds nothing offers what the other modes found, one ↓ away. The footer only lists keys that work right now.
+
+The part I didn't expect: each copy was doing a lot of hidden work. Titles, search and board suggestions each loaded their own language model, and the hidden panel redrew on every copy. Sharing one model and stopping the redraws took a copy from about 295 to 46 ms of processor time and memory after a burst from about 121 to 64 MB (Debug builds, 20 copies on a busy Mac, so indicative). At rest a Release build went from about 7 to 1.3 ms of processor time per second.
+
+Limits, honestly: the signed two-Mac sync matrix, VoiceOver, screen-OCR permission checks and real iPhone and iPad acceptance are still pending on the released bytes. The Compact panel size opens at 492 pt, not 480. The iPhone app shares the new look in the repo but has no distribution path yet. Requirements are unchanged from 0.11: Apple Silicon and macOS 26.
+
+MIT licensed. The DMG and the Homebrew cask ship the same notarized bytes.
+
+### Reddit (r/macapps, r/opensource)
+
+**Title:** `Gancho 0.12.0 — open-source Mac clipboard manager, redesigned around one accent color (local-first, encrypted)`
+
+**Text:**
+
+Gancho 0.12 is a redesign of the whole app:
+
+- Neutral graphite, with lime only on what Return does
+- Rows that show the clip itself: a link's site, a color's swatch, a secret's countdown ring
+- ⌘K for every action a clip has: verbs, transforms, recipes, Smart paste
+- A link preview that lists what each key will paste
+- Empty and no-match states that teach the next key
+- Each copy down from ~295 to 46 ms of CPU (indicative)
+
+Free and MIT; Pro is a one-time purchase for higher limits, on-device intelligence and encrypted iCloud sync. Needs Apple Silicon and macOS 26. Two-Mac sync and VoiceOver acceptance on the released build are still pending.
+
+### Platform notes
+
+> Prepared candidate: v0.12.0 is not tagged or published yet. Publish the release, and check the image URL responds, before posting any of these.
+
+### Links
+
+- Release: https://github.com/johnny4young/gancho/releases/tag/v0.12.0
+- Site: https://gancho.app
+- `brew tap johnny4young/tap && brew install --cask gancho`
+- Direct download: signed, notarized DMG on the release page (macOS 26, Apple Silicon)
+
 ## v0.11.1 — 2026-11-07
 
 Windows you open from the menu bar or a notice come up in front of the app you're using, with the keyboard, and Gancho does less work while it waits.
