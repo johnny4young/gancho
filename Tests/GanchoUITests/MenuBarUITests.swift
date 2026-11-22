@@ -104,6 +104,11 @@ final class MenuBarUITests: XCTestCase {
         let finder = XCUIApplication(bundleIdentifier: "com.apple.finder")
         finder.activate()
         XCTAssertTrue(finder.wait(for: .runningForeground, timeout: 5))
+        // Gancho must see Finder in front first: a deactivation that lands
+        // while the menu tracks closes it.
+        let target = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS 'Paste into Finder'")).firstMatch
+        XCTAssertTrue(target.appears(within: 5), "Gancho sees Finder in front")
 
         let center = DistributedNotificationCenter.default()
         let opened = expectation(
